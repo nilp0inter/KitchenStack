@@ -12,8 +12,8 @@ module Page.LabelDesigner exposing
 
 import Api
 import Html exposing (..)
-import Html.Attributes as Attr exposing (class, disabled, placeholder, required, title, type_, value)
-import Html.Events exposing (onClick, onInput, onSubmit)
+import Html.Attributes as Attr exposing (checked, class, disabled, placeholder, required, title, type_, value)
+import Html.Events exposing (onCheck, onClick, onInput, onSubmit)
 import Http
 import Label
 import Types exposing (..)
@@ -39,6 +39,19 @@ type Msg
     | FormDateFontSizeChanged String
     | FormSmallFontSizeChanged String
     | FormFontFamilyChanged String
+    | FormShowTitleChanged Bool
+    | FormShowIngredientsChanged Bool
+    | FormShowExpiryDateChanged Bool
+    | FormShowBestBeforeChanged Bool
+    | FormShowQrChanged Bool
+    | FormShowBrandingChanged Bool
+    | FormVerticalSpacingChanged String
+    | FormShowSeparatorChanged Bool
+    | FormSeparatorThicknessChanged String
+    | FormSeparatorColorChanged String
+    | FormCornerRadiusChanged String
+    | FormTitleMaxCharsChanged String
+    | FormIngredientsMaxCharsChanged String
     | SavePreset
     | EditPreset LabelPreset
     | CancelEdit
@@ -150,6 +163,97 @@ update msg model =
             in
             ( { model | form = { form | fontFamily = val } }, Cmd.none, NoOp )
 
+        FormShowTitleChanged val ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | showTitle = val } }, Cmd.none, NoOp )
+
+        FormShowIngredientsChanged val ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | showIngredients = val } }, Cmd.none, NoOp )
+
+        FormShowExpiryDateChanged val ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | showExpiryDate = val } }, Cmd.none, NoOp )
+
+        FormShowBestBeforeChanged val ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | showBestBefore = val } }, Cmd.none, NoOp )
+
+        FormShowQrChanged val ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | showQr = val } }, Cmd.none, NoOp )
+
+        FormShowBrandingChanged val ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | showBranding = val } }, Cmd.none, NoOp )
+
+        FormVerticalSpacingChanged val ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | verticalSpacing = val } }, Cmd.none, NoOp )
+
+        FormShowSeparatorChanged val ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | showSeparator = val } }, Cmd.none, NoOp )
+
+        FormSeparatorThicknessChanged val ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | separatorThickness = val } }, Cmd.none, NoOp )
+
+        FormSeparatorColorChanged val ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | separatorColor = val } }, Cmd.none, NoOp )
+
+        FormCornerRadiusChanged val ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | cornerRadius = val } }, Cmd.none, NoOp )
+
+        FormTitleMaxCharsChanged val ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | titleMaxChars = val } }, Cmd.none, NoOp )
+
+        FormIngredientsMaxCharsChanged val ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | ingredientsMaxChars = val } }, Cmd.none, NoOp )
+
         SavePreset ->
             if String.isEmpty model.form.name then
                 ( model
@@ -175,6 +279,19 @@ update msg model =
                     , dateFontSize = String.fromInt preset.dateFontSize
                     , smallFontSize = String.fromInt preset.smallFontSize
                     , fontFamily = preset.fontFamily
+                    , showTitle = preset.showTitle
+                    , showIngredients = preset.showIngredients
+                    , showExpiryDate = preset.showExpiryDate
+                    , showBestBefore = preset.showBestBefore
+                    , showQr = preset.showQr
+                    , showBranding = preset.showBranding
+                    , verticalSpacing = String.fromInt preset.verticalSpacing
+                    , showSeparator = preset.showSeparator
+                    , separatorThickness = String.fromInt preset.separatorThickness
+                    , separatorColor = preset.separatorColor
+                    , cornerRadius = String.fromInt preset.cornerRadius
+                    , titleMaxChars = String.fromInt preset.titleMaxChars
+                    , ingredientsMaxChars = String.fromInt preset.ingredientsMaxChars
                     , editing = Just preset.name
                     }
               }
@@ -226,18 +343,34 @@ update msg model =
                     )
 
         ApplyTemplate62mm ->
+            let
+                form =
+                    model.form
+            in
             ( { model
                 | form =
-                    { name = model.form.name
-                    , width = "696"
-                    , height = "300"
-                    , qrSize = "200"
-                    , padding = "20"
-                    , titleFontSize = "48"
-                    , dateFontSize = "32"
-                    , smallFontSize = "18"
-                    , fontFamily = "sans-serif"
-                    , editing = model.form.editing
+                    { form
+                        | width = "696"
+                        , height = "300"
+                        , qrSize = "200"
+                        , padding = "20"
+                        , titleFontSize = "48"
+                        , dateFontSize = "32"
+                        , smallFontSize = "18"
+                        , fontFamily = "sans-serif"
+                        , showTitle = True
+                        , showIngredients = False
+                        , showExpiryDate = True
+                        , showBestBefore = False
+                        , showQr = True
+                        , showBranding = True
+                        , verticalSpacing = "10"
+                        , showSeparator = True
+                        , separatorThickness = "1"
+                        , separatorColor = "#cccccc"
+                        , cornerRadius = "0"
+                        , titleMaxChars = "18"
+                        , ingredientsMaxChars = "45"
                     }
               }
             , Cmd.none
@@ -245,18 +378,34 @@ update msg model =
             )
 
         ApplyTemplate29mm ->
+            let
+                form =
+                    model.form
+            in
             ( { model
                 | form =
-                    { name = model.form.name
-                    , width = "306"
-                    , height = "200"
-                    , qrSize = "120"
-                    , padding = "10"
-                    , titleFontSize = "24"
-                    , dateFontSize = "18"
-                    , smallFontSize = "12"
-                    , fontFamily = "sans-serif"
-                    , editing = model.form.editing
+                    { form
+                        | width = "306"
+                        , height = "200"
+                        , qrSize = "120"
+                        , padding = "10"
+                        , titleFontSize = "24"
+                        , dateFontSize = "18"
+                        , smallFontSize = "12"
+                        , fontFamily = "sans-serif"
+                        , showTitle = True
+                        , showIngredients = False
+                        , showExpiryDate = True
+                        , showBestBefore = False
+                        , showQr = True
+                        , showBranding = True
+                        , verticalSpacing = "6"
+                        , showSeparator = True
+                        , separatorThickness = "1"
+                        , separatorColor = "#cccccc"
+                        , cornerRadius = "0"
+                        , titleMaxChars = "12"
+                        , ingredientsMaxChars = "30"
                     }
               }
             , Cmd.none
@@ -264,18 +413,34 @@ update msg model =
             )
 
         ApplyTemplate12mm ->
+            let
+                form =
+                    model.form
+            in
             ( { model
                 | form =
-                    { name = model.form.name
-                    , width = "106"
-                    , height = "100"
-                    , qrSize = "60"
-                    , padding = "5"
-                    , titleFontSize = "14"
-                    , dateFontSize = "12"
-                    , smallFontSize = "8"
-                    , fontFamily = "sans-serif"
-                    , editing = model.form.editing
+                    { form
+                        | width = "106"
+                        , height = "100"
+                        , qrSize = "60"
+                        , padding = "5"
+                        , titleFontSize = "14"
+                        , dateFontSize = "12"
+                        , smallFontSize = "8"
+                        , fontFamily = "sans-serif"
+                        , showTitle = True
+                        , showIngredients = False
+                        , showExpiryDate = True
+                        , showBestBefore = False
+                        , showQr = True
+                        , showBranding = False
+                        , verticalSpacing = "3"
+                        , showSeparator = False
+                        , separatorThickness = "1"
+                        , separatorColor = "#cccccc"
+                        , cornerRadius = "0"
+                        , titleMaxChars = "8"
+                        , ingredientsMaxChars = "20"
                     }
               }
             , Cmd.none
@@ -287,10 +452,12 @@ view : Model -> Html Msg
 view model =
     div []
         [ h1 [ class "text-3xl font-bold text-gray-800 mb-6" ] [ text "Diseñador de Etiquetas" ]
-        , div [ class "grid grid-cols-1 lg:grid-cols-3 gap-6" ]
-            [ viewForm model
+        , div [ class "grid grid-cols-1 lg:grid-cols-2 gap-6" ]
+            [ div [ class "space-y-6" ]
+                [ viewForm model
+                , viewList model
+                ]
             , viewPreview model
-            , viewList model
             ]
         , viewDeleteConfirm model.deleteConfirm
         ]
@@ -331,8 +498,9 @@ viewForm model =
                     [ text "12mm" ]
                 ]
             ]
-        , Html.form [ onSubmit SavePreset, class "space-y-3" ]
-            [ div []
+        , Html.form [ onSubmit SavePreset, class "space-y-4" ]
+            [ -- Name field
+              div []
                 [ label [ class "block text-sm font-medium text-gray-700 mb-1" ] [ text "Nombre" ]
                 , input
                     [ type_ "text"
@@ -345,100 +513,214 @@ viewForm model =
                     ]
                     []
                 ]
-            , div [ class "grid grid-cols-2 gap-3" ]
-                [ div []
-                    [ label [ class "block text-sm font-medium text-gray-700 mb-1" ] [ text "Ancho (px)" ]
-                    , input
-                        [ type_ "number"
-                        , class "input-field"
-                        , Attr.min "100"
-                        , value model.form.width
-                        , onInput FormWidthChanged
-                        ]
-                        []
-                    ]
-                , div []
-                    [ label [ class "block text-sm font-medium text-gray-700 mb-1" ] [ text "Alto (px)" ]
-                    , input
-                        [ type_ "number"
-                        , class "input-field"
-                        , Attr.min "50"
-                        , value model.form.height
-                        , onInput FormHeightChanged
-                        ]
-                        []
-                    ]
-                ]
-            , div [ class "grid grid-cols-2 gap-3" ]
-                [ div []
-                    [ label [ class "block text-sm font-medium text-gray-700 mb-1" ] [ text "Tamaño QR (px)" ]
-                    , input
-                        [ type_ "number"
-                        , class "input-field"
-                        , Attr.min "30"
-                        , value model.form.qrSize
-                        , onInput FormQrSizeChanged
-                        ]
-                        []
-                    ]
-                , div []
-                    [ label [ class "block text-sm font-medium text-gray-700 mb-1" ] [ text "Padding (px)" ]
-                    , input
-                        [ type_ "number"
-                        , class "input-field"
-                        , Attr.min "0"
-                        , value model.form.padding
-                        , onInput FormPaddingChanged
-                        ]
-                        []
-                    ]
-                ]
-            , div [ class "grid grid-cols-3 gap-3" ]
-                [ div []
-                    [ label [ class "block text-sm font-medium text-gray-700 mb-1" ] [ text "Título" ]
-                    , input
-                        [ type_ "number"
-                        , class "input-field"
-                        , Attr.min "8"
-                        , value model.form.titleFontSize
-                        , onInput FormTitleFontSizeChanged
-                        ]
-                        []
-                    ]
-                , div []
-                    [ label [ class "block text-sm font-medium text-gray-700 mb-1" ] [ text "Fecha" ]
-                    , input
-                        [ type_ "number"
-                        , class "input-field"
-                        , Attr.min "8"
-                        , value model.form.dateFontSize
-                        , onInput FormDateFontSizeChanged
-                        ]
-                        []
-                    ]
-                , div []
-                    [ label [ class "block text-sm font-medium text-gray-700 mb-1" ] [ text "Pequeño" ]
-                    , input
-                        [ type_ "number"
-                        , class "input-field"
-                        , Attr.min "6"
-                        , value model.form.smallFontSize
-                        , onInput FormSmallFontSizeChanged
-                        ]
-                        []
-                    ]
-                ]
+
+            -- Dimensions section
             , div []
-                [ label [ class "block text-sm font-medium text-gray-700 mb-1" ] [ text "Fuente" ]
-                , input
-                    [ type_ "text"
-                    , class "input-field"
-                    , placeholder "sans-serif"
-                    , value model.form.fontFamily
-                    , onInput FormFontFamilyChanged
+                [ p [ class "text-sm font-medium text-gray-700 mb-2" ] [ text "Dimensiones" ]
+                , div [ class "grid grid-cols-2 gap-3" ]
+                    [ div []
+                        [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Ancho (px)" ]
+                        , input
+                            [ type_ "number"
+                            , class "input-field"
+                            , Attr.min "100"
+                            , value model.form.width
+                            , onInput FormWidthChanged
+                            ]
+                            []
+                        ]
+                    , div []
+                        [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Alto (px)" ]
+                        , input
+                            [ type_ "number"
+                            , class "input-field"
+                            , Attr.min "50"
+                            , value model.form.height
+                            , onInput FormHeightChanged
+                            ]
+                            []
+                        ]
                     ]
-                    []
+                , div [ class "grid grid-cols-2 gap-3 mt-2" ]
+                    [ div []
+                        [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Tamaño QR (px)" ]
+                        , input
+                            [ type_ "number"
+                            , class "input-field"
+                            , Attr.min "30"
+                            , value model.form.qrSize
+                            , onInput FormQrSizeChanged
+                            ]
+                            []
+                        ]
+                    , div []
+                        [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Padding (px)" ]
+                        , input
+                            [ type_ "number"
+                            , class "input-field"
+                            , Attr.min "0"
+                            , value model.form.padding
+                            , onInput FormPaddingChanged
+                            ]
+                            []
+                        ]
+                    ]
                 ]
+
+            -- Font section
+            , div []
+                [ p [ class "text-sm font-medium text-gray-700 mb-2" ] [ text "Fuentes" ]
+                , div [ class "grid grid-cols-3 gap-3" ]
+                    [ div []
+                        [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Título (px)" ]
+                        , input
+                            [ type_ "number"
+                            , class "input-field"
+                            , Attr.min "8"
+                            , value model.form.titleFontSize
+                            , onInput FormTitleFontSizeChanged
+                            ]
+                            []
+                        ]
+                    , div []
+                        [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Fecha (px)" ]
+                        , input
+                            [ type_ "number"
+                            , class "input-field"
+                            , Attr.min "8"
+                            , value model.form.dateFontSize
+                            , onInput FormDateFontSizeChanged
+                            ]
+                            []
+                        ]
+                    , div []
+                        [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Pequeña (px)" ]
+                        , input
+                            [ type_ "number"
+                            , class "input-field"
+                            , Attr.min "6"
+                            , value model.form.smallFontSize
+                            , onInput FormSmallFontSizeChanged
+                            ]
+                            []
+                        ]
+                    ]
+                , div [ class "mt-2" ]
+                    [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Familia de fuente" ]
+                    , input
+                        [ type_ "text"
+                        , class "input-field"
+                        , placeholder "sans-serif"
+                        , value model.form.fontFamily
+                        , onInput FormFontFamilyChanged
+                        ]
+                        []
+                    ]
+                ]
+
+            -- Field visibility section
+            , div []
+                [ p [ class "text-sm font-medium text-gray-700 mb-2" ] [ text "Campos visibles" ]
+                , div [ class "grid grid-cols-2 gap-2" ]
+                    [ viewCheckbox "Título" model.form.showTitle FormShowTitleChanged
+                    , viewCheckbox "Ingredientes" model.form.showIngredients FormShowIngredientsChanged
+                    , viewCheckbox "Fecha caducidad" model.form.showExpiryDate FormShowExpiryDateChanged
+                    , viewCheckbox "Consumo preferente" model.form.showBestBefore FormShowBestBeforeChanged
+                    , viewCheckbox "Código QR" model.form.showQr FormShowQrChanged
+                    , viewCheckbox "Marca FrostByte" model.form.showBranding FormShowBrandingChanged
+                    ]
+                ]
+
+            -- Truncation section
+            , div []
+                [ p [ class "text-sm font-medium text-gray-700 mb-2" ] [ text "Truncado de texto" ]
+                , div [ class "grid grid-cols-2 gap-3" ]
+                    [ div []
+                        [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Máx. caracteres título" ]
+                        , input
+                            [ type_ "number"
+                            , class "input-field"
+                            , Attr.min "5"
+                            , value model.form.titleMaxChars
+                            , onInput FormTitleMaxCharsChanged
+                            ]
+                            []
+                        ]
+                    , div []
+                        [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Máx. caracteres ingredientes" ]
+                        , input
+                            [ type_ "number"
+                            , class "input-field"
+                            , Attr.min "10"
+                            , value model.form.ingredientsMaxChars
+                            , onInput FormIngredientsMaxCharsChanged
+                            ]
+                            []
+                        ]
+                    ]
+                ]
+
+            -- Layout section
+            , div []
+                [ p [ class "text-sm font-medium text-gray-700 mb-2" ] [ text "Diseño" ]
+                , div [ class "space-y-3" ]
+                    [ div [ class "grid grid-cols-2 gap-3" ]
+                        [ div []
+                            [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Espaciado vertical (px)" ]
+                            , input
+                                [ type_ "number"
+                                , class "input-field"
+                                , Attr.min "0"
+                                , value model.form.verticalSpacing
+                                , onInput FormVerticalSpacingChanged
+                                ]
+                                []
+                            ]
+                        , div []
+                            [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Radio esquinas (px)" ]
+                            , input
+                                [ type_ "number"
+                                , class "input-field"
+                                , Attr.min "0"
+                                , value model.form.cornerRadius
+                                , onInput FormCornerRadiusChanged
+                                , title "Solo afecta la vista previa"
+                                ]
+                                []
+                            ]
+                        ]
+                    , viewCheckbox "Línea separadora" model.form.showSeparator FormShowSeparatorChanged
+                    , if model.form.showSeparator then
+                        div [ class "grid grid-cols-2 gap-3 ml-6" ]
+                            [ div []
+                                [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Grosor (px)" ]
+                                , input
+                                    [ type_ "number"
+                                    , class "input-field"
+                                    , Attr.min "1"
+                                    , value model.form.separatorThickness
+                                    , onInput FormSeparatorThicknessChanged
+                                    ]
+                                    []
+                                ]
+                            , div []
+                                [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Color" ]
+                                , input
+                                    [ type_ "color"
+                                    , class "input-field h-10"
+                                    , value model.form.separatorColor
+                                    , onInput FormSeparatorColorChanged
+                                    ]
+                                    []
+                                ]
+                            ]
+
+                      else
+                        text ""
+                    ]
+                ]
+
+            -- Submit buttons
             , div [ class "flex justify-end space-x-4 pt-4" ]
                 [ if model.form.editing /= Nothing then
                     button
@@ -466,6 +748,20 @@ viewForm model =
         ]
 
 
+viewCheckbox : String -> Bool -> (Bool -> Msg) -> Html Msg
+viewCheckbox labelText isChecked onChange =
+    label [ class "flex items-center space-x-2 cursor-pointer" ]
+        [ input
+            [ type_ "checkbox"
+            , class "w-4 h-4 text-frost-600 rounded border-gray-300 focus:ring-frost-500"
+            , checked isChecked
+            , onCheck onChange
+            ]
+            []
+        , span [ class "text-sm text-gray-700" ] [ text labelText ]
+        ]
+
+
 viewPreview : Model -> Html Msg
 viewPreview model =
     let
@@ -475,18 +771,19 @@ viewPreview model =
         sampleData =
             { portionId = "sample-preview"
             , name = "Pollo con arroz"
-            , ingredients = "pollo, arroz, verduras"
+            , ingredients = "pollo, arroz, verduras, cebolla, ajo"
             , expiryDate = "2025-12-31"
+            , bestBeforeDate = Just "2025-12-25"
             , appHost = model.appHost
             }
 
         -- Scale preview to fit card
         previewScale =
-            min 1.0 (400 / toFloat settings.width)
+            min 1.0 (500 / toFloat settings.width)
     in
-    div [ class "card" ]
+    div [ class "card sticky top-4" ]
         [ h2 [ class "text-lg font-semibold text-gray-800 mb-4" ] [ text "Vista Previa" ]
-        , div [ class "flex justify-center items-center bg-gray-100 rounded-lg p-4 overflow-auto" ]
+        , div [ class "flex justify-center items-center bg-gray-100 rounded-lg p-4 overflow-auto min-h-[200px]" ]
             [ div
                 [ Attr.style "transform" ("scale(" ++ String.fromFloat previewScale ++ ")")
                 , Attr.style "transform-origin" "center center"
@@ -494,7 +791,13 @@ viewPreview model =
                 [ Label.viewLabel settings sampleData ]
             ]
         , div [ class "mt-4 text-center text-sm text-gray-500" ]
-            [ text (String.fromInt settings.width ++ " x " ++ String.fromInt settings.height ++ " px") ]
+            [ text (String.fromInt settings.width ++ " x " ++ String.fromInt settings.height ++ " px")
+            , if settings.cornerRadius > 0 then
+                span [ class "ml-2 text-xs text-gray-400" ] [ text "(radio de esquinas solo en vista previa)" ]
+
+              else
+                text ""
+            ]
         ]
 
 
@@ -526,13 +829,13 @@ viewPresetRow preset =
                 , class "text-blue-600 hover:text-blue-800 font-medium text-sm"
                 , title "Editar"
                 ]
-                [ text "✏️" ]
+                [ text "Editar" ]
             , button
                 [ onClick (DeletePreset preset.name)
                 , class "text-red-600 hover:text-red-800 font-medium text-sm"
                 , title "Eliminar"
                 ]
-                [ text "🗑️" ]
+                [ text "Eliminar" ]
             ]
         ]
 
@@ -591,4 +894,17 @@ formToSettings form =
     , dateFontSize = Maybe.withDefault 32 (String.toInt form.dateFontSize)
     , smallFontSize = Maybe.withDefault 18 (String.toInt form.smallFontSize)
     , fontFamily = form.fontFamily
+    , showTitle = form.showTitle
+    , showIngredients = form.showIngredients
+    , showExpiryDate = form.showExpiryDate
+    , showBestBefore = form.showBestBefore
+    , showQr = form.showQr
+    , showBranding = form.showBranding
+    , verticalSpacing = Maybe.withDefault 10 (String.toInt form.verticalSpacing)
+    , showSeparator = form.showSeparator
+    , separatorThickness = Maybe.withDefault 1 (String.toInt form.separatorThickness)
+    , separatorColor = form.separatorColor
+    , cornerRadius = Maybe.withDefault 0 (String.toInt form.cornerRadius)
+    , titleMaxChars = Maybe.withDefault 18 (String.toInt form.titleMaxChars)
+    , ingredientsMaxChars = Maybe.withDefault 45 (String.toInt form.ingredientsMaxChars)
     }

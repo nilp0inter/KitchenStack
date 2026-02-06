@@ -145,6 +145,19 @@ encodeLabelPreset form =
         , ( "date_font_size", Encode.int (Maybe.withDefault 32 (String.toInt form.dateFontSize)) )
         , ( "small_font_size", Encode.int (Maybe.withDefault 18 (String.toInt form.smallFontSize)) )
         , ( "font_family", Encode.string form.fontFamily )
+        , ( "show_title", Encode.bool form.showTitle )
+        , ( "show_ingredients", Encode.bool form.showIngredients )
+        , ( "show_expiry_date", Encode.bool form.showExpiryDate )
+        , ( "show_best_before", Encode.bool form.showBestBefore )
+        , ( "show_qr", Encode.bool form.showQr )
+        , ( "show_branding", Encode.bool form.showBranding )
+        , ( "vertical_spacing", Encode.int (Maybe.withDefault 10 (String.toInt form.verticalSpacing)) )
+        , ( "show_separator", Encode.bool form.showSeparator )
+        , ( "separator_thickness", Encode.int (Maybe.withDefault 1 (String.toInt form.separatorThickness)) )
+        , ( "separator_color", Encode.string form.separatorColor )
+        , ( "corner_radius", Encode.int (Maybe.withDefault 0 (String.toInt form.cornerRadius)) )
+        , ( "title_max_chars", Encode.int (Maybe.withDefault 18 (String.toInt form.titleMaxChars)) )
+        , ( "ingredients_max_chars", Encode.int (Maybe.withDefault 45 (String.toInt form.ingredientsMaxChars)) )
         ]
 
 

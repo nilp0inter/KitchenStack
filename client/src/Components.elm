@@ -165,6 +165,7 @@ viewPreviewModalSvg settings appHost maybePreview closeMsg =
                     , name = portionData.name
                     , ingredients = portionData.ingredients
                     , expiryDate = portionData.expiryDate
+                    , bestBeforeDate = portionData.bestBeforeDate
                     , appHost = appHost
                     }
 

@@ -322,6 +322,7 @@ update msg model =
                                         , ingredients = ingredientsText
                                         , containerId = model.form.containerId
                                         , expiryDate = model.form.expiryDate
+                                        , bestBeforeDate = Nothing
                                         }
                                     )
                                     response.portionIds
@@ -778,6 +779,19 @@ viewHiddenLabels model =
                     , dateFontSize = preset.dateFontSize
                     , smallFontSize = preset.smallFontSize
                     , fontFamily = preset.fontFamily
+                    , showTitle = preset.showTitle
+                    , showIngredients = preset.showIngredients
+                    , showExpiryDate = preset.showExpiryDate
+                    , showBestBefore = preset.showBestBefore
+                    , showQr = preset.showQr
+                    , showBranding = preset.showBranding
+                    , verticalSpacing = preset.verticalSpacing
+                    , showSeparator = preset.showSeparator
+                    , separatorThickness = preset.separatorThickness
+                    , separatorColor = preset.separatorColor
+                    , cornerRadius = preset.cornerRadius
+                    , titleMaxChars = preset.titleMaxChars
+                    , ingredientsMaxChars = preset.ingredientsMaxChars
                     }
             in
             div
@@ -792,6 +806,7 @@ viewHiddenLabels model =
                             , name = printData.name
                             , ingredients = printData.ingredients
                             , expiryDate = printData.expiryDate
+                            , bestBeforeDate = printData.bestBeforeDate
                             , appHost = model.appHost
                             }
                     )

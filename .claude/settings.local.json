@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(git -C /home/nil/Projects/github.com/nilp0inter/FrostByte log --oneline -10)",
+      "Bash(git -C /home/nil/Projects/github.com/nilp0inter/FrostByte show HEAD --stat)",
+      "Bash(git -C /home/nil/Projects/github.com/nilp0inter/FrostByte status)",
+      "Bash(git -C /home/nil/Projects/github.com/nilp0inter/FrostByte branch:*)",
+      "Bash(git -C /home/nil/Projects/github.com/nilp0inter/FrostByte log --oneline)",
+      "Bash(curl:*)"
+    ]
+  }
+}

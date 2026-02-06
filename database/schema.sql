@@ -308,11 +308,41 @@ CREATE TABLE label_preset (
     date_font_size INTEGER NOT NULL DEFAULT 32,
     small_font_size INTEGER NOT NULL DEFAULT 18,
     font_family TEXT NOT NULL DEFAULT 'sans-serif',
+    -- Field visibility toggles
+    show_title BOOLEAN NOT NULL DEFAULT TRUE,
+    show_ingredients BOOLEAN NOT NULL DEFAULT FALSE,
+    show_expiry_date BOOLEAN NOT NULL DEFAULT TRUE,
+    show_best_before BOOLEAN NOT NULL DEFAULT FALSE,
+    show_qr BOOLEAN NOT NULL DEFAULT TRUE,
+    show_branding BOOLEAN NOT NULL DEFAULT TRUE,
+    -- Layout settings
+    vertical_spacing INTEGER NOT NULL DEFAULT 10,
+    show_separator BOOLEAN NOT NULL DEFAULT TRUE,
+    separator_thickness INTEGER NOT NULL DEFAULT 1,
+    separator_color TEXT NOT NULL DEFAULT '#cccccc',
+    corner_radius INTEGER NOT NULL DEFAULT 0,
+    -- Truncation settings
+    title_max_chars INTEGER NOT NULL DEFAULT 18,
+    ingredients_max_chars INTEGER NOT NULL DEFAULT 45,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Insert default presets for common tape sizes
-INSERT INTO label_preset (name, width, height, qr_size, padding, title_font_size, date_font_size, small_font_size) VALUES
-    ('62mm (default)', 696, 300, 200, 20, 48, 32, 18),
-    ('29mm', 306, 200, 120, 10, 24, 18, 12),
-    ('12mm', 106, 100, 60, 5, 14, 12, 8);
+INSERT INTO label_preset (
+    name, width, height, qr_size, padding, title_font_size, date_font_size, small_font_size,
+    show_title, show_ingredients, show_expiry_date, show_best_before, show_qr, show_branding,
+    vertical_spacing, show_separator, separator_thickness, separator_color, corner_radius,
+    title_max_chars, ingredients_max_chars
+) VALUES
+    ('62mm (default)', 696, 300, 200, 20, 48, 32, 18,
+     TRUE, FALSE, TRUE, FALSE, TRUE, TRUE,
+     10, TRUE, 1, '#cccccc', 0,
+     18, 45),
+    ('29mm', 306, 200, 120, 10, 24, 18, 12,
+     TRUE, FALSE, TRUE, FALSE, TRUE, TRUE,
+     6, TRUE, 1, '#cccccc', 0,
+     12, 30),
+    ('12mm', 106, 100, 60, 5, 14, 12, 8,
+     TRUE, FALSE, TRUE, FALSE, TRUE, FALSE,
+     3, FALSE, 1, '#cccccc', 0,
+     8, 20);

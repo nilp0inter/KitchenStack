@@ -161,6 +161,7 @@ type alias PortionPrintData =
     , ingredients : String
     , containerId : String
     , expiryDate : String
+    , bestBeforeDate : Maybe String
     }
 
 
@@ -232,6 +233,19 @@ type alias LabelPreset =
     , dateFontSize : Int
     , smallFontSize : Int
     , fontFamily : String
+    , showTitle : Bool
+    , showIngredients : Bool
+    , showExpiryDate : Bool
+    , showBestBefore : Bool
+    , showQr : Bool
+    , showBranding : Bool
+    , verticalSpacing : Int
+    , showSeparator : Bool
+    , separatorThickness : Int
+    , separatorColor : String
+    , cornerRadius : Int
+    , titleMaxChars : Int
+    , ingredientsMaxChars : Int
     }
 
 
@@ -245,6 +259,19 @@ type alias LabelPresetForm =
     , dateFontSize : String
     , smallFontSize : String
     , fontFamily : String
+    , showTitle : Bool
+    , showIngredients : Bool
+    , showExpiryDate : Bool
+    , showBestBefore : Bool
+    , showQr : Bool
+    , showBranding : Bool
+    , verticalSpacing : String
+    , showSeparator : Bool
+    , separatorThickness : String
+    , separatorColor : String
+    , cornerRadius : String
+    , titleMaxChars : String
+    , ingredientsMaxChars : String
     , editing : Maybe String
     }
 
@@ -260,5 +287,18 @@ emptyLabelPresetForm =
     , dateFontSize = "32"
     , smallFontSize = "18"
     , fontFamily = "sans-serif"
+    , showTitle = True
+    , showIngredients = False
+    , showExpiryDate = True
+    , showBestBefore = False
+    , showQr = True
+    , showBranding = True
+    , verticalSpacing = "10"
+    , showSeparator = True
+    , separatorThickness = "1"
+    , separatorColor = "#cccccc"
+    , cornerRadius = "0"
+    , titleMaxChars = "18"
+    , ingredientsMaxChars = "45"
     , editing = Nothing
     }

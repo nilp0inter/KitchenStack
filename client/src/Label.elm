@@ -26,6 +26,7 @@ type alias LabelData =
     , name : String
     , ingredients : String
     , expiryDate : String
+    , bestBeforeDate : Maybe String
     , appHost : String
     }
 
@@ -42,6 +43,19 @@ type alias LabelSettings =
     , dateFontSize : Int
     , smallFontSize : Int
     , fontFamily : String
+    , showTitle : Bool
+    , showIngredients : Bool
+    , showExpiryDate : Bool
+    , showBestBefore : Bool
+    , showQr : Bool
+    , showBranding : Bool
+    , verticalSpacing : Int
+    , showSeparator : Bool
+    , separatorThickness : Int
+    , separatorColor : String
+    , cornerRadius : Int
+    , titleMaxChars : Int
+    , ingredientsMaxChars : Int
     }
 
 
@@ -58,6 +72,19 @@ defaultSettings =
     , dateFontSize = 32
     , smallFontSize = 18
     , fontFamily = "sans-serif"
+    , showTitle = True
+    , showIngredients = False
+    , showExpiryDate = True
+    , showBestBefore = False
+    , showQr = True
+    , showBranding = True
+    , verticalSpacing = 10
+    , showSeparator = True
+    , separatorThickness = 1
+    , separatorColor = "#cccccc"
+    , cornerRadius = 0
+    , titleMaxChars = 18
+    , ingredientsMaxChars = 45
     }
 
 
@@ -76,96 +103,296 @@ viewLabel settings data =
         qrUrl =
             "https://" ++ data.appHost ++ "/item/" ++ data.portionId
 
+        -- QR library adds ~10% padding (quiet zone) on each side
+        -- Compensate by moving the QR code closer to the edge
+        qrPaddingCompensation =
+            settings.qrSize // 10
+
         qrX =
-            settings.width - settings.qrSize - settings.padding
+            settings.width - settings.qrSize - settings.padding + qrPaddingCompensation
 
         qrY =
             (settings.height - settings.qrSize) // 2
 
+        -- Maximum X for text content (leaves space for QR)
+        -- Account for QR library's built-in padding when calculating where text/lines can extend
+        textMaxX =
+            if settings.showQr then
+                qrX - qrPaddingCompensation
+
+            else
+                settings.width - settings.padding
+
+        -- Truncated text
         truncatedName =
-            truncateText 18 data.name
+            truncateText settings.titleMaxChars data.name
 
         truncatedIngredients =
-            truncateText 45 data.ingredients
+            truncateText settings.ingredientsMaxChars data.ingredients
 
-        formattedDate =
-            formatExpiryDate data.expiryDate
+        formattedExpiryDate =
+            formatDate data.expiryDate
 
-        -- Text vertical positions
-        nameY =
-            settings.padding + settings.titleFontSize
+        formattedBestBeforeDate =
+            Maybe.map formatDate data.bestBeforeDate
 
-        ingredientsY =
-            nameY + settings.titleFontSize - 10
+        -- Calculate Y positions dynamically based on visible elements
+        startY =
+            settings.padding
 
-        caducaY =
-            ingredientsY + settings.smallFontSize + 20
+        -- Title position
+        titleY =
+            startY + settings.titleFontSize
 
-        dateY =
-            caducaY + settings.dateFontSize + 5
+        -- Separator position (just below title)
+        separatorY =
+            titleY + settings.verticalSpacing
+
+        -- Calculate next Y after title section
+        afterTitleY =
+            if settings.showTitle then
+                if settings.showSeparator then
+                    separatorY + settings.verticalSpacing
+
+                else
+                    titleY + settings.verticalSpacing
+
+            else
+                startY
+
+        -- Ingredients section (label on its own line, then ingredients text)
+        ingredientsLabelY =
+            afterTitleY + settings.smallFontSize
+
+        ingredientsTextY =
+            ingredientsLabelY + settings.smallFontSize + 5
+
+        afterIngredientsY =
+            if settings.showIngredients then
+                ingredientsTextY + settings.verticalSpacing
+
+            else
+                afterTitleY
+
+        -- Expiry date section
+        expiryLabelY =
+            afterIngredientsY + settings.smallFontSize
+
+        expiryDateY =
+            expiryLabelY + settings.dateFontSize + 5
+
+        afterExpiryY =
+            if settings.showExpiryDate then
+                expiryDateY + settings.verticalSpacing
+
+            else
+                afterIngredientsY
+
+        -- Best before date section
+        bestBeforeLabelY =
+            afterExpiryY + settings.smallFontSize
+
+        bestBeforeDateY =
+            bestBeforeLabelY + settings.dateFontSize + 5
+
+        -- Branding position (bottom left)
+        brandingY =
+            settings.height - settings.padding
+
+        -- Unique clip path ID for this label
+        clipId =
+            "clip-" ++ data.portionId
+
+        -- Build the list of SVG elements
+        clipPathDef =
+            if settings.cornerRadius > 0 then
+                [ Svg.defs []
+                    [ Svg.clipPath [ SvgA.id clipId ]
+                        [ Svg.rect
+                            [ SvgA.x "0"
+                            , SvgA.y "0"
+                            , SvgA.width (String.fromInt settings.width)
+                            , SvgA.height (String.fromInt settings.height)
+                            , SvgA.rx (String.fromInt settings.cornerRadius)
+                            , SvgA.ry (String.fromInt settings.cornerRadius)
+                            ]
+                            []
+                        ]
+                    ]
+                ]
+
+            else
+                []
+
+        backgroundRect =
+            Svg.rect
+                [ SvgA.x "0"
+                , SvgA.y "0"
+                , SvgA.width (String.fromInt settings.width)
+                , SvgA.height (String.fromInt settings.height)
+                , SvgA.fill "white"
+                , SvgA.rx (String.fromInt settings.cornerRadius)
+                , SvgA.ry (String.fromInt settings.cornerRadius)
+                ]
+                []
+
+        titleElement =
+            if settings.showTitle then
+                [ Svg.text_
+                    [ SvgA.x (String.fromInt settings.padding)
+                    , SvgA.y (String.fromInt titleY)
+                    , SvgA.fontFamily settings.fontFamily
+                    , SvgA.fontSize (String.fromInt settings.titleFontSize ++ "px")
+                    , SvgA.fontWeight "bold"
+                    , SvgA.fill "black"
+                    ]
+                    [ Svg.text truncatedName ]
+                ]
+
+            else
+                []
+
+        separatorElement =
+            if settings.showTitle && settings.showSeparator then
+                [ Svg.line
+                    [ SvgA.x1 (String.fromInt settings.padding)
+                    , SvgA.y1 (String.fromInt separatorY)
+                    , SvgA.x2 (String.fromInt textMaxX)
+                    , SvgA.y2 (String.fromInt separatorY)
+                    , SvgA.stroke settings.separatorColor
+                    , SvgA.strokeWidth (String.fromInt settings.separatorThickness)
+                    ]
+                    []
+                ]
+
+            else
+                []
+
+        ingredientsElement =
+            if settings.showIngredients then
+                [ Svg.text_
+                    [ SvgA.x (String.fromInt settings.padding)
+                    , SvgA.y (String.fromInt ingredientsLabelY)
+                    , SvgA.fontFamily settings.fontFamily
+                    , SvgA.fontSize (String.fromInt settings.smallFontSize ++ "px")
+                    , SvgA.fill "black"
+                    ]
+                    [ Svg.text "Ingredientes:" ]
+                , Svg.text_
+                    [ SvgA.x (String.fromInt settings.padding)
+                    , SvgA.y (String.fromInt ingredientsTextY)
+                    , SvgA.fontFamily settings.fontFamily
+                    , SvgA.fontSize (String.fromInt settings.smallFontSize ++ "px")
+                    , SvgA.fill "#666666"
+                    ]
+                    [ Svg.text truncatedIngredients ]
+                ]
+
+            else
+                []
+
+        expiryElements =
+            if settings.showExpiryDate then
+                [ Svg.text_
+                    [ SvgA.x (String.fromInt settings.padding)
+                    , SvgA.y (String.fromInt expiryLabelY)
+                    , SvgA.fontFamily settings.fontFamily
+                    , SvgA.fontSize (String.fromInt settings.smallFontSize ++ "px")
+                    , SvgA.fill "black"
+                    ]
+                    [ Svg.text "Caduca:" ]
+                , Svg.text_
+                    [ SvgA.x (String.fromInt settings.padding)
+                    , SvgA.y (String.fromInt expiryDateY)
+                    , SvgA.fontFamily settings.fontFamily
+                    , SvgA.fontSize (String.fromInt settings.dateFontSize ++ "px")
+                    , SvgA.fontWeight "bold"
+                    , SvgA.fill "black"
+                    ]
+                    [ Svg.text formattedExpiryDate ]
+                ]
+
+            else
+                []
+
+        bestBeforeElements =
+            if settings.showBestBefore then
+                case formattedBestBeforeDate of
+                    Just bbDate ->
+                        [ Svg.text_
+                            [ SvgA.x (String.fromInt settings.padding)
+                            , SvgA.y (String.fromInt bestBeforeLabelY)
+                            , SvgA.fontFamily settings.fontFamily
+                            , SvgA.fontSize (String.fromInt settings.smallFontSize ++ "px")
+                            , SvgA.fill "black"
+                            ]
+                            [ Svg.text "C.P.A.:" ]
+                        , Svg.text_
+                            [ SvgA.x (String.fromInt settings.padding)
+                            , SvgA.y (String.fromInt bestBeforeDateY)
+                            , SvgA.fontFamily settings.fontFamily
+                            , SvgA.fontSize (String.fromInt settings.dateFontSize ++ "px")
+                            , SvgA.fontWeight "bold"
+                            , SvgA.fill "black"
+                            ]
+                            [ Svg.text bbDate ]
+                        ]
+
+                    Nothing ->
+                        []
+
+            else
+                []
+
+        brandingElement =
+            if settings.showBranding then
+                [ Svg.text_
+                    [ SvgA.x (String.fromInt settings.padding)
+                    , SvgA.y (String.fromInt brandingY)
+                    , SvgA.fontFamily settings.fontFamily
+                    , SvgA.fontSize (String.fromInt settings.smallFontSize ++ "px")
+                    , SvgA.fill "#999999"
+                    ]
+                    [ Svg.text "❄️ FrostByte" ]
+                ]
+
+            else
+                []
+
+        qrElement =
+            if settings.showQr then
+                [ viewQrCode qrUrl qrX qrY settings.qrSize ]
+
+            else
+                []
+
+        -- Apply clip path for rounded corners
+        clipPathAttr =
+            if settings.cornerRadius > 0 then
+                [ SvgA.clipPath ("url(#" ++ clipId ++ ")") ]
+
+            else
+                []
+
+        contentGroup =
+            Svg.g clipPathAttr
+                ([ backgroundRect ]
+                    ++ titleElement
+                    ++ separatorElement
+                    ++ ingredientsElement
+                    ++ expiryElements
+                    ++ bestBeforeElements
+                    ++ brandingElement
+                    ++ qrElement
+                )
     in
     Svg.svg
         [ SvgA.id (labelSvgId data.portionId)
         , SvgA.width (String.fromInt settings.width)
         , SvgA.height (String.fromInt settings.height)
         , SvgA.viewBox ("0 0 " ++ String.fromInt settings.width ++ " " ++ String.fromInt settings.height)
-        , SvgA.style "background: white"
         ]
-        [ -- White background rectangle
-          Svg.rect
-            [ SvgA.x "0"
-            , SvgA.y "0"
-            , SvgA.width (String.fromInt settings.width)
-            , SvgA.height (String.fromInt settings.height)
-            , SvgA.fill "white"
-            ]
-            []
-
-        -- Item name (title)
-        , Svg.text_
-            [ SvgA.x (String.fromInt settings.padding)
-            , SvgA.y (String.fromInt nameY)
-            , SvgA.fontFamily settings.fontFamily
-            , SvgA.fontSize (String.fromInt settings.titleFontSize ++ "px")
-            , SvgA.fontWeight "bold"
-            , SvgA.fill "black"
-            ]
-            [ Svg.text truncatedName ]
-
-        -- Ingredients
-        , Svg.text_
-            [ SvgA.x (String.fromInt settings.padding)
-            , SvgA.y (String.fromInt ingredientsY)
-            , SvgA.fontFamily settings.fontFamily
-            , SvgA.fontSize (String.fromInt settings.smallFontSize ++ "px")
-            , SvgA.fill "#666666"
-            ]
-            [ Svg.text truncatedIngredients ]
-
-        -- "Caduca:" label
-        , Svg.text_
-            [ SvgA.x (String.fromInt settings.padding)
-            , SvgA.y (String.fromInt caducaY)
-            , SvgA.fontFamily settings.fontFamily
-            , SvgA.fontSize (String.fromInt settings.smallFontSize ++ "px")
-            , SvgA.fill "black"
-            ]
-            [ Svg.text "Caduca:" ]
-
-        -- Expiry date
-        , Svg.text_
-            [ SvgA.x (String.fromInt settings.padding)
-            , SvgA.y (String.fromInt dateY)
-            , SvgA.fontFamily settings.fontFamily
-            , SvgA.fontSize (String.fromInt settings.dateFontSize ++ "px")
-            , SvgA.fontWeight "bold"
-            , SvgA.fill "black"
-            ]
-            [ Svg.text formattedDate ]
-
-        -- QR Code
-        , viewQrCode qrUrl qrX qrY settings.qrSize
-        ]
+        (clipPathDef ++ [ contentGroup ])
 
 
 {-| Render a QR code at the specified position.
@@ -209,8 +436,8 @@ truncateText maxLength text =
 
 {-| Convert ISO date (2025-12-31) to DD/MM/YYYY format.
 -}
-formatExpiryDate : String -> String
-formatExpiryDate isoDate =
+formatDate : String -> String
+formatDate isoDate =
     case String.split "-" (String.left 10 isoDate) of
         [ year, month, day ] ->
             day ++ "/" ++ month ++ "/" ++ year
