@@ -33,6 +33,7 @@ type Msg
 type OutMsg
     = NoOp
     | ShowNotification Notification
+    | RefreshBatches
 
 
 init : String -> ( Model, Cmd Msg )
@@ -74,7 +75,7 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False }
                     , Api.fetchPortionDetail model.portionId GotPortionDetail
-                    , ShowNotification { message = "Portion marked as consumed!", notificationType = Success }
+                    , RefreshBatches
                     )
 
                 Err _ ->

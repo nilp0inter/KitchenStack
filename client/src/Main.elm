@@ -427,6 +427,14 @@ handleItemDetailOutMsg outMsg model pageCmd =
             , Cmd.map ItemDetailMsg pageCmd
             )
 
+        ItemDetail.RefreshBatches ->
+            ( { model | notification = Just { message = "Porción marcada como consumida", notificationType = Success } }
+            , Cmd.batch
+                [ Cmd.map ItemDetailMsg pageCmd
+                , Api.fetchBatches GotBatches
+                ]
+            )
+
 
 handleBatchDetailOutMsg : BatchDetail.OutMsg -> Model -> Cmd BatchDetail.Msg -> ( Model, Cmd Msg )
 handleBatchDetailOutMsg outMsg model pageCmd =

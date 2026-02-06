@@ -35,6 +35,31 @@ docker compose down
 - http://localhost/history - Freezer history
 - http://localhost/containers - Container type management
 
+## Installing Elm Packages
+
+**IMPORTANT:** Do not manually edit `client/elm.json` to add dependencies. Elm requires proper dependency resolution which only `elm install` can perform correctly.
+
+To install a new Elm package, run from the `client/` directory:
+
+```bash
+# Install a package (auto-confirms the prompt)
+docker run --rm -v "$(pwd)":/app -w /app node:20-alpine sh -c "npm install -g elm && echo y | elm install <package-name>"
+
+# Example: install elm-charts
+docker run --rm -v "$(pwd)":/app -w /app node:20-alpine sh -c "npm install -g elm && echo y | elm install terezka/elm-charts"
+```
+
+To verify compilation after installing:
+
+```bash
+docker run --rm -v "$(pwd)":/app -w /app node:20-alpine sh -c "npm install -g elm && elm make src/Main.elm --output=/dev/null"
+```
+
+If you encounter dependency errors after manual elm.json edits:
+1. Restore elm.json to its previous valid state
+2. Clear elm-stuff: `docker run --rm -v "$(pwd)":/app -w /app node:20-alpine rm -rf elm-stuff`
+3. Use `elm install` to add packages properly
+
 ## Architecture Overview
 
 FrostByte is an **append-only** home freezer management system. Each physical food portion has its own UUID and printed QR label. Portions transition between states (FROZEN → CONSUMED) but are never deleted.
