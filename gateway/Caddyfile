@@ -1,0 +1,41 @@
+# FrostByte Caddy Configuration
+{
+    # For local development, use HTTP only
+    auto_https off
+}
+
+:80 {
+    # Serve the Elm PWA static files
+    root * /srv/client
+
+    # Handle SPA routing - try files first, then fall back to index.html
+    @notApi {
+        not path /api/*
+    }
+
+    handle @notApi {
+        try_files {path} /index.html
+        file_server
+    }
+
+    # Proxy PostgREST API requests
+    handle /api/db/* {
+        uri strip_prefix /api/db
+        reverse_proxy postgrest:3000
+    }
+
+    # Proxy Printer Service API requests
+    handle /api/printer/* {
+        uri strip_prefix /api/printer
+        reverse_proxy printer_service:8000
+    }
+
+    # Enable gzip compression
+    encode gzip
+
+    # Logging
+    log {
+        output stdout
+        format console
+    }
+}

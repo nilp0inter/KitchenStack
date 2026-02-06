@@ -1,0 +1,90 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: frostbyte_postgres
+    environment:
+      POSTGRES_DB: frostbyte_db
+      POSTGRES_USER: frostbyte_user
+      POSTGRES_PASSWORD: frostbyte_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U frostbyte_user -d frostbyte_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - frostbyte_network
+
+  postgrest:
+    image: postgrest/postgrest:v12.0.2
+    container_name: frostbyte_postgrest
+    environment:
+      PGRST_DB_URI: postgres://frostbyte_user:frostbyte_password@postgres:5432/frostbyte_db
+      PGRST_DB_SCHEMA: public
+      PGRST_DB_ANON_ROLE: frostbyte_user
+      PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost/api/db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - frostbyte_network
+
+  printer_service:
+    build:
+      context: ./printer_service
+      dockerfile: Dockerfile
+    container_name: frostbyte_printer
+    environment:
+      DRY_RUN: "true"
+      APP_HOST: localhost
+      PRINTER_MODEL: QL-700
+      PRINTER_TAPE: "62"
+    volumes:
+      - labels_output:/app/labels_output
+    networks:
+      - frostbyte_network
+
+  client_builder:
+    image: node:20-alpine
+    container_name: frostbyte_client_builder
+    working_dir: /app
+    command: sh -c "apk add --no-cache curl && curl -L -o elm.gz https://github.com/elm/compiler/releases/download/0.19.1/binary-for-linux-64-bit.gz && gunzip elm.gz && chmod +x elm && mv elm /usr/local/bin/ && npm install && npm run build"
+    volumes:
+      - ./client:/app
+      - client_dist:/app/dist
+      - client_node_modules:/app/node_modules
+    networks:
+      - frostbyte_network
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: frostbyte_caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./gateway/Caddyfile:/etc/caddy/Caddyfile:ro
+      - client_dist:/srv/client:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - postgrest
+      - printer_service
+      - client_builder
+    networks:
+      - frostbyte_network
+
+volumes:
+  postgres_data:
+  labels_output:
+  client_dist:
+  client_node_modules:
+  caddy_data:
+  caddy_config:
+
+networks:
+  frostbyte_network:
+    driver: bridge
