@@ -29,10 +29,12 @@ docker compose down
 
 **Available routes to test:**
 - http://localhost/ - Dashboard (batch list)
-- http://localhost/new - Create new batch
+- http://localhost/new - Create new batch (with recipe search)
 - http://localhost/batch/{uuid} - Batch detail
 - http://localhost/item/{uuid} - Portion detail (QR scan target)
 - http://localhost/history - Freezer history
+- http://localhost/recipes - Recipe management (reusable batch templates)
+- http://localhost/ingredients - Ingredient management
 - http://localhost/containers - Container type management
 
 ## Installing Elm Packages
@@ -83,10 +85,12 @@ FrostByte is an **append-only** home freezer management system. Each physical fo
 
 ### Key Database Objects
 
-- **`create_batch` function**: RPC endpoint that atomically creates a batch with N portions, auto-calculates expiry from category.safe_days
+- **`create_batch` function**: RPC endpoint that atomically creates a batch with N portions, auto-calculates expiry from ingredient.expire_days
+- **`save_recipe` function**: RPC endpoint that atomically creates/updates a recipe with ingredients, auto-creates unknown ingredients
 - **`batch_summary` view**: Aggregates portions by batch for dashboard display
 - **`portion_detail` view**: Joins portion with batch info for QR scan page
 - **`freezer_history` view**: Running totals of frozen portions over time for chart
+- **`recipe_summary` view**: Recipes with aggregated ingredient names for listing
 
 ### Elm Client Structure
 
@@ -104,10 +108,12 @@ client/src/
 ├── Components.elm        # Shared UI (header, notification, modal, loading)
 └── Page/
     ├── Dashboard.elm     # Batch list with servings calculation
-    ├── NewBatch.elm      # Batch creation form with printing
+    ├── NewBatch.elm      # Batch creation form with printing and recipe search
     ├── ItemDetail.elm    # Portion consumption (QR scan target)
     ├── BatchDetail.elm   # Batch detail with portion list, reprinting
     ├── History.elm       # Freezer history chart and table
+    ├── Recipes.elm       # Recipe CRUD (reusable batch templates)
+    ├── Ingredients.elm   # Ingredient CRUD with expiry days
     ├── ContainerTypes.elm# Container type CRUD
     └── NotFound.elm      # 404 page
 ```
@@ -116,9 +122,9 @@ client/src/
 - Each page module exposes: `Model`, `Msg`, `OutMsg`, `init`, `update`, `view`
 - Pages communicate up via `OutMsg` (navigation, notifications, refresh requests)
 - Main.elm wraps page messages: `DashboardMsg Page.Dashboard.Msg`
-- Shared data (categories, containerTypes, batches) lives in Main and passed to pages
+- Shared data (ingredients, containerTypes, batches, recipes) lives in Main and passed to pages
 
-**Routes:** `/` (Dashboard), `/new` (NewBatch), `/item/{uuid}` (ItemDetail), `/batch/{uuid}` (BatchDetail), `/history` (History), `/containers` (ContainerTypes)
+**Routes:** `/` (Dashboard), `/new` (NewBatch), `/item/{uuid}` (ItemDetail), `/batch/{uuid}` (BatchDetail), `/history` (History), `/recipes` (Recipes), `/ingredients` (Ingredients), `/containers` (ContainerTypes)
 
 **Styling:** Tailwind CSS with custom "frost" color palette
 
@@ -131,12 +137,16 @@ Python FastAPI service generates 62mm Brother QL labels with QR codes. Runs in d
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/api/db/rpc/create_batch` | POST | Create batch with N portions |
+| `/api/db/rpc/save_recipe` | POST | Create or update recipe with ingredients |
 | `/api/db/batch_summary?frozen_count=gt.0` | GET | Dashboard data |
 | `/api/db/portion_detail?portion_id=eq.{uuid}` | GET | QR scan page data |
 | `/api/db/portion?id=eq.{uuid}` | PATCH | Consume portion (set status, consumed_at) |
 | `/api/db/portion?batch_id=eq.{uuid}` | GET | Get portions for a batch |
 | `/api/db/freezer_history` | GET | Chart data |
-| `/api/db/category` | GET | List food categories |
+| `/api/db/ingredient` | GET/POST | List or create ingredients |
+| `/api/db/ingredient?name=eq.{name}` | PATCH/DELETE | Update or delete ingredient |
+| `/api/db/recipe_summary` | GET | List recipes with ingredients |
+| `/api/db/recipe?name=eq.{name}` | DELETE | Delete recipe |
 | `/api/db/container_type` | GET/POST | List or create container types |
 | `/api/db/container_type?name=eq.{name}` | PATCH/DELETE | Update or delete container type |
 | `/api/printer/print` | POST | Print single label |

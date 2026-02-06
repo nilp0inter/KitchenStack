@@ -6,6 +6,7 @@ module Api.Decoders exposing
     , ingredientDecoder
     , portionDetailDecoder
     , portionInBatchDecoder
+    , recipeDecoder
     )
 
 import Json.Decode as Decode exposing (Decoder)
@@ -88,3 +89,12 @@ portionInBatchDecoder =
         (Decode.field "created_at" Decode.string)
         (Decode.field "expiry_date" Decode.string)
         (Decode.field "consumed_at" (Decode.nullable Decode.string))
+
+
+recipeDecoder : Decoder Recipe
+recipeDecoder =
+    Decode.map4 Recipe
+        (Decode.field "name" Decode.string)
+        (Decode.field "default_portions" Decode.int)
+        (Decode.field "default_container_id" (Decode.nullable Decode.string))
+        (Decode.field "ingredients" Decode.string)

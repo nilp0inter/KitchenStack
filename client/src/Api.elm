@@ -3,16 +3,19 @@ module Api exposing
     , createBatch
     , deleteContainerType
     , deleteIngredient
+    , deleteRecipe
     , fetchBatchPortions
     , fetchBatches
     , fetchContainerTypes
     , fetchHistory
     , fetchIngredients
     , fetchPortionDetail
+    , fetchRecipes
     , printLabel
     , returnPortionToFreezer
     , saveContainerType
     , saveIngredient
+    , saveRecipe
     )
 
 import Api.Decoders exposing (..)
@@ -179,6 +182,36 @@ deleteIngredient name toMsg =
         { method = "DELETE"
         , headers = []
         , url = "/api/db/ingredient?name=eq." ++ Url.percentEncode name
+        , body = Http.emptyBody
+        , expect = Http.expectWhatever toMsg
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+fetchRecipes : (Result Http.Error (List Recipe) -> msg) -> Cmd msg
+fetchRecipes toMsg =
+    Http.get
+        { url = "/api/db/recipe_summary?order=name.asc"
+        , expect = Http.expectJson toMsg (Decode.list recipeDecoder)
+        }
+
+
+saveRecipe : RecipeForm -> (Result Http.Error () -> msg) -> Cmd msg
+saveRecipe form toMsg =
+    Http.post
+        { url = "/api/db/rpc/save_recipe"
+        , body = Http.jsonBody (encodeRecipeRequest form)
+        , expect = Http.expectWhatever toMsg
+        }
+
+
+deleteRecipe : String -> (Result Http.Error () -> msg) -> Cmd msg
+deleteRecipe name toMsg =
+    Http.request
+        { method = "DELETE"
+        , headers = []
+        , url = "/api/db/recipe?name=eq." ++ Url.percentEncode name
         , body = Http.emptyBody
         , expect = Http.expectWhatever toMsg
         , timeout = Nothing

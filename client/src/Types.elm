@@ -15,10 +15,13 @@ module Types exposing
     , PortionInBatch
     , PortionPrintData
     , PrintingProgress
+    , Recipe
+    , RecipeForm
     , SelectedIngredient
     , emptyBatchForm
     , emptyContainerTypeForm
     , emptyIngredientForm
+    , emptyRecipeForm
     )
 
 
@@ -182,5 +185,34 @@ emptyIngredientForm =
     { name = ""
     , expireDays = ""
     , bestBeforeDays = ""
+    , editing = Nothing
+    }
+
+
+type alias Recipe =
+    { name : String
+    , defaultPortions : Int
+    , defaultContainerId : Maybe String
+    , ingredients : String
+    }
+
+
+type alias RecipeForm =
+    { name : String
+    , selectedIngredients : List SelectedIngredient
+    , ingredientInput : String
+    , defaultPortions : String
+    , defaultContainerId : String
+    , editing : Maybe String
+    }
+
+
+emptyRecipeForm : RecipeForm
+emptyRecipeForm =
+    { name = ""
+    , selectedIngredients = []
+    , ingredientInput = ""
+    , defaultPortions = "1"
+    , defaultContainerId = ""
     , editing = Nothing
     }

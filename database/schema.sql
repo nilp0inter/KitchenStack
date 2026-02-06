@@ -204,6 +204,80 @@ SELECT
 FROM aggregated
 ORDER BY date;
 
+-- Recipe table: reusable templates for batch creation
+CREATE TABLE recipe (
+    name CITEXT PRIMARY KEY,
+    default_portions INTEGER NOT NULL DEFAULT 1,
+    default_container_id TEXT NULL REFERENCES container_type(name),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Junction table for recipe-ingredient relationship
+CREATE TABLE recipe_ingredient (
+    recipe_name CITEXT NOT NULL REFERENCES recipe(name) ON DELETE CASCADE ON UPDATE CASCADE,
+    ingredient_name CITEXT NOT NULL REFERENCES ingredient(name) ON UPDATE CASCADE,
+    PRIMARY KEY (recipe_name, ingredient_name)
+);
+
+CREATE INDEX idx_recipe_ingredient_recipe ON recipe_ingredient(recipe_name);
+
+-- Function to atomically save a recipe with ingredients
+CREATE OR REPLACE FUNCTION save_recipe(
+    p_name TEXT,
+    p_ingredient_names TEXT[],
+    p_default_portions INTEGER DEFAULT 1,
+    p_default_container_id TEXT DEFAULT NULL,
+    p_original_name TEXT DEFAULT NULL
+) RETURNS TABLE (recipe_name TEXT)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_ingredient_name TEXT;
+BEGIN
+    -- Auto-create unknown ingredients with NULL expire/best_before
+    FOREACH v_ingredient_name IN ARRAY p_ingredient_names
+    LOOP
+        INSERT INTO ingredient (name)
+        VALUES (LOWER(v_ingredient_name))
+        ON CONFLICT (name) DO NOTHING;
+    END LOOP;
+
+    -- If editing (original name provided), delete old recipe first
+    IF p_original_name IS NOT NULL THEN
+        DELETE FROM recipe WHERE name = LOWER(p_original_name);
+    END IF;
+
+    -- Insert or update recipe
+    INSERT INTO recipe (name, default_portions, default_container_id)
+    VALUES (LOWER(p_name), p_default_portions, p_default_container_id)
+    ON CONFLICT (name) DO UPDATE SET
+        default_portions = EXCLUDED.default_portions,
+        default_container_id = EXCLUDED.default_container_id;
+
+    -- Clear old ingredients and insert new ones
+    DELETE FROM recipe_ingredient WHERE recipe_ingredient.recipe_name = LOWER(p_name);
+    INSERT INTO recipe_ingredient (recipe_name, ingredient_name)
+    SELECT LOWER(p_name), LOWER(unnest(p_ingredient_names));
+
+    RETURN QUERY SELECT LOWER(p_name)::TEXT AS recipe_name;
+END;
+$$;
+
+-- View for recipe list with ingredients
+CREATE VIEW recipe_summary AS
+SELECT
+    r.name,
+    r.default_portions,
+    r.default_container_id,
+    r.created_at,
+    COALESCE(
+        (SELECT string_agg(ri.ingredient_name::TEXT, ', ' ORDER BY ri.ingredient_name)
+         FROM recipe_ingredient ri
+         WHERE ri.recipe_name = r.name),
+        ''
+    ) AS ingredients
+FROM recipe r;
+
 -- Seed data: common ingredients with expiry info (migrated from old categories)
 INSERT INTO ingredient (name, expire_days, best_before_days) VALUES
     ('arroz', 120, 90),

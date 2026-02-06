@@ -28,6 +28,7 @@ viewHeader currentRoute =
                     [ navLink "/" "Inventario" (currentRoute == Dashboard)
                     , navLink "/new" "+ Nuevo" (currentRoute == NewBatch)
                     , navLink "/history" "Historial" (currentRoute == History)
+                    , navLink "/recipes" "Recetas" (currentRoute == Recipes)
                     , navLink "/ingredients" "Ingredientes" (currentRoute == Ingredients)
                     , navLink "/containers" "Envases" (currentRoute == ContainerTypes)
                     ]

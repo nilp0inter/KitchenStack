@@ -15,6 +15,7 @@ import Page.Ingredients as Ingredients
 import Page.ItemDetail as ItemDetail
 import Page.NewBatch as NewBatch
 import Page.NotFound as NotFound
+import Page.Recipes as Recipes
 import Route exposing (Route(..))
 import Types exposing (..)
 import Url
@@ -48,6 +49,7 @@ type alias Model =
     , ingredients : List Ingredient
     , containerTypes : List ContainerType
     , batches : List BatchSummary
+    , recipes : List Recipe
     , page : Page
     , notification : Maybe Notification
     , printingProgress : Maybe PrintingProgress
@@ -63,6 +65,7 @@ type Page
     | HistoryPage History.Model
     | ContainerTypesPage ContainerTypes.Model
     | IngredientsPage Ingredients.Model
+    | RecipesPage Recipes.Model
     | NotFoundPage
 
 
@@ -80,6 +83,7 @@ init flags url key =
             , ingredients = []
             , containerTypes = []
             , batches = []
+            , recipes = []
             , page = NotFoundPage
             , notification = Nothing
             , printingProgress = Nothing
@@ -91,6 +95,7 @@ init flags url key =
         [ Api.fetchIngredients GotIngredients
         , Api.fetchContainerTypes GotContainerTypes
         , Api.fetchBatches GotBatches
+        , Api.fetchRecipes GotRecipes
         ]
     )
 
@@ -110,7 +115,7 @@ initPage route model =
         NewBatch ->
             let
                 ( pageModel, pageCmd ) =
-                    NewBatch.init model.currentDate model.ingredients model.containerTypes
+                    NewBatch.init model.currentDate model.ingredients model.containerTypes model.recipes
             in
             ( { model | page = NewBatchPage pageModel }
             , Cmd.map NewBatchMsg pageCmd
@@ -161,6 +166,15 @@ initPage route model =
             , Cmd.map IngredientsMsg pageCmd
             )
 
+        Route.Recipes ->
+            let
+                ( pageModel, pageCmd ) =
+                    Recipes.init model.recipes model.ingredients model.containerTypes
+            in
+            ( { model | page = RecipesPage pageModel }
+            , Cmd.map RecipesMsg pageCmd
+            )
+
         NotFound ->
             ( { model | page = NotFoundPage }, Cmd.none )
 
@@ -175,6 +189,7 @@ type Msg
     | GotIngredients (Result Http.Error (List Ingredient))
     | GotContainerTypes (Result Http.Error (List ContainerType))
     | GotBatches (Result Http.Error (List BatchSummary))
+    | GotRecipes (Result Http.Error (List Recipe))
     | DashboardMsg Dashboard.Msg
     | NewBatchMsg NewBatch.Msg
     | ItemDetailMsg ItemDetail.Msg
@@ -182,6 +197,7 @@ type Msg
     | HistoryMsg History.Msg
     | ContainerTypesMsg ContainerTypes.Msg
     | IngredientsMsg Ingredients.Msg
+    | RecipesMsg Recipes.Msg
     | DismissNotification
     | NavigateToBatch String
 
@@ -252,6 +268,20 @@ update msg model =
                         | notification = Just { message = "Failed to load batches", notificationType = Error }
                         , loading = False
                       }
+                    , Cmd.none
+                    )
+
+        GotRecipes result ->
+            case result of
+                Ok recipes ->
+                    let
+                        newModel =
+                            { model | recipes = recipes }
+                    in
+                    maybeInitPage newModel
+
+                Err _ ->
+                    ( { model | notification = Just { message = "Failed to load recipes", notificationType = Error } }
                     , Cmd.none
                     )
 
@@ -362,6 +392,21 @@ update msg model =
                             { model | page = IngredientsPage newPageModel }
                     in
                     handleIngredientsOutMsg outMsg newModel pageCmd
+
+                _ ->
+                    ( model, Cmd.none )
+
+        RecipesMsg subMsg ->
+            case model.page of
+                RecipesPage pageModel ->
+                    let
+                        ( newPageModel, pageCmd, outMsg ) =
+                            Recipes.update subMsg pageModel
+
+                        newModel =
+                            { model | page = RecipesPage newPageModel }
+                    in
+                    handleRecipesOutMsg outMsg newModel pageCmd
 
                 _ ->
                     ( model, Cmd.none )
@@ -520,6 +565,27 @@ handleIngredientsOutMsg outMsg model pageCmd =
             )
 
 
+handleRecipesOutMsg : Recipes.OutMsg -> Model -> Cmd Recipes.Msg -> ( Model, Cmd Msg )
+handleRecipesOutMsg outMsg model pageCmd =
+    case outMsg of
+        Recipes.NoOp ->
+            ( model, Cmd.map RecipesMsg pageCmd )
+
+        Recipes.ShowNotification notification ->
+            ( { model | notification = Just notification }
+            , Cmd.map RecipesMsg pageCmd
+            )
+
+        Recipes.RefreshRecipes ->
+            ( model
+            , Cmd.batch
+                [ Cmd.map RecipesMsg pageCmd
+                , Api.fetchRecipes GotRecipes
+                , Api.fetchIngredients GotIngredients
+                ]
+            )
+
+
 
 -- SUBSCRIPTIONS
 
@@ -576,6 +642,9 @@ viewPage model =
 
         IngredientsPage pageModel ->
             Html.map IngredientsMsg (Ingredients.view pageModel)
+
+        RecipesPage pageModel ->
+            Html.map RecipesMsg (Recipes.view pageModel)
 
         NotFoundPage ->
             NotFound.view

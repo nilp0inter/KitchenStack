@@ -16,6 +16,7 @@ type Route
     | History
     | ContainerTypes
     | Ingredients
+    | Recipes
     | NotFound
 
 
@@ -34,4 +35,5 @@ routeParser =
         , Parser.map History (Parser.s "history")
         , Parser.map ContainerTypes (Parser.s "containers")
         , Parser.map Ingredients (Parser.s "ingredients")
+        , Parser.map Recipes (Parser.s "recipes")
         ]

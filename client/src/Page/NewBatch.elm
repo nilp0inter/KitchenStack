@@ -22,10 +22,12 @@ type alias Model =
     { form : BatchForm
     , ingredients : List Ingredient
     , containerTypes : List ContainerType
+    , recipes : List Recipe
     , loading : Bool
     , printWithSave : Bool
     , printingProgress : Maybe PrintingProgress
     , showSuggestions : Bool
+    , showRecipeSuggestions : Bool
     , expiryRequired : Bool
     }
 
@@ -45,7 +47,9 @@ type Msg
     | BatchCreated (Result Http.Error CreateBatchResponse)
     | PrintResult String (Result Http.Error ())
     | HideSuggestions
+    | HideRecipeSuggestions
     | IngredientKeyDown String
+    | SelectRecipe Recipe
 
 
 type OutMsg
@@ -56,8 +60,8 @@ type OutMsg
     | RefreshBatches
 
 
-init : String -> List Ingredient -> List ContainerType -> ( Model, Cmd Msg )
-init currentDate ingredients containerTypes =
+init : String -> List Ingredient -> List ContainerType -> List Recipe -> ( Model, Cmd Msg )
+init currentDate ingredients containerTypes recipes =
     let
         form =
             emptyBatchForm currentDate
@@ -73,10 +77,12 @@ init currentDate ingredients containerTypes =
     ( { form = formWithDefaults
       , ingredients = ingredients
       , containerTypes = containerTypes
+      , recipes = recipes
       , loading = False
       , printWithSave = True
       , printingProgress = Nothing
       , showSuggestions = False
+      , showRecipeSuggestions = False
       , expiryRequired = False
       }
     , Cmd.none
@@ -90,8 +96,17 @@ update msg model =
             let
                 form =
                     model.form
+
+                shouldShowRecipeSuggestions =
+                    String.length name >= 2
             in
-            ( { model | form = { form | name = name } }, Cmd.none, NoOp )
+            ( { model
+                | form = { form | name = name }
+                , showRecipeSuggestions = shouldShowRecipeSuggestions
+              }
+            , Cmd.none
+            , NoOp
+            )
 
         FormIngredientInputChanged input ->
             let
@@ -381,6 +396,58 @@ update msg model =
         HideSuggestions ->
             ( { model | showSuggestions = False }, Cmd.none, NoOp )
 
+        HideRecipeSuggestions ->
+            ( { model | showRecipeSuggestions = False }, Cmd.none, NoOp )
+
+        SelectRecipe recipe ->
+            let
+                -- Parse ingredients from recipe.ingredients string
+                ingredientNames =
+                    String.split ", " recipe.ingredients
+                        |> List.filter (\s -> String.trim s /= "")
+
+                selectedIngredients =
+                    List.map
+                        (\name ->
+                            { name = name
+                            , isNew = not (List.any (\i -> String.toLower i.name == String.toLower name) model.ingredients)
+                            }
+                        )
+                        ingredientNames
+
+                -- Check if any ingredient has expire_days
+                hasExpiryInfo =
+                    List.any
+                        (\sel ->
+                            List.any
+                                (\ing ->
+                                    String.toLower ing.name == String.toLower sel.name && ing.expireDays /= Nothing
+                                )
+                                model.ingredients
+                        )
+                        selectedIngredients
+
+                containerId =
+                    Maybe.withDefault model.form.containerId recipe.defaultContainerId
+
+                form =
+                    model.form
+            in
+            ( { model
+                | form =
+                    { form
+                        | name = recipe.name
+                        , selectedIngredients = selectedIngredients
+                        , quantity = String.fromInt recipe.defaultPortions
+                        , containerId = containerId
+                    }
+                , showRecipeSuggestions = False
+                , expiryRequired = not hasExpiryInfo && not (List.isEmpty selectedIngredients)
+              }
+            , Cmd.none
+            , NoOp
+            )
+
         IngredientKeyDown key ->
             if key == "Enter" || key == "," then
                 let
@@ -405,15 +472,18 @@ view model =
             [ Html.form [ onSubmit SubmitBatchWithPrint, class "space-y-6" ]
                 [ div []
                     [ label [ class "block text-sm font-medium text-gray-700 mb-1" ] [ text "Nombre" ]
-                    , input
-                        [ type_ "text"
-                        , class "input-field"
-                        , placeholder "Ej: Arroz con pollo"
-                        , value model.form.name
-                        , onInput FormNameChanged
-                        , required True
+                    , div [ class "relative" ]
+                        [ input
+                            [ type_ "text"
+                            , class "input-field"
+                            , placeholder "Ej: Arroz con pollo"
+                            , value model.form.name
+                            , onInput FormNameChanged
+                            , required True
+                            ]
+                            []
+                        , viewRecipeSuggestions model
                         ]
-                        []
                     ]
                 , viewIngredientSelector model
                 , div [ class "grid grid-cols-2 gap-4" ]
@@ -643,6 +713,52 @@ viewIngredientChip ingredient =
             , onClick (RemoveIngredient ingredient.name)
             ]
             [ text "×" ]
+        ]
+
+
+viewRecipeSuggestions : Model -> Html Msg
+viewRecipeSuggestions model =
+    let
+        searchTerm =
+            String.toLower model.form.name
+
+        matchingRecipes =
+            if String.length model.form.name >= 2 then
+                model.recipes
+                    |> List.filter (\r -> String.contains searchTerm (String.toLower r.name))
+                    |> List.take 5
+
+            else
+                []
+    in
+    if model.showRecipeSuggestions && not (List.isEmpty matchingRecipes) then
+        div [ class "absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto" ]
+            (List.map viewRecipeSuggestion matchingRecipes)
+
+    else
+        text ""
+
+
+viewRecipeSuggestion : Recipe -> Html Msg
+viewRecipeSuggestion recipe =
+    button
+        [ type_ "button"
+        , class "w-full text-left px-4 py-3 hover:bg-frost-50 border-b border-gray-100 last:border-b-0"
+        , onClick (SelectRecipe recipe)
+        ]
+        [ div [ class "flex items-center justify-between" ]
+            [ span [ class "font-medium text-gray-900" ] [ text recipe.name ]
+            , span [ class "text-xs bg-frost-100 text-frost-700 px-2 py-0.5 rounded" ] [ text "Receta" ]
+            ]
+        , div [ class "text-sm text-gray-500 mt-1" ]
+            [ text
+                (if String.length recipe.ingredients > 50 then
+                    String.left 50 recipe.ingredients ++ "..."
+
+                 else
+                    recipe.ingredients
+                )
+            ]
         ]
 
 

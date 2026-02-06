@@ -4,6 +4,7 @@ module Api.Encoders exposing
     , encodeContainerType
     , encodeIngredient
     , encodePrintRequest
+    , encodeRecipeRequest
     , encodeReturnToFreezerRequest
     )
 
@@ -94,3 +95,37 @@ encodeIngredient form =
         , ( "expire_days", expireDaysValue )
         , ( "best_before_days", bestBeforeDaysValue )
         ]
+
+
+encodeRecipeRequest : RecipeForm -> Encode.Value
+encodeRecipeRequest form =
+    let
+        ingredientNames =
+            List.map .name form.selectedIngredients
+
+        containerValue =
+            if form.defaultContainerId == "" then
+                Encode.null
+
+            else
+                Encode.string form.defaultContainerId
+
+        portions =
+            Maybe.withDefault 1 (String.toInt form.defaultPortions)
+
+        baseFields =
+            [ ( "p_name", Encode.string (String.toLower form.name) )
+            , ( "p_ingredient_names", Encode.list Encode.string ingredientNames )
+            , ( "p_default_portions", Encode.int portions )
+            , ( "p_default_container_id", containerValue )
+            ]
+
+        fields =
+            case form.editing of
+                Just originalName ->
+                    baseFields ++ [ ( "p_original_name", Encode.string originalName ) ]
+
+                Nothing ->
+                    baseFields
+    in
+    Encode.object fields
