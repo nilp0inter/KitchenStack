@@ -118,7 +118,7 @@ viewLabel settings data =
         -- Account for QR library's built-in padding when calculating where text/lines can extend
         textMaxX =
             if settings.showQr then
-                qrX - qrPaddingCompensation
+                qrX + qrPaddingCompensation - settings.padding
 
             else
                 settings.width - settings.padding
