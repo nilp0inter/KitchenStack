@@ -25,9 +25,10 @@ LABELS_OUTPUT_DIR = Path("/app/labels_output")
 class PrintRequest(BaseModel):
     """Request model for label printing with pre-rendered PNG."""
     image_data: str  # Base64-encoded PNG image
+    label_type: str  # Brother QL label identifier (e.g., "62", "29x90", "d24")
 
 
-def print_to_brother_ql(image_path: str) -> None:
+def print_to_brother_ql(image_path: str, label_type: str) -> None:
     """Send PNG image to Brother QL printer."""
     from brother_ql.conversion import convert
     from brother_ql.backends.helpers import send
@@ -40,7 +41,7 @@ def print_to_brother_ql(image_path: str) -> None:
     instructions = convert(
         qlr=qlr,
         images=[image_path],
-        label=PRINTER_TAPE,
+        label=label_type,
         rotate="auto",
         threshold=70,
         dither=False,
@@ -85,7 +86,7 @@ async def print_label(request: PrintRequest):
             # Save to file instead of printing
             LABELS_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-            filename = f"label_{timestamp}.png"
+            filename = f"label_{request.label_type}_{timestamp}.png"
             filepath = LABELS_OUTPUT_DIR / filename
 
             with open(filepath, "wb") as f:
@@ -104,7 +105,7 @@ async def print_label(request: PrintRequest):
                 temp_path = f.name
 
             try:
-                print_to_brother_ql(temp_path)
+                print_to_brother_ql(temp_path, request.label_type)
             finally:
                 # Clean up temp file
                 Path(temp_path).unlink(missing_ok=True)

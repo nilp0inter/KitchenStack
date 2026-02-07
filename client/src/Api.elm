@@ -266,10 +266,10 @@ deleteLabelPreset name toMsg =
         }
 
 
-printLabelPng : String -> (Result Http.Error () -> msg) -> Cmd msg
-printLabelPng pngBase64 toMsg =
+printLabelPng : String -> String -> (Result Http.Error () -> msg) -> Cmd msg
+printLabelPng pngBase64 labelType toMsg =
     Http.post
         { url = "/api/printer/print"
-        , body = Http.jsonBody (encodePrintPngRequest pngBase64)
+        , body = Http.jsonBody (encodePrintPngRequest pngBase64 labelType)
         , expect = Http.expectWhatever toMsg
         }

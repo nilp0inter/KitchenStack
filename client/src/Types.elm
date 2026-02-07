@@ -236,6 +236,7 @@ emptyRecipeForm =
 
 type alias LabelPreset =
     { name : String
+    , labelType : String
     , width : Int
     , height : Int
     , qrSize : Int
@@ -263,6 +264,7 @@ type alias LabelPreset =
 
 type alias LabelPresetForm =
     { name : String
+    , labelType : String
     , width : String
     , height : String
     , qrSize : String
@@ -292,6 +294,7 @@ type alias LabelPresetForm =
 emptyLabelPresetForm : LabelPresetForm
 emptyLabelPresetForm =
     { name = ""
+    , labelType = "62"
     , width = "696"
     , height = "300"
     , qrSize = "200"

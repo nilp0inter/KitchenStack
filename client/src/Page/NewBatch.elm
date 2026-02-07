@@ -477,6 +477,12 @@ update msg model =
                         base64Data =
                             String.replace "data:image/png;base64," "" dataUrl
 
+                        -- Get label type from selected preset
+                        labelType =
+                            model.selectedPreset
+                                |> Maybe.map .labelType
+                                |> Maybe.withDefault "62"
+
                         -- Remove this request from pending
                         remainingRequests =
                             List.filter (\id -> id /= result.requestId) model.pendingPngRequests
@@ -497,7 +503,7 @@ update msg model =
                                     Nothing
                     in
                     ( { model | pendingPngRequests = remainingRequests }
-                    , Api.printLabelPng base64Data PrintResult
+                    , Api.printLabelPng base64Data labelType PrintResult
                     , case nextRequest of
                         Just req ->
                             RequestSvgToPng req
@@ -1160,6 +1166,7 @@ onKeyDown toMsg =
 presetToSettings : LabelPreset -> Label.LabelSettings
 presetToSettings preset =
     { name = preset.name
+    , labelType = preset.labelType
     , width = preset.width
     , height = preset.height
     , qrSize = preset.qrSize

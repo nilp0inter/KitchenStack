@@ -110,6 +110,7 @@ labelPresetDecoder : Decoder LabelPreset
 labelPresetDecoder =
     Decode.succeed LabelPreset
         |> andMap (Decode.field "name" Decode.string)
+        |> andMap (Decode.field "label_type" Decode.string)
         |> andMap (Decode.field "width" Decode.int)
         |> andMap (Decode.field "height" Decode.int)
         |> andMap (Decode.field "qr_size" Decode.int)

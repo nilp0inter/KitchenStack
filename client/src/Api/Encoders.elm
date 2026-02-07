@@ -170,6 +170,7 @@ encodeLabelPreset : LabelPresetForm -> Encode.Value
 encodeLabelPreset form =
     Encode.object
         [ ( "name", Encode.string form.name )
+        , ( "label_type", Encode.string form.labelType )
         , ( "width", Encode.int (Maybe.withDefault 696 (String.toInt form.width)) )
         , ( "height", Encode.int (Maybe.withDefault 300 (String.toInt form.height)) )
         , ( "qr_size", Encode.int (Maybe.withDefault 200 (String.toInt form.qrSize)) )
@@ -195,8 +196,9 @@ encodeLabelPreset form =
         ]
 
 
-encodePrintPngRequest : String -> Encode.Value
-encodePrintPngRequest pngBase64 =
+encodePrintPngRequest : String -> String -> Encode.Value
+encodePrintPngRequest pngBase64 labelType =
     Encode.object
         [ ( "image_data", Encode.string pngBase64 )
+        , ( "label_type", Encode.string labelType )
         ]

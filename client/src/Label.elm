@@ -48,6 +48,7 @@ type alias ComputedLabelData =
 -}
 type alias LabelSettings =
     { name : String
+    , labelType : String
     , width : Int
     , height : Int
     , qrSize : Int
@@ -78,6 +79,7 @@ type alias LabelSettings =
 defaultSettings : LabelSettings
 defaultSettings =
     { name = "62mm (default)"
+    , labelType = "62"
     , width = 696
     , height = 300
     , qrSize = 200
