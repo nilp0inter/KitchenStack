@@ -26,6 +26,7 @@ CREATE TABLE batch (
     container_id TEXT NOT NULL REFERENCES container_type(name),
     best_before_date DATE NULL,
     label_preset TEXT NULL,
+    details TEXT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -67,7 +68,8 @@ CREATE OR REPLACE FUNCTION create_batch(
     p_created_at DATE DEFAULT CURRENT_DATE,
     p_expiry_date DATE DEFAULT NULL,
     p_best_before_date DATE DEFAULT NULL,
-    p_label_preset TEXT DEFAULT NULL
+    p_label_preset TEXT DEFAULT NULL,
+    p_details TEXT DEFAULT NULL
 )
 RETURNS TABLE (
     batch_id UUID,
@@ -120,8 +122,8 @@ BEGIN
     END IF;
 
     -- Create batch with client-provided UUID
-    INSERT INTO batch (id, name, container_id, best_before_date, label_preset)
-    VALUES (p_batch_id, p_name, p_container_id, v_best_before, p_label_preset);
+    INSERT INTO batch (id, name, container_id, best_before_date, label_preset, details)
+    VALUES (p_batch_id, p_name, p_container_id, v_best_before, p_label_preset, p_details);
 
     -- Link ingredients to batch
     INSERT INTO batch_ingredient (batch_id, ingredient_name)
@@ -153,10 +155,11 @@ SELECT
          FROM batch_ingredient bi
          WHERE bi.batch_id = b.id),
         ''
-    ) AS ingredients
+    ) AS ingredients,
+    b.details
 FROM batch b
 JOIN portion p ON p.batch_id = b.id
-GROUP BY b.id, b.name, b.container_id, b.best_before_date, b.label_preset, b.created_at;
+GROUP BY b.id, b.name, b.container_id, b.best_before_date, b.label_preset, b.created_at, b.details;
 
 -- View for portion details including batch info (for QR scan page)
 CREATE VIEW portion_detail AS
@@ -175,7 +178,8 @@ SELECT
          FROM batch_ingredient bi
          WHERE bi.batch_id = b.id),
         ''
-    ) AS ingredients
+    ) AS ingredients,
+    b.details
 FROM portion p
 JOIN batch b ON b.id = p.batch_id;
 
@@ -215,6 +219,7 @@ CREATE TABLE recipe (
     default_portions INTEGER NOT NULL DEFAULT 1,
     default_container_id TEXT NULL REFERENCES container_type(name),
     default_label_preset TEXT NULL,
+    details TEXT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -234,7 +239,8 @@ CREATE OR REPLACE FUNCTION save_recipe(
     p_default_portions INTEGER DEFAULT 1,
     p_default_container_id TEXT DEFAULT NULL,
     p_original_name TEXT DEFAULT NULL,
-    p_default_label_preset TEXT DEFAULT NULL
+    p_default_label_preset TEXT DEFAULT NULL,
+    p_details TEXT DEFAULT NULL
 ) RETURNS TABLE (recipe_name TEXT)
 LANGUAGE plpgsql
 AS $$
@@ -255,12 +261,13 @@ BEGIN
     END IF;
 
     -- Insert or update recipe
-    INSERT INTO recipe (name, default_portions, default_container_id, default_label_preset)
-    VALUES (LOWER(p_name), p_default_portions, p_default_container_id, p_default_label_preset)
+    INSERT INTO recipe (name, default_portions, default_container_id, default_label_preset, details)
+    VALUES (LOWER(p_name), p_default_portions, p_default_container_id, p_default_label_preset, p_details)
     ON CONFLICT (name) DO UPDATE SET
         default_portions = EXCLUDED.default_portions,
         default_container_id = EXCLUDED.default_container_id,
-        default_label_preset = EXCLUDED.default_label_preset;
+        default_label_preset = EXCLUDED.default_label_preset,
+        details = EXCLUDED.details;
 
     -- Clear old ingredients and insert new ones
     DELETE FROM recipe_ingredient WHERE recipe_ingredient.recipe_name = LOWER(p_name);
@@ -284,7 +291,8 @@ SELECT
          FROM recipe_ingredient ri
          WHERE ri.recipe_name = r.name),
         ''
-    ) AS ingredients
+    ) AS ingredients,
+    r.details
 FROM recipe r;
 
 -- Seed data: common ingredients with expiry info (migrated from old categories)

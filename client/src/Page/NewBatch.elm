@@ -48,6 +48,7 @@ type Msg
     | FormQuantityChanged String
     | FormCreatedAtChanged String
     | FormExpiryDateChanged String
+    | FormDetailsChanged String
     | SubmitBatchOnly
     | SubmitBatchWithPrint
     | GotUuidsForBatch (List UUID)
@@ -248,6 +249,13 @@ update msg model =
                     model.form
             in
             ( { model | form = { form | expiryDate = expiryDate } }, Cmd.none, NoOp )
+
+        FormDetailsChanged details ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | details = details } }, Cmd.none, NoOp )
 
         SubmitBatchOnly ->
             if List.isEmpty model.form.selectedIngredients then
@@ -601,6 +609,7 @@ update msg model =
                         , selectedIngredients = selectedIngredients
                         , quantity = String.fromInt recipe.defaultPortions
                         , containerId = containerId
+                        , details = Maybe.withDefault "" recipe.details
                     }
                 , showRecipeSuggestions = False
                 , expiryRequired = not hasExpiryInfo && not (List.isEmpty selectedIngredients)
@@ -726,6 +735,18 @@ view model =
                         ]
                     ]
                 , viewPresetSelector model
+                , div []
+                    [ label [ class "block text-sm font-medium text-gray-700 mb-1" ] [ text "Detalles (opcional)" ]
+                    , textarea
+                        [ class "input-field font-mono text-sm"
+                        , placeholder "Notas adicionales en formato Markdown.\nSe heredan de la receta si seleccionas una."
+                        , value model.form.details
+                        , onInput FormDetailsChanged
+                        , Attr.rows 4
+                        ]
+                        []
+                    , p [ class "text-xs text-gray-500 mt-1" ] [ text "Se mostrará al escanear el QR de la porción." ]
+                    ]
                 , div [ class "flex justify-end space-x-4 pt-4" ]
                     [ a [ href "/", class "btn-secondary" ] [ text "Cancelar" ]
                     , button

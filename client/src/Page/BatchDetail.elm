@@ -14,6 +14,8 @@ import Html.Attributes as Attr exposing (class, href, title)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Label
+import Markdown.Parser
+import Markdown.Renderer
 import Ports
 import Types exposing (..)
 
@@ -528,7 +530,40 @@ viewBatchHeader model batch frozenCount =
                     text ""
                 ]
             ]
+        , viewMarkdownDetails batch.details
         ]
+
+
+viewMarkdownDetails : Maybe String -> Html Msg
+viewMarkdownDetails maybeDetails =
+    case maybeDetails of
+        Just details ->
+            if String.trim details /= "" then
+                div [ class "border-t pt-4 mt-4" ]
+                    [ p [ class "text-sm font-medium text-gray-700 mb-2" ] [ text "Detalles:" ]
+                    , renderMarkdown details
+                    ]
+
+            else
+                text ""
+
+        Nothing ->
+            text ""
+
+
+renderMarkdown : String -> Html Msg
+renderMarkdown markdown =
+    case
+        markdown
+            |> Markdown.Parser.parse
+            |> Result.mapError (\_ -> "Markdown parse error")
+            |> Result.andThen (Markdown.Renderer.render Markdown.Renderer.defaultHtmlRenderer)
+    of
+        Ok rendered ->
+            div [ class "prose prose-sm max-w-none text-gray-600" ] rendered
+
+        Err _ ->
+            div [ class "text-gray-600 whitespace-pre-wrap" ] [ text markdown ]
 
 
 viewPresetSelector : Model -> Html Msg

@@ -37,6 +37,7 @@ type Msg
     | FormPortionsChanged String
     | FormContainerChanged String
     | FormLabelPresetChanged String
+    | FormDetailsChanged String
     | SaveRecipe
     | EditRecipe Recipe
     | CancelEdit
@@ -184,6 +185,13 @@ update msg model =
             in
             ( { model | form = { form | defaultLabelPreset = presetName } }, Cmd.none, NoOp )
 
+        FormDetailsChanged details ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | details = details } }, Cmd.none, NoOp )
+
         SaveRecipe ->
             if String.trim model.form.name == "" then
                 ( model, Cmd.none, ShowNotification { message = "El nombre es obligatorio", notificationType = Error } )
@@ -220,6 +228,7 @@ update msg model =
                     , defaultContainerId = Maybe.withDefault "" recipe.defaultContainerId
                     , defaultLabelPreset = Maybe.withDefault "" recipe.defaultLabelPreset
                     , editing = Just recipe.name
+                    , details = Maybe.withDefault "" recipe.details
                     }
               }
             , Cmd.none
@@ -371,6 +380,18 @@ viewForm model =
                                 model.labelPresets
                         )
                     ]
+                ]
+            , div []
+                [ label [ class "block text-sm font-medium text-gray-700 mb-1" ] [ text "Detalles (opcional)" ]
+                , textarea
+                    [ class "input-field font-mono text-sm"
+                    , placeholder "Notas adicionales en formato Markdown.\nEj: ## Preparación\n1. Descongelar\n2. Calentar"
+                    , value model.form.details
+                    , onInput FormDetailsChanged
+                    , Attr.rows 4
+                    ]
+                    []
+                , p [ class "text-xs text-gray-500 mt-1" ] [ text "Se mostrará al escanear el QR de la porción." ]
                 ]
             , div [ class "flex justify-end space-x-4 pt-4" ]
                 [ if model.form.editing /= Nothing then

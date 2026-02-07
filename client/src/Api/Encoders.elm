@@ -28,6 +28,13 @@ encodeBatchRequest form batchUuid portionUuids maybeLabelPreset =
 
                 Nothing ->
                     []
+
+        detailsField =
+            if String.trim form.details /= "" then
+                [ ( "p_details", Encode.string form.details ) ]
+
+            else
+                []
     in
     Encode.object
         ([ ( "p_batch_id", Encode.string (UUID.toString batchUuid) )
@@ -44,6 +51,7 @@ encodeBatchRequest form batchUuid portionUuids maybeLabelPreset =
                     []
                )
             ++ labelPresetField
+            ++ detailsField
         )
 
 
@@ -128,6 +136,13 @@ encodeRecipeRequest form =
             else
                 Encode.string form.defaultLabelPreset
 
+        detailsValue =
+            if String.trim form.details == "" then
+                Encode.null
+
+            else
+                Encode.string form.details
+
         portions =
             Maybe.withDefault 1 (String.toInt form.defaultPortions)
 
@@ -137,6 +152,7 @@ encodeRecipeRequest form =
             , ( "p_default_portions", Encode.int portions )
             , ( "p_default_container_id", containerValue )
             , ( "p_default_label_preset", labelPresetValue )
+            , ( "p_details", detailsValue )
             ]
 
         fields =

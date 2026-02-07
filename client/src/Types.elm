@@ -46,6 +46,7 @@ type alias BatchSummary =
     , consumedCount : Int
     , totalCount : Int
     , ingredients : String
+    , details : Maybe String
     }
 
 
@@ -60,6 +61,7 @@ type alias PortionDetail =
     , containerId : String
     , bestBeforeDate : Maybe String
     , ingredients : String
+    , details : Maybe String
     }
 
 
@@ -105,6 +107,7 @@ type alias BatchForm =
     , quantity : String
     , createdAt : String
     , expiryDate : String
+    , details : String
     }
 
 
@@ -175,6 +178,7 @@ emptyBatchForm currentDate =
     , quantity = "1"
     , createdAt = currentDate
     , expiryDate = ""
+    , details = ""
     }
 
 
@@ -201,6 +205,7 @@ type alias Recipe =
     , defaultContainerId : Maybe String
     , defaultLabelPreset : Maybe String
     , ingredients : String
+    , details : Maybe String
     }
 
 
@@ -212,6 +217,7 @@ type alias RecipeForm =
     , defaultContainerId : String
     , defaultLabelPreset : String
     , editing : Maybe String
+    , details : String
     }
 
 
@@ -224,6 +230,7 @@ emptyRecipeForm =
     , defaultContainerId = ""
     , defaultLabelPreset = ""
     , editing = Nothing
+    , details = ""
     }
 
 
