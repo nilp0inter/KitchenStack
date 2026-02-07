@@ -58,6 +58,7 @@ type alias Model =
     , notification : Maybe Notification
     , printingProgress : Maybe PrintingProgress
     , loading : Bool
+    , mobileMenuOpen : Bool
     }
 
 
@@ -95,6 +96,7 @@ init flags url key =
             , notification = Nothing
             , printingProgress = Nothing
             , loading = True
+            , mobileMenuOpen = False
             }
     in
     ( model
@@ -220,6 +222,7 @@ type Msg
     | DismissNotification
     | NavigateToBatch String
     | GotPngResult Ports.PngResult
+    | ToggleMobileMenu
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -239,7 +242,7 @@ update msg model =
                     Route.parseUrl url
 
                 newModel =
-                    { model | url = url, route = route }
+                    { model | url = url, route = route, mobileMenuOpen = False }
             in
             initPage route newModel
 
@@ -478,6 +481,9 @@ update msg model =
         NavigateToBatch batchId ->
             ( model, Nav.pushUrl model.key ("/batch/" ++ batchId) )
 
+        ToggleMobileMenu ->
+            ( { model | mobileMenuOpen = not model.mobileMenuOpen }, Cmd.none )
+
 
 maybeInitPage : Model -> ( Model, Cmd Msg )
 maybeInitPage model =
@@ -701,7 +707,7 @@ view model =
     { title = "FrostByte"
     , body =
         [ div [ class "min-h-screen bg-gray-100" ]
-            [ Components.viewHeader model.route
+            [ Components.viewHeader model.route model.mobileMenuOpen ToggleMobileMenu
             , Components.viewNotification model.notification DismissNotification
             , Components.viewPrintingProgress model.printingProgress
             , main_ [ class "container mx-auto px-4 py-8" ]

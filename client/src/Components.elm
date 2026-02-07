@@ -17,16 +17,17 @@ import Types exposing (..)
 import Url.Builder
 
 
-viewHeader : Route -> Html msg
-viewHeader currentRoute =
-    header [ class "bg-frost-600 text-white shadow-lg" ]
+viewHeader : Route -> Bool -> msg -> Html msg
+viewHeader currentRoute mobileMenuOpen toggleMsg =
+    header [ class "bg-frost-600 text-white shadow-lg relative" ]
         [ div [ class "container mx-auto px-4 py-4" ]
             [ div [ class "flex items-center justify-between" ]
                 [ a [ href "/", class "flex items-center space-x-2" ]
                     [ span [ class "text-3xl" ] [ text "❄️" ]
                     , span [ class "text-2xl font-bold" ] [ text "FrostByte" ]
                     ]
-                , nav [ class "flex space-x-4" ]
+                , -- Desktop navigation (hidden on mobile)
+                  nav [ class "hidden md:flex space-x-4" ]
                     [ navLink "/" "Inventario" (currentRoute == Dashboard)
                     , navLink "/new" "+ Nuevo" (currentRoute == NewBatch)
                     , navLink "/history" "Historial" (currentRoute == History)
@@ -35,8 +36,36 @@ viewHeader currentRoute =
                     , navLink "/containers" "Envases" (currentRoute == ContainerTypes)
                     , navLink "/labels" "Etiquetas" (currentRoute == LabelDesigner)
                     ]
+                , -- Hamburger button (visible on mobile only)
+                  button
+                    [ class "md:hidden p-2 rounded-lg hover:bg-frost-700 transition-colors"
+                    , onClick toggleMsg
+                    , Attr.attribute "aria-label" "Toggle menu"
+                    ]
+                    [ div [ class "w-6 h-5 flex flex-col justify-between" ]
+                        [ span [ class "block w-full h-0.5 bg-white rounded" ] []
+                        , span [ class "block w-full h-0.5 bg-white rounded" ] []
+                        , span [ class "block w-full h-0.5 bg-white rounded" ] []
+                        ]
+                    ]
                 ]
             ]
+        , -- Mobile menu dropdown
+          if mobileMenuOpen then
+            div [ class "md:hidden absolute top-full left-0 right-0 bg-frost-600 shadow-lg z-50" ]
+                [ nav [ class "container mx-auto px-4 py-2 flex flex-col space-y-1" ]
+                    [ mobileNavLink "/" "Inventario" (currentRoute == Dashboard)
+                    , mobileNavLink "/new" "+ Nuevo" (currentRoute == NewBatch)
+                    , mobileNavLink "/history" "Historial" (currentRoute == History)
+                    , mobileNavLink "/recipes" "Recetas" (currentRoute == Recipes)
+                    , mobileNavLink "/ingredients" "Ingredientes" (currentRoute == Ingredients)
+                    , mobileNavLink "/containers" "Envases" (currentRoute == ContainerTypes)
+                    , mobileNavLink "/labels" "Etiquetas" (currentRoute == LabelDesigner)
+                    ]
+                ]
+
+          else
+            text ""
         ]
 
 
@@ -50,6 +79,21 @@ navLink url label isActive =
 
              else
                 "hover:bg-frost-700 px-4 py-2 rounded-lg transition-colors"
+            )
+        ]
+        [ text label ]
+
+
+mobileNavLink : String -> String -> Bool -> Html msg
+mobileNavLink url label isActive =
+    a
+        [ href url
+        , class
+            (if isActive then
+                "bg-frost-700 px-4 py-3 rounded-lg block"
+
+             else
+                "hover:bg-frost-700 px-4 py-3 rounded-lg transition-colors block"
             )
         ]
         [ text label ]
