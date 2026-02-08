@@ -251,6 +251,152 @@ app.ports.requestTextMeasure.subscribe(({
   })
 })
 
+// Pinch-zoom and pan handling for label preview
+const zoomState = {}
+
+function initZoomHandler(elementId, initialZoom) {
+  const el = document.getElementById(elementId)
+  if (!el) return
+
+  const state = {
+    zoom: initialZoom,
+    panX: 0,
+    panY: 0,
+    isDragging: false,
+    lastX: 0,
+    lastY: 0,
+    touchStartDistance: 0,
+    touchStartZoom: 1
+  }
+  zoomState[elementId] = state
+
+  // Update the transform of the inner element
+  const updateTransform = () => {
+    const inner = el.querySelector('[data-zoom-target]')
+    if (inner) {
+      inner.style.transform = `scale(${state.zoom}) translate(${state.panX}px, ${state.panY}px)`
+    }
+  }
+
+  // Wheel zoom handler
+  el.addEventListener('wheel', (e) => {
+    e.preventDefault()
+    const delta = e.deltaY > 0 ? -0.05 : 0.05
+    state.zoom = Math.max(0.25, Math.min(3.0, state.zoom + delta))
+    updateTransform()
+    app.ports.receivePinchZoomUpdate.send({
+      zoom: state.zoom,
+      panX: state.panX,
+      panY: state.panY
+    })
+  }, { passive: false })
+
+  // Mouse drag for panning
+  el.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return // Only left click
+    state.isDragging = true
+    state.lastX = e.clientX
+    state.lastY = e.clientY
+    el.style.cursor = 'grabbing'
+  })
+
+  document.addEventListener('mousemove', (e) => {
+    if (!state.isDragging) return
+    const dx = (e.clientX - state.lastX) / state.zoom
+    const dy = (e.clientY - state.lastY) / state.zoom
+    state.panX += dx
+    state.panY += dy
+    state.lastX = e.clientX
+    state.lastY = e.clientY
+    updateTransform()
+  })
+
+  document.addEventListener('mouseup', () => {
+    if (state.isDragging) {
+      state.isDragging = false
+      el.style.cursor = 'grab'
+      app.ports.receivePinchZoomUpdate.send({
+        zoom: state.zoom,
+        panX: state.panX,
+        panY: state.panY
+      })
+    }
+  })
+
+  // Touch handlers for pinch-zoom and pan
+  el.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      // Pinch start
+      const dx = e.touches[0].clientX - e.touches[1].clientX
+      const dy = e.touches[0].clientY - e.touches[1].clientY
+      state.touchStartDistance = Math.hypot(dx, dy)
+      state.touchStartZoom = state.zoom
+    } else if (e.touches.length === 1) {
+      // Single touch for pan
+      state.isDragging = true
+      state.lastX = e.touches[0].clientX
+      state.lastY = e.touches[0].clientY
+    }
+  }, { passive: true })
+
+  el.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2) {
+      // Pinch zoom
+      e.preventDefault()
+      const dx = e.touches[0].clientX - e.touches[1].clientX
+      const dy = e.touches[0].clientY - e.touches[1].clientY
+      const distance = Math.hypot(dx, dy)
+      const scale = distance / state.touchStartDistance
+      state.zoom = Math.max(0.25, Math.min(3.0, state.touchStartZoom * scale))
+      updateTransform()
+    } else if (e.touches.length === 1 && state.isDragging) {
+      // Pan with single touch
+      const dx = (e.touches[0].clientX - state.lastX) / state.zoom
+      const dy = (e.touches[0].clientY - state.lastY) / state.zoom
+      state.panX += dx
+      state.panY += dy
+      state.lastX = e.touches[0].clientX
+      state.lastY = e.touches[0].clientY
+      updateTransform()
+    }
+  }, { passive: false })
+
+  el.addEventListener('touchend', () => {
+    state.isDragging = false
+    app.ports.receivePinchZoomUpdate.send({
+      zoom: state.zoom,
+      panX: state.panX,
+      panY: state.panY
+    })
+  }, { passive: true })
+
+  // Set initial cursor style
+  el.style.cursor = 'grab'
+}
+
+app.ports.initPinchZoom.subscribe(({ elementId, initialZoom }) => {
+  // Use requestAnimationFrame to ensure DOM is ready
+  requestAnimationFrame(() => {
+    initZoomHandler(elementId, initialZoom)
+  })
+})
+
+app.ports.setPinchZoom.subscribe(({ elementId, zoom, panX, panY }) => {
+  const state = zoomState[elementId]
+  if (state) {
+    state.zoom = zoom
+    state.panX = panX
+    state.panY = panY
+    const el = document.getElementById(elementId)
+    if (el) {
+      const inner = el.querySelector('[data-zoom-target]')
+      if (inner) {
+        inner.style.transform = `scale(${zoom}) translate(${panX}px, ${panY}px)`
+      }
+    }
+  }
+})
+
 // Register service worker for PWA (optional)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

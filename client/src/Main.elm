@@ -194,8 +194,16 @@ initPage route model =
 
                 newModel =
                     { model | page = LabelDesignerPage pageModel }
+
+                ( finalModel, cmd ) =
+                    handleLabelDesignerOutMsg outMsg newModel pageCmd
             in
-            handleLabelDesignerOutMsg outMsg newModel pageCmd
+            ( finalModel
+            , Cmd.batch
+                [ cmd
+                , Ports.initPinchZoom { elementId = "label-preview-container", initialZoom = 1.0 }
+                ]
+            )
 
         NotFound ->
             ( { model | page = NotFoundPage }, Cmd.none )
@@ -226,6 +234,7 @@ type Msg
     | NavigateToBatch String
     | GotPngResult Ports.PngResult
     | GotTextMeasureResult Ports.TextMeasureResult
+    | GotPinchZoomUpdate Ports.PinchZoomUpdate
     | ToggleMobileMenu
     | ToggleConfigDropdown
 
@@ -498,6 +507,15 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
+        GotPinchZoomUpdate zoomUpdate ->
+            -- Forward pinch zoom updates to LabelDesigner page
+            case model.page of
+                LabelDesignerPage _ ->
+                    update (LabelDesignerMsg (LabelDesigner.PinchZoomUpdated zoomUpdate)) model
+
+                _ ->
+                    ( model, Cmd.none )
+
         DismissNotification ->
             ( { model | notification = Nothing }, Cmd.none )
 
@@ -746,6 +764,22 @@ handleLabelDesignerOutMsg outMsg model pageCmd =
                 ]
             )
 
+        LabelDesigner.RequestInitPinchZoom config ->
+            ( model
+            , Cmd.batch
+                [ Cmd.map LabelDesignerMsg pageCmd
+                , Ports.initPinchZoom config
+                ]
+            )
+
+        LabelDesigner.RequestSetPinchZoom config ->
+            ( model
+            , Cmd.batch
+                [ Cmd.map LabelDesignerMsg pageCmd
+                , Ports.setPinchZoom config
+                ]
+            )
+
 
 
 -- SUBSCRIPTIONS
@@ -756,6 +790,7 @@ subscriptions _ =
     Sub.batch
         [ Ports.receivePngResult GotPngResult
         , Ports.receiveTextMeasureResult GotTextMeasureResult
+        , Ports.receivePinchZoomUpdate GotPinchZoomUpdate
         ]
 
 

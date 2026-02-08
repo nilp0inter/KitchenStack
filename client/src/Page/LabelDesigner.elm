@@ -91,6 +91,10 @@ type alias Model =
     , sampleIngredients : String
     , computedLabelData : Maybe Label.ComputedLabelData
     , isPrinting : Bool
+    , previewZoom : Float
+    , previewPanX : Float
+    , previewPanY : Float
+    , previewContainerHeight : Int
     }
 
 
@@ -134,6 +138,12 @@ type Msg
     | PrintLabel
     | GotPngResult Ports.PngResult
     | PrintResult (Result Http.Error ())
+    | ZoomChanged Float
+    | ZoomIn
+    | ZoomOut
+    | PinchZoomUpdated { zoom : Float, panX : Float, panY : Float }
+    | PreviewContainerHeightChanged String
+    | ResetZoomPan
 
 
 type OutMsg
@@ -142,6 +152,8 @@ type OutMsg
     | RefreshPresets
     | RequestTextMeasure Ports.TextMeasureRequest
     | RequestSvgToPng Ports.SvgToPngRequest
+    | RequestInitPinchZoom { elementId : String, initialZoom : Float }
+    | RequestSetPinchZoom { elementId : String, zoom : Float, panX : Float, panY : Float }
 
 
 init : String -> List LabelPreset -> ( Model, Cmd Msg, OutMsg )
@@ -157,6 +169,10 @@ init appHost presets =
             , sampleIngredients = "pollo, arroz, verduras, cebolla, ajo"
             , computedLabelData = Nothing
             , isPrinting = False
+            , previewZoom = 1.0
+            , previewPanX = 0
+            , previewPanY = 0
+            , previewContainerHeight = 400
             }
     in
     ( model
@@ -609,6 +625,83 @@ update msg model =
                     , ShowNotification { message = "Error al eliminar preset", notificationType = Error }
                     )
 
+        ZoomChanged newZoom ->
+            let
+                clampedZoom =
+                    clamp 0.25 3.0 newZoom
+            in
+            ( { model | previewZoom = clampedZoom }
+            , Cmd.none
+            , RequestSetPinchZoom
+                { elementId = "label-preview-container"
+                , zoom = clampedZoom
+                , panX = model.previewPanX
+                , panY = model.previewPanY
+                }
+            )
+
+        ZoomIn ->
+            let
+                newZoom =
+                    clamp 0.25 3.0 (model.previewZoom + 0.1)
+            in
+            ( { model | previewZoom = newZoom }
+            , Cmd.none
+            , RequestSetPinchZoom
+                { elementId = "label-preview-container"
+                , zoom = newZoom
+                , panX = model.previewPanX
+                , panY = model.previewPanY
+                }
+            )
+
+        ZoomOut ->
+            let
+                newZoom =
+                    clamp 0.25 3.0 (model.previewZoom - 0.1)
+            in
+            ( { model | previewZoom = newZoom }
+            , Cmd.none
+            , RequestSetPinchZoom
+                { elementId = "label-preview-container"
+                , zoom = newZoom
+                , panX = model.previewPanX
+                , panY = model.previewPanY
+                }
+            )
+
+        PinchZoomUpdated data ->
+            ( { model
+                | previewZoom = clamp 0.25 3.0 data.zoom
+                , previewPanX = data.panX
+                , previewPanY = data.panY
+              }
+            , Cmd.none
+            , NoOp
+            )
+
+        PreviewContainerHeightChanged heightStr ->
+            case String.toInt heightStr of
+                Just h ->
+                    ( { model | previewContainerHeight = clamp 200 800 h }
+                    , Cmd.none
+                    , NoOp
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none, NoOp )
+
+        ResetZoomPan ->
+            ( { model | previewZoom = 1.0, previewPanX = 0, previewPanY = 0 }
+            , Cmd.none
+            , RequestSetPinchZoom
+                { elementId = "label-preview-container"
+                , zoom = 1.0
+                , panX = 0
+                , panY = 0
+                }
+            )
+
 
 view : Model -> Html Msg
 view model =
@@ -975,13 +1068,80 @@ viewPreview model =
                     , ingredientLines = [ model.sampleIngredients ]
                     }
 
-        -- Scale preview to fit card (use display width for landscape)
-        previewScale =
-            min 1.0 (500 / toFloat (Label.displayWidth settings))
+        zoomPercent =
+            round (model.previewZoom * 100)
     in
     div [ class "card sticky top-4" ]
-        [ h2 [ class "text-lg font-semibold text-gray-800 mb-4" ] [ text "Vista Previa" ]
-        , div [ class "mb-4 p-3 bg-gray-50 rounded-lg" ]
+        [ -- Header with title and container height control
+          div [ class "flex items-center justify-between mb-4" ]
+            [ h2 [ class "text-lg font-semibold text-gray-800" ] [ text "Vista Previa" ]
+            , div [ class "flex items-center gap-2" ]
+                [ label [ class "text-xs text-gray-500" ] [ text "Alto:" ]
+                , input
+                    [ type_ "number"
+                    , class "w-20 px-2 py-1 text-sm border border-gray-300 rounded"
+                    , Attr.min "200"
+                    , Attr.max "800"
+                    , value (String.fromInt model.previewContainerHeight)
+                    , onInput PreviewContainerHeightChanged
+                    ]
+                    []
+                , span [ class "text-xs text-gray-500" ] [ text "px" ]
+                ]
+            ]
+
+        -- Preview container with fixed height and zoom/pan
+        , div
+            [ Attr.id "label-preview-container"
+            , class "flex justify-center items-center bg-gray-100 rounded-lg overflow-hidden"
+            , Attr.style "height" (String.fromInt model.previewContainerHeight ++ "px")
+            ]
+            [ div
+                [ Attr.attribute "data-zoom-target" "true"
+                , Attr.style "transform" ("scale(" ++ String.fromFloat model.previewZoom ++ ") translate(" ++ String.fromFloat model.previewPanX ++ "px, " ++ String.fromFloat model.previewPanY ++ "px)")
+                , Attr.style "transform-origin" "center center"
+                , Attr.style "transition" "transform 0.1s ease-out"
+                ]
+                [ Label.viewLabelWithComputed settings sampleData computed ]
+            ]
+
+        -- Zoom controls
+        , div [ class "mt-3 flex items-center justify-center gap-3" ]
+            [ button
+                [ type_ "button"
+                , class "w-8 h-8 flex items-center justify-center bg-gray-200 hover:bg-gray-300 rounded text-lg font-bold"
+                , onClick ZoomOut
+                , disabled (model.previewZoom <= 0.25)
+                ]
+                [ text "-" ]
+            , input
+                [ type_ "range"
+                , class "w-32"
+                , Attr.min "25"
+                , Attr.max "300"
+                , Attr.step "5"
+                , value (String.fromInt zoomPercent)
+                , onInput (\s -> ZoomChanged (toFloat (Maybe.withDefault 100 (String.toInt s)) / 100))
+                ]
+                []
+            , button
+                [ type_ "button"
+                , class "w-8 h-8 flex items-center justify-center bg-gray-200 hover:bg-gray-300 rounded text-lg font-bold"
+                , onClick ZoomIn
+                , disabled (model.previewZoom >= 3.0)
+                ]
+                [ text "+" ]
+            , span [ class "text-sm text-gray-600 w-12 text-center" ] [ text (String.fromInt zoomPercent ++ "%") ]
+            , button
+                [ type_ "button"
+                , class "px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded"
+                , onClick ResetZoomPan
+                ]
+                [ text "Reset" ]
+            ]
+
+        -- Sample text inputs
+        , div [ class "mt-4 p-3 bg-gray-50 rounded-lg" ]
             [ p [ class "text-sm font-medium text-gray-700 mb-2" ] [ text "Texto de prueba" ]
             , div [ class "space-y-2" ]
                 [ div []
@@ -1008,13 +1168,8 @@ viewPreview model =
                     ]
                 ]
             ]
-        , div [ class "flex justify-center items-center bg-gray-100 rounded-lg p-4 overflow-auto min-h-[200px]" ]
-            [ div
-                [ Attr.style "transform" ("scale(" ++ String.fromFloat previewScale ++ ")")
-                , Attr.style "transform-origin" "center center"
-                ]
-                [ Label.viewLabelWithComputed settings sampleData computed ]
-            ]
+
+        -- Dimension info
         , div [ class "mt-4 text-center text-sm text-gray-500" ]
             [ text (String.fromInt (Label.displayWidth settings) ++ " x " ++ String.fromInt (Label.displayHeight settings) ++ " px (pantalla)")
             , Html.br [] []
@@ -1025,6 +1180,8 @@ viewPreview model =
               else
                 text ""
             ]
+
+        -- Print button
         , div [ class "mt-4 flex justify-center" ]
             [ button
                 [ type_ "button"
@@ -1059,7 +1216,7 @@ viewList model =
                 [ text "No hay presets definidos" ]
 
           else
-            div [ class "space-y-2" ]
+            div [ class "space-y-2 max-h-64 overflow-y-auto" ]
                 (List.map viewPresetRow model.presets)
         ]
 

@@ -1,12 +1,17 @@
 port module Ports exposing
-    ( PngResult
+    ( PinchZoomConfig
+    , PinchZoomUpdate
+    , PngResult
     , SvgToPngRequest
     , TextMeasureRequest
     , TextMeasureResult
+    , initPinchZoom
+    , receivePinchZoomUpdate
     , receivePngResult
     , receiveTextMeasureResult
     , requestSvgToPng
     , requestTextMeasure
+    , setPinchZoom
     )
 
 {-| Ports for SVG to PNG conversion and text measurement via JavaScript.
@@ -90,3 +95,39 @@ port requestTextMeasure : TextMeasureRequest -> Cmd msg
 {-| Receive the result of text measurement.
 -}
 port receiveTextMeasureResult : (TextMeasureResult -> msg) -> Sub msg
+
+
+
+-- PINCH ZOOM PORTS
+
+
+{-| Configuration for initializing pinch-zoom on an element.
+-}
+type alias PinchZoomConfig =
+    { elementId : String
+    , initialZoom : Float
+    }
+
+
+{-| Update from pinch-zoom interaction.
+-}
+type alias PinchZoomUpdate =
+    { zoom : Float
+    , panX : Float
+    , panY : Float
+    }
+
+
+{-| Initialize pinch-zoom on an element.
+-}
+port initPinchZoom : PinchZoomConfig -> Cmd msg
+
+
+{-| Set zoom/pan programmatically (for slider/reset).
+-}
+port setPinchZoom : { elementId : String, zoom : Float, panX : Float, panY : Float } -> Cmd msg
+
+
+{-| Receive zoom/pan updates from JavaScript.
+-}
+port receivePinchZoomUpdate : (PinchZoomUpdate -> msg) -> Sub msg
