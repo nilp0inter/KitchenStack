@@ -69,7 +69,7 @@ update msg model =
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Error al cargar ingredientes", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al cargar ingredientes", notificationType = Error }
                     )
 
         FormNameChanged name ->
@@ -132,13 +132,13 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False, form = emptyIngredientForm }
                     , Api.fetchIngredients GotIngredients
-                    , ShowNotification { message = "Ingrediente guardado", notificationType = Success }
+                    , ShowNotification { id = 0, message = "Ingrediente guardado", notificationType = Success }
                     )
 
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Error al guardar ingrediente", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al guardar ingrediente", notificationType = Error }
                     )
 
         IngredientDeleted result ->
@@ -146,13 +146,13 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False }
                     , Api.fetchIngredients GotIngredients
-                    , ShowNotification { message = "Ingrediente eliminado", notificationType = Success }
+                    , ShowNotification { id = 0, message = "Ingrediente eliminado", notificationType = Success }
                     )
 
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Error al eliminar ingrediente (puede estar en uso)", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al eliminar ingrediente (puede estar en uso)", notificationType = Error }
                     )
 
 

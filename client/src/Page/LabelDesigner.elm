@@ -195,7 +195,7 @@ update msg model =
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Error al cargar presets", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al cargar presets", notificationType = Error }
                     )
 
         FormNameChanged name ->
@@ -514,7 +514,7 @@ update msg model =
                 Nothing ->
                     ( { model | isPrinting = False }
                     , Cmd.none
-                    , ShowNotification { message = "Error al convertir la etiqueta", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al convertir la etiqueta", notificationType = Error }
                     )
 
         PrintResult result ->
@@ -522,20 +522,20 @@ update msg model =
                 Ok _ ->
                     ( { model | isPrinting = False }
                     , Cmd.none
-                    , ShowNotification { message = "Etiqueta enviada a imprimir", notificationType = Success }
+                    , ShowNotification { id = 0, message = "Etiqueta enviada a imprimir", notificationType = Success }
                     )
 
                 Err _ ->
                     ( { model | isPrinting = False }
                     , Cmd.none
-                    , ShowNotification { message = "Error al imprimir la etiqueta", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al imprimir la etiqueta", notificationType = Error }
                     )
 
         SavePreset ->
             if String.isEmpty model.form.name then
                 ( model
                 , Cmd.none
-                , ShowNotification { message = "El nombre es requerido", notificationType = Error }
+                , ShowNotification { id = 0, message = "El nombre es requerido", notificationType = Error }
                 )
 
             else
@@ -602,13 +602,13 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False, form = emptyLabelPresetForm }
                     , Api.fetchLabelPresets GotPresets
-                    , ShowNotification { message = "Preset guardado", notificationType = Success }
+                    , ShowNotification { id = 0, message = "Preset guardado", notificationType = Success }
                     )
 
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Error al guardar preset", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al guardar preset", notificationType = Error }
                     )
 
         PresetDeleted result ->
@@ -616,13 +616,13 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False }
                     , Api.fetchLabelPresets GotPresets
-                    , ShowNotification { message = "Preset eliminado", notificationType = Success }
+                    , ShowNotification { id = 0, message = "Preset eliminado", notificationType = Success }
                     )
 
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Error al eliminar preset", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al eliminar preset", notificationType = Error }
                     )
 
         ZoomChanged newZoom ->

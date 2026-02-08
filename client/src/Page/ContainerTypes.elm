@@ -67,7 +67,7 @@ update msg model =
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Failed to load container types", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Failed to load container types", notificationType = Error }
                     )
 
         FormNameChanged name ->
@@ -122,13 +122,13 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False, form = emptyContainerTypeForm }
                     , Api.fetchContainerTypes GotContainerTypes
-                    , ShowNotification { message = "Container type saved", notificationType = Success }
+                    , ShowNotification { id = 0, message = "Container type saved", notificationType = Success }
                     )
 
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Failed to save container type", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Failed to save container type", notificationType = Error }
                     )
 
         ContainerTypeDeleted result ->
@@ -136,13 +136,13 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False }
                     , Api.fetchContainerTypes GotContainerTypes
-                    , ShowNotification { message = "Container type deleted", notificationType = Success }
+                    , ShowNotification { id = 0, message = "Container type deleted", notificationType = Success }
                     )
 
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Failed to delete container type (may be in use)", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Failed to delete container type (may be in use)", notificationType = Error }
                     )
 
 

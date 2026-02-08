@@ -126,7 +126,8 @@ type alias HistoryPoint =
 
 
 type alias Notification =
-    { message : String
+    { id : Int
+    , message : String
     , notificationType : NotificationType
     }
 

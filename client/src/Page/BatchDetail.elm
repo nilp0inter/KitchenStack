@@ -124,7 +124,7 @@ update msg model =
                     ( { model | batch = maybeBatch }, Cmd.none, NoOp )
 
                 Err _ ->
-                    ( model, Cmd.none, ShowNotification { message = "Failed to load batch", notificationType = Error } )
+                    ( model, Cmd.none, ShowNotification { id = 0, message = "Failed to load batch", notificationType = Error } )
 
         GotBatchPortions result ->
             case result of
@@ -134,7 +134,7 @@ update msg model =
                 Err _ ->
                     ( { model | error = Just "Failed to load batch portions", loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Failed to load batch portions", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Failed to load batch portions", notificationType = Error }
                     )
 
         ReprintPortion portion ->
@@ -177,7 +177,7 @@ update msg model =
                     )
 
                 ( _, Nothing ) ->
-                    ( model, Cmd.none, ShowNotification { message = "No hay preajuste de etiqueta seleccionado", notificationType = Error } )
+                    ( model, Cmd.none, ShowNotification { id = 0, message = "No hay preajuste de etiqueta seleccionado", notificationType = Error } )
 
                 ( Nothing, _ ) ->
                     ( model, Cmd.none, NoOp )
@@ -247,11 +247,11 @@ update msg model =
                     else
                         ( model
                         , Cmd.none
-                        , ShowNotification { message = "No hay porciones congeladas para imprimir", notificationType = Info }
+                        , ShowNotification { id = 0, message = "No hay porciones congeladas para imprimir", notificationType = Info }
                         )
 
                 ( _, Nothing ) ->
-                    ( model, Cmd.none, ShowNotification { message = "No hay preajuste de etiqueta seleccionado", notificationType = Error } )
+                    ( model, Cmd.none, ShowNotification { id = 0, message = "No hay preajuste de etiqueta seleccionado", notificationType = Error } )
 
                 ( Nothing, _ ) ->
                     ( model, Cmd.none, NoOp )
@@ -282,10 +282,10 @@ update msg model =
                         case newProgress of
                             Just p ->
                                 if p.failed > 0 then
-                                    ShowNotification { message = String.fromInt p.completed ++ " etiquetas impresas, " ++ String.fromInt p.failed ++ " fallidas", notificationType = Error }
+                                    ShowNotification { id = 0, message = String.fromInt p.completed ++ " etiquetas impresas, " ++ String.fromInt p.failed ++ " fallidas", notificationType = Error }
 
                                 else
-                                    ShowNotification { message = String.fromInt p.completed ++ " etiquetas impresas correctamente!", notificationType = Success }
+                                    ShowNotification { id = 0, message = String.fromInt p.completed ++ " etiquetas impresas correctamente!", notificationType = Success }
 
                             Nothing ->
                                 NoOp
@@ -400,10 +400,10 @@ update msg model =
                                 case newProgress of
                                     Just p ->
                                         if p.failed > 0 then
-                                            ShowNotification { message = String.fromInt p.completed ++ " etiquetas impresas, " ++ String.fromInt p.failed ++ " fallidas", notificationType = Error }
+                                            ShowNotification { id = 0, message = String.fromInt p.completed ++ " etiquetas impresas, " ++ String.fromInt p.failed ++ " fallidas", notificationType = Error }
 
                                         else
-                                            ShowNotification { message = String.fromInt p.completed ++ " etiquetas impresas correctamente!", notificationType = Success }
+                                            ShowNotification { id = 0, message = String.fromInt p.completed ++ " etiquetas impresas correctamente!", notificationType = Success }
 
                                     Nothing ->
                                         NoOp
@@ -584,13 +584,13 @@ update msg model =
                 Ok _ ->
                     ( model
                     , Api.fetchBatchPortions model.batchId GotBatchPortions
-                    , ShowNotification { message = "Porción devuelta al congelador", notificationType = Success }
+                    , ShowNotification { id = 0, message = "Porción devuelta al congelador", notificationType = Success }
                     )
 
                 Err _ ->
                     ( model
                     , Cmd.none
-                    , ShowNotification { message = "Error al devolver porción al congelador", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al devolver porción al congelador", notificationType = Error }
                     )
 
 

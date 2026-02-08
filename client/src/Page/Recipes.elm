@@ -85,7 +85,7 @@ update msg model =
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Error al cargar recetas", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al cargar recetas", notificationType = Error }
                     )
 
         FormNameChanged name ->
@@ -194,10 +194,10 @@ update msg model =
 
         SaveRecipe ->
             if String.trim model.form.name == "" then
-                ( model, Cmd.none, ShowNotification { message = "El nombre es obligatorio", notificationType = Error } )
+                ( model, Cmd.none, ShowNotification { id = 0, message = "El nombre es obligatorio", notificationType = Error } )
 
             else if List.isEmpty model.form.selectedIngredients then
-                ( model, Cmd.none, ShowNotification { message = "Debes añadir al menos un ingrediente", notificationType = Error } )
+                ( model, Cmd.none, ShowNotification { id = 0, message = "Debes añadir al menos un ingrediente", notificationType = Error } )
 
             else
                 ( { model | loading = True }
@@ -255,13 +255,13 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False, form = emptyRecipeForm }
                     , Api.fetchRecipes GotRecipes
-                    , ShowNotification { message = "Receta guardada", notificationType = Success }
+                    , ShowNotification { id = 0, message = "Receta guardada", notificationType = Success }
                     )
 
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Error al guardar receta", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al guardar receta", notificationType = Error }
                     )
 
         RecipeDeleted result ->
@@ -269,13 +269,13 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False }
                     , Api.fetchRecipes GotRecipes
-                    , ShowNotification { message = "Receta eliminada", notificationType = Success }
+                    , ShowNotification { id = 0, message = "Receta eliminada", notificationType = Success }
                     )
 
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Error al eliminar receta", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al eliminar receta", notificationType = Error }
                     )
 
         HideSuggestions ->

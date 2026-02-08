@@ -146,7 +146,7 @@ dropdownLink url label isActive =
         [ text label ]
 
 
-viewNotification : Maybe Notification -> msg -> Html msg
+viewNotification : Maybe Notification -> (Int -> msg) -> Html msg
 viewNotification maybeNotification dismissMsg =
     case maybeNotification of
         Just notification ->
@@ -164,7 +164,7 @@ viewNotification maybeNotification dismissMsg =
             in
             div [ class ("fixed top-20 right-4 z-50 " ++ bgColor ++ " text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-4") ]
                 [ span [] [ text notification.message ]
-                , button [ onClick dismissMsg, class "text-white hover:text-gray-200" ] [ text "✕" ]
+                , button [ onClick (dismissMsg notification.id), class "text-white hover:text-gray-200" ] [ text "✕" ]
                 ]
 
         Nothing ->

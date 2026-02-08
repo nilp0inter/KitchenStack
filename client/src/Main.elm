@@ -7,6 +7,8 @@ import Components
 import Html exposing (..)
 import Html.Attributes exposing (class)
 import Http
+import Process
+import Task
 import Page.BatchDetail as BatchDetail
 import Page.ContainerTypes as ContainerTypes
 import Page.Dashboard as Dashboard
@@ -56,6 +58,7 @@ type alias Model =
     , labelPresets : List LabelPreset
     , page : Page
     , notification : Maybe Notification
+    , notificationIdCounter : Int
     , printingProgress : Maybe PrintingProgress
     , loading : Bool
     , mobileMenuOpen : Bool
@@ -95,6 +98,7 @@ init flags url key =
             , labelPresets = []
             , page = NotFoundPage
             , notification = Nothing
+            , notificationIdCounter = 0
             , printingProgress = Nothing
             , loading = True
             , mobileMenuOpen = False
@@ -230,7 +234,7 @@ type Msg
     | IngredientsMsg Ingredients.Msg
     | RecipesMsg Recipes.Msg
     | LabelDesignerMsg LabelDesigner.Msg
-    | DismissNotification
+    | DismissNotification Int
     | NavigateToBatch String
     | GotPngResult Ports.PngResult
     | GotTextMeasureResult Ports.TextMeasureResult
@@ -270,9 +274,7 @@ update msg model =
                     maybeInitPage newModel
 
                 Err _ ->
-                    ( { model | notification = Just { message = "Failed to load ingredients", notificationType = Error } }
-                    , Cmd.none
-                    )
+                    setNotification "Failed to load ingredients" Error model
 
         GotContainerTypes result ->
             case result of
@@ -284,12 +286,11 @@ update msg model =
                     maybeInitPage newModel
 
                 Err _ ->
-                    ( { model
-                        | notification = Just { message = "Failed to load container types", notificationType = Error }
-                        , loading = False
-                      }
-                    , Cmd.none
-                    )
+                    let
+                        ( newModel, cmd ) =
+                            setNotification "Failed to load container types" Error model
+                    in
+                    ( { newModel | loading = False }, cmd )
 
         GotBatches result ->
             case result of
@@ -301,12 +302,11 @@ update msg model =
                     maybeInitPage newModel
 
                 Err _ ->
-                    ( { model
-                        | notification = Just { message = "Failed to load batches", notificationType = Error }
-                        , loading = False
-                      }
-                    , Cmd.none
-                    )
+                    let
+                        ( newModel, cmd ) =
+                            setNotification "Failed to load batches" Error model
+                    in
+                    ( { newModel | loading = False }, cmd )
 
         GotRecipes result ->
             case result of
@@ -318,9 +318,7 @@ update msg model =
                     maybeInitPage newModel
 
                 Err _ ->
-                    ( { model | notification = Just { message = "Failed to load recipes", notificationType = Error } }
-                    , Cmd.none
-                    )
+                    setNotification "Failed to load recipes" Error model
 
         GotLabelPresets result ->
             case result of
@@ -332,9 +330,7 @@ update msg model =
                     maybeInitPage newModel
 
                 Err _ ->
-                    ( { model | notification = Just { message = "Failed to load label presets", notificationType = Error } }
-                    , Cmd.none
-                    )
+                    setNotification "Failed to load label presets" Error model
 
         DashboardMsg subMsg ->
             case model.page of
@@ -516,8 +512,18 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
-        DismissNotification ->
-            ( { model | notification = Nothing }, Cmd.none )
+        DismissNotification notificationId ->
+            case model.notification of
+                Just notification ->
+                    if notification.id == notificationId then
+                        ( { model | notification = Nothing }, Cmd.none )
+
+                    else
+                        -- Ignore: timer was for an old notification
+                        ( model, Cmd.none )
+
+                Nothing ->
+                    ( model, Cmd.none )
 
         NavigateToBatch batchId ->
             ( model, Nav.pushUrl model.key ("/batch/" ++ batchId) )
@@ -543,6 +549,38 @@ maybeInitPage model =
         ( model, Cmd.none )
 
 
+{-| Set a notification and schedule its auto-dismiss (except for errors which persist).
+-}
+setNotification : String -> NotificationType -> Model -> ( Model, Cmd Msg )
+setNotification message notificationType model =
+    let
+        newId =
+            model.notificationIdCounter + 1
+
+        notification =
+            { id = newId
+            , message = message
+            , notificationType = notificationType
+            }
+
+        -- Success/Info auto-dismiss after 5 seconds; Errors persist
+        dismissCmd =
+            case notificationType of
+                Error ->
+                    Cmd.none
+
+                _ ->
+                    Process.sleep 5000
+                        |> Task.perform (\_ -> DismissNotification newId)
+    in
+    ( { model
+        | notification = Just notification
+        , notificationIdCounter = newId
+      }
+    , dismissCmd
+    )
+
+
 handleDashboardOutMsg : Dashboard.OutMsg -> Model -> Cmd Dashboard.Msg -> ( Model, Cmd Msg )
 handleDashboardOutMsg outMsg model pageCmd =
     case outMsg of
@@ -558,8 +596,12 @@ handleDashboardOutMsg outMsg model pageCmd =
             )
 
         Dashboard.ShowError message ->
-            ( { model | notification = Just { message = message, notificationType = Error } }
-            , Cmd.map DashboardMsg pageCmd
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification message Error model
+            in
+            ( newModel
+            , Cmd.batch [ Cmd.map DashboardMsg pageCmd, dismissCmd ]
             )
 
 
@@ -570,8 +612,12 @@ handleNewBatchOutMsg outMsg model pageCmd =
             ( model, Cmd.map NewBatchMsg pageCmd )
 
         NewBatch.ShowNotification notification ->
-            ( { model | notification = Just notification }
-            , Cmd.map NewBatchMsg pageCmd
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification notification.message notification.notificationType model
+            in
+            ( newModel
+            , Cmd.batch [ Cmd.map NewBatchMsg pageCmd, dismissCmd ]
             )
 
         NewBatch.NavigateToHome ->
@@ -623,15 +669,24 @@ handleItemDetailOutMsg outMsg model pageCmd =
             ( model, Cmd.map ItemDetailMsg pageCmd )
 
         ItemDetail.ShowNotification notification ->
-            ( { model | notification = Just notification }
-            , Cmd.map ItemDetailMsg pageCmd
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification notification.message notification.notificationType model
+            in
+            ( newModel
+            , Cmd.batch [ Cmd.map ItemDetailMsg pageCmd, dismissCmd ]
             )
 
         ItemDetail.RefreshBatches ->
-            ( { model | notification = Just { message = "Porción marcada como consumida", notificationType = Success } }
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification "Porción marcada como consumida" Success model
+            in
+            ( newModel
             , Cmd.batch
                 [ Cmd.map ItemDetailMsg pageCmd
                 , Api.fetchBatches GotBatches
+                , dismissCmd
                 ]
             )
 
@@ -643,8 +698,12 @@ handleBatchDetailOutMsg outMsg model pageCmd =
             ( model, Cmd.map BatchDetailMsg pageCmd )
 
         BatchDetail.ShowNotification notification ->
-            ( { model | notification = Just notification }
-            , Cmd.map BatchDetailMsg pageCmd
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification notification.message notification.notificationType model
+            in
+            ( newModel
+            , Cmd.batch [ Cmd.map BatchDetailMsg pageCmd, dismissCmd ]
             )
 
         BatchDetail.RequestSvgToPng request ->
@@ -671,8 +730,12 @@ handleHistoryOutMsg outMsg model pageCmd =
             ( model, Cmd.map HistoryMsg pageCmd )
 
         History.ShowError message ->
-            ( { model | notification = Just { message = message, notificationType = Error } }
-            , Cmd.map HistoryMsg pageCmd
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification message Error model
+            in
+            ( newModel
+            , Cmd.batch [ Cmd.map HistoryMsg pageCmd, dismissCmd ]
             )
 
 
@@ -683,8 +746,12 @@ handleContainerTypesOutMsg outMsg model pageCmd =
             ( model, Cmd.map ContainerTypesMsg pageCmd )
 
         ContainerTypes.ShowNotification notification ->
-            ( { model | notification = Just notification }
-            , Cmd.map ContainerTypesMsg pageCmd
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification notification.message notification.notificationType model
+            in
+            ( newModel
+            , Cmd.batch [ Cmd.map ContainerTypesMsg pageCmd, dismissCmd ]
             )
 
 
@@ -695,8 +762,12 @@ handleIngredientsOutMsg outMsg model pageCmd =
             ( model, Cmd.map IngredientsMsg pageCmd )
 
         Ingredients.ShowNotification notification ->
-            ( { model | notification = Just notification }
-            , Cmd.map IngredientsMsg pageCmd
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification notification.message notification.notificationType model
+            in
+            ( newModel
+            , Cmd.batch [ Cmd.map IngredientsMsg pageCmd, dismissCmd ]
             )
 
         Ingredients.RefreshIngredients ->
@@ -715,8 +786,12 @@ handleRecipesOutMsg outMsg model pageCmd =
             ( model, Cmd.map RecipesMsg pageCmd )
 
         Recipes.ShowNotification notification ->
-            ( { model | notification = Just notification }
-            , Cmd.map RecipesMsg pageCmd
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification notification.message notification.notificationType model
+            in
+            ( newModel
+            , Cmd.batch [ Cmd.map RecipesMsg pageCmd, dismissCmd ]
             )
 
         Recipes.RefreshRecipes ->
@@ -736,8 +811,12 @@ handleLabelDesignerOutMsg outMsg model pageCmd =
             ( model, Cmd.map LabelDesignerMsg pageCmd )
 
         LabelDesigner.ShowNotification notification ->
-            ( { model | notification = Just notification }
-            , Cmd.map LabelDesignerMsg pageCmd
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification notification.message notification.notificationType model
+            in
+            ( newModel
+            , Cmd.batch [ Cmd.map LabelDesignerMsg pageCmd, dismissCmd ]
             )
 
         LabelDesigner.RefreshPresets ->

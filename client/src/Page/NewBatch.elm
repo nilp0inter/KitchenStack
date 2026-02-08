@@ -266,10 +266,10 @@ update msg model =
 
         SubmitBatchOnly ->
             if List.isEmpty model.form.selectedIngredients then
-                ( model, Cmd.none, ShowNotification { message = "Debes añadir al menos un ingrediente", notificationType = Error } )
+                ( model, Cmd.none, ShowNotification { id = 0, message = "Debes añadir al menos un ingrediente", notificationType = Error } )
 
             else if model.expiryRequired && model.form.expiryDate == "" then
-                ( model, Cmd.none, ShowNotification { message = "Debes indicar fecha de caducidad (ningún ingrediente tiene días definidos)", notificationType = Error } )
+                ( model, Cmd.none, ShowNotification { id = 0, message = "Debes indicar fecha de caducidad (ningún ingrediente tiene días definidos)", notificationType = Error } )
 
             else
                 let
@@ -286,10 +286,10 @@ update msg model =
 
         SubmitBatchWithPrint ->
             if List.isEmpty model.form.selectedIngredients then
-                ( model, Cmd.none, ShowNotification { message = "Debes añadir al menos un ingrediente", notificationType = Error } )
+                ( model, Cmd.none, ShowNotification { id = 0, message = "Debes añadir al menos un ingrediente", notificationType = Error } )
 
             else if model.expiryRequired && model.form.expiryDate == "" then
-                ( model, Cmd.none, ShowNotification { message = "Debes indicar fecha de caducidad (ningún ingrediente tiene días definidos)", notificationType = Error } )
+                ( model, Cmd.none, ShowNotification { id = 0, message = "Debes indicar fecha de caducidad (ningún ingrediente tiene días definidos)", notificationType = Error } )
 
             else
                 let
@@ -319,7 +319,7 @@ update msg model =
                 [] ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Failed to generate UUIDs", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Failed to generate UUIDs", notificationType = Error }
                     )
 
         BatchCreated result ->
@@ -389,7 +389,7 @@ update msg model =
                                 RequestTextMeasure req
 
                             Nothing ->
-                                ShowNotification { message = "No label preset selected", notificationType = Error }
+                                ShowNotification { id = 0, message = "No label preset selected", notificationType = Error }
                         )
 
                     else
@@ -405,7 +405,7 @@ update msg model =
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Error al crear lote. Verifica que los ingredientes tienen días de caducidad o especifica una fecha manual.", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al crear lote. Verifica que los ingredientes tienen días de caducidad o especifica una fecha manual.", notificationType = Error }
                     )
 
         PrintResult result ->
@@ -434,10 +434,10 @@ update msg model =
                         case newProgress of
                             Just p ->
                                 if p.failed > 0 then
-                                    ShowNotification { message = String.fromInt p.completed ++ " etiquetas impresas, " ++ String.fromInt p.failed ++ " fallidas", notificationType = Error }
+                                    ShowNotification { id = 0, message = String.fromInt p.completed ++ " etiquetas impresas, " ++ String.fromInt p.failed ++ " fallidas", notificationType = Error }
 
                                 else
-                                    ShowNotification { message = String.fromInt p.completed ++ " etiquetas impresas correctamente!", notificationType = Success }
+                                    ShowNotification { id = 0, message = String.fromInt p.completed ++ " etiquetas impresas correctamente!", notificationType = Success }
 
                             Nothing ->
                                 NoOp

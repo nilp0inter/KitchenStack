@@ -63,7 +63,7 @@ update msg model =
                 Err _ ->
                     ( { model | error = Just "Failed to load portion details", loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Failed to load portion details", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Failed to load portion details", notificationType = Error }
                     )
 
         ConsumePortion portionId ->
@@ -83,7 +83,7 @@ update msg model =
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { message = "Failed to consume portion", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Failed to consume portion", notificationType = Error }
                     )
 
 
