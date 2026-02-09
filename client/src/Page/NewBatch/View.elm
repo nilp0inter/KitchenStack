@@ -1,5 +1,6 @@
 module Page.NewBatch.View exposing (view)
 
+import Data.LabelPreset
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes as Attr exposing (class, disabled, href, id, placeholder, required, selected, type_, value)
@@ -186,7 +187,7 @@ viewHiddenLabels model =
         Just preset ->
             let
                 labelSettings =
-                    presetToSettings preset
+                    Data.LabelPreset.presetToSettings preset
 
                 -- Default computed data when measurement hasn't completed yet
                 defaultComputed =

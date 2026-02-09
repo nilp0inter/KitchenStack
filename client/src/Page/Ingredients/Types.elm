@@ -1,0 +1,37 @@
+module Page.Ingredients.Types exposing
+    ( Model
+    , Msg(..)
+    , OutMsg(..)
+    )
+
+import Http
+import Types exposing (..)
+
+
+type alias Model =
+    { ingredients : List Ingredient
+    , form : IngredientForm
+    , loading : Bool
+    , deleteConfirm : Maybe String
+    }
+
+
+type Msg
+    = GotIngredients (Result Http.Error (List Ingredient))
+    | FormNameChanged String
+    | FormExpireDaysChanged String
+    | FormBestBeforeDaysChanged String
+    | SaveIngredient
+    | EditIngredient Ingredient
+    | CancelEdit
+    | DeleteIngredient String
+    | ConfirmDelete String
+    | CancelDelete
+    | IngredientSaved (Result Http.Error ())
+    | IngredientDeleted (Result Http.Error ())
+
+
+type OutMsg
+    = NoOp
+    | ShowNotification Notification
+    | RefreshIngredients

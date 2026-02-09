@@ -8,6 +8,7 @@ module Page.NewBatch exposing
     )
 
 import Api
+import Data.LabelPreset
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Http
@@ -307,7 +308,7 @@ update msg model =
                                     ( Just firstData, Just preset ) ->
                                         let
                                             labelSettings =
-                                                presetToSettings preset
+                                                Data.LabelPreset.presetToSettings preset
                                         in
                                         Just
                                             { requestId = firstData.portionId
@@ -586,7 +587,7 @@ update msg model =
                                             |> List.head
 
                                     labelSettings =
-                                        presetToSettings preset
+                                        Data.LabelPreset.presetToSettings preset
                                 in
                                 case maybeData of
                                     Just nextData ->

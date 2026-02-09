@@ -903,7 +903,7 @@ viewPage : Model -> Html Msg
 viewPage model =
     case model.page of
         DashboardPage pageModel ->
-            Dashboard.view pageModel NavigateToBatch
+            Html.map DashboardMsg (Dashboard.view pageModel)
 
         NewBatchPage pageModel ->
             Html.map NewBatchMsg (NewBatch.view pageModel)
