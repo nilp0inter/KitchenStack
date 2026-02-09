@@ -1,8 +1,16 @@
-# Production override for Raspberry Pi with physical printer
-# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+# Production override for Raspberry Pi with pre-built images
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 services:
   printer_service:
+    image: ghcr.io/nilp0inter/frostbyte-printer:latest
+    build: !reset null
     environment:
       DRY_RUN: "false"
     devices:
       - /dev/usb/lp0:/dev/usb/lp0
+
+  client_builder:
+    image: ghcr.io/nilp0inter/frostbyte-client:latest
+    command: ["sh", "-c", "cp -r /dist/* /output/"]
+    volumes:
+      - client_dist:/output
