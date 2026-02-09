@@ -10,7 +10,7 @@ services:
       BROTHER_QL_PRINTER: "usb://0x04f9:0x209b"
       BROTHER_QL_MODEL: "QL-800"
     volumes:
-      - /dev/bus/usb:/dev/bus/usb
+      - /dev:/dev
 
   client_builder:
     image: ghcr.io/nilp0inter/frostbyte-client:latest
