@@ -1,12 +1,5 @@
 module Label exposing
-    ( ComputedLabelData
-    , LabelData
-    , LabelSettings
-    , defaultSettings
-    , displayHeight
-    , displayWidth
-    , labelSvgId
-    , textMaxWidth
+    ( labelSvgId
     , viewLabelWithComputed
     )
 
@@ -17,92 +10,11 @@ Layout matches the original Python printer service output.
 
 -}
 
+import Data.Label exposing (ComputedLabelData, LabelData, LabelSettings, displayHeight, displayWidth, textMaxWidth)
 import Html exposing (Html)
 import QRCode
 import Svg exposing (Svg)
 import Svg.Attributes as SvgA
-
-
-{-| Data needed to render a label.
--}
-type alias LabelData =
-    { portionId : String
-    , name : String
-    , ingredients : String
-    , expiryDate : String
-    , bestBeforeDate : Maybe String
-    , appHost : String
-    }
-
-
-{-| Computed values from JS text measurement for rendering.
--}
-type alias ComputedLabelData =
-    { titleFontSize : Int
-    , titleLines : List String
-    , ingredientLines : List String
-    }
-
-
-{-| Settings that control label dimensions and styling.
--}
-type alias LabelSettings =
-    { name : String
-    , labelType : String
-    , width : Int
-    , height : Int
-    , qrSize : Int
-    , padding : Int
-    , titleFontSize : Int
-    , dateFontSize : Int
-    , smallFontSize : Int
-    , fontFamily : String
-    , showTitle : Bool
-    , showIngredients : Bool
-    , showExpiryDate : Bool
-    , showBestBefore : Bool
-    , showQr : Bool
-    , showBranding : Bool
-    , verticalSpacing : Int
-    , showSeparator : Bool
-    , separatorThickness : Int
-    , separatorColor : String
-    , cornerRadius : Int
-    , titleMinFontSize : Int
-    , ingredientsMaxChars : Int
-    , rotate : Bool
-    }
-
-
-{-| Default settings for 62mm Brother QL tape.
--}
-defaultSettings : LabelSettings
-defaultSettings =
-    { name = "62mm (default)"
-    , labelType = "62"
-    , width = 696
-    , height = 300
-    , qrSize = 200
-    , padding = 20
-    , titleFontSize = 48
-    , dateFontSize = 32
-    , smallFontSize = 18
-    , fontFamily = "Atkinson Hyperlegible, sans-serif"
-    , showTitle = True
-    , showIngredients = False
-    , showExpiryDate = True
-    , showBestBefore = False
-    , showQr = True
-    , showBranding = True
-    , verticalSpacing = 10
-    , showSeparator = True
-    , separatorThickness = 1
-    , separatorColor = "#cccccc"
-    , cornerRadius = 0
-    , titleMinFontSize = 24
-    , ingredientsMaxChars = 45
-    , rotate = False
-    }
 
 
 {-| Generate a unique SVG element ID for a portion.
@@ -112,49 +24,6 @@ labelSvgId portionId =
     "label-svg-" ++ portionId
 
 
-{-| Get display width. When rotate=True, swaps width/height for landscape display.
--}
-displayWidth : LabelSettings -> Int
-displayWidth settings =
-    if settings.rotate then
-        settings.height
-
-    else
-        settings.width
-
-
-{-| Get display height. When rotate=True, swaps width/height for landscape display.
--}
-displayHeight : LabelSettings -> Int
-displayHeight settings =
-    if settings.rotate then
-        settings.width
-
-    else
-        settings.height
-
-
-{-| Calculate the maximum width available for text content.
-Used by other modules to request text measurement with correct width.
-Uses display dimensions (landscape orientation).
--}
-textMaxWidth : LabelSettings -> Int
-textMaxWidth settings =
-    let
-        dispWidth =
-            displayWidth settings
-
-        qrPaddingCompensation =
-            settings.qrSize // 10
-
-        qrX =
-            dispWidth - settings.qrSize - settings.padding + qrPaddingCompensation
-    in
-    if settings.showQr then
-        qrX + qrPaddingCompensation - settings.padding - settings.padding
-
-    else
-        dispWidth - settings.padding - settings.padding
 
 
 {-| Render a label as SVG with computed text measurements.

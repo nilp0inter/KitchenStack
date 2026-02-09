@@ -8,6 +8,7 @@ module Page.Recipes exposing
     )
 
 import Api
+import Data.Recipe
 import Html exposing (..)
 import Html.Attributes as Attr exposing (class, disabled, id, placeholder, required, selected, title, type_, value)
 import Html.Events exposing (onClick, onInput, onSubmit)
@@ -62,7 +63,7 @@ init recipes ingredients containerTypes labelPresets =
       , ingredients = ingredients
       , containerTypes = containerTypes
       , labelPresets = labelPresets
-      , form = emptyRecipeForm
+      , form = Data.Recipe.empty
       , loading = False
       , deleteConfirm = Nothing
       , showSuggestions = False
@@ -236,7 +237,7 @@ update msg model =
             )
 
         CancelEdit ->
-            ( { model | form = emptyRecipeForm }, Cmd.none, NoOp )
+            ( { model | form = Data.Recipe.empty }, Cmd.none, NoOp )
 
         DeleteRecipe name ->
             ( { model | deleteConfirm = Just name }, Cmd.none, NoOp )
@@ -253,7 +254,7 @@ update msg model =
         RecipeSaved result ->
             case result of
                 Ok _ ->
-                    ( { model | loading = False, form = emptyRecipeForm }
+                    ( { model | loading = False, form = Data.Recipe.empty }
                     , Api.fetchRecipes GotRecipes
                     , ShowNotification { id = 0, message = "Receta guardada", notificationType = Success }
                     )

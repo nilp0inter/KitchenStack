@@ -13,6 +13,8 @@ import Html exposing (Html)
 import Http
 import Label
 import Page.NewBatch.Types as NB exposing (..)
+import Data.Batch
+import Data.Label
 import Page.NewBatch.View as View
 import Ports
 import Random
@@ -29,7 +31,7 @@ init : String -> String -> List Ingredient -> List ContainerType -> List Recipe 
 init currentDate appHost ingredients containerTypes recipes labelPresets =
     let
         form =
-            emptyBatchForm currentDate
+            Data.Batch.empty currentDate
 
         formWithDefaults =
             { form
@@ -315,7 +317,7 @@ update msg model =
                                             , titleFontSize = preset.titleFontSize
                                             , titleMinFontSize = preset.titleMinFontSize
                                             , smallFontSize = preset.smallFontSize
-                                            , maxWidth = Label.textMaxWidth labelSettings
+                                            , maxWidth = Data.Label.textMaxWidth labelSettings
                                             , ingredientsMaxChars = preset.ingredientsMaxChars
                                             }
 
@@ -323,7 +325,7 @@ update msg model =
                                         Nothing
                         in
                         ( { model
-                            | form = emptyBatchForm currentDate
+                            | form = Data.Batch.empty currentDate
                             , loading = False
                             , printingProgress = Just { total = quantity, completed = 0, failed = 0 }
                             , expiryRequired = False
@@ -346,7 +348,7 @@ update msg model =
                             currentDate =
                                 model.form.createdAt
                         in
-                        ( { model | form = emptyBatchForm currentDate, loading = False, expiryRequired = False }
+                        ( { model | form = Data.Batch.empty currentDate, loading = False, expiryRequired = False }
                         , Cmd.none
                         , NavigateToBatch response.batchId
                         )
@@ -596,7 +598,7 @@ update msg model =
                                             , titleFontSize = preset.titleFontSize
                                             , titleMinFontSize = preset.titleMinFontSize
                                             , smallFontSize = preset.smallFontSize
-                                            , maxWidth = Label.textMaxWidth labelSettings
+                                            , maxWidth = Data.Label.textMaxWidth labelSettings
                                             , ingredientsMaxChars = preset.ingredientsMaxChars
                                             }
 

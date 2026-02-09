@@ -11,6 +11,7 @@ module Page.LabelDesigner exposing
 -}
 
 import Api
+import Data.LabelPreset
 import Data.LabelTypes exposing (LabelTypeSpec, isEndlessLabel, labelTypes, silverRatioHeight)
 import Html exposing (Html)
 import Http
@@ -32,7 +33,7 @@ init appHost presets =
     let
         model =
             { presets = presets
-            , form = emptyLabelPresetForm
+            , form = Data.LabelPreset.empty
             , appHost = appHost
             , loading = False
             , deleteConfirm = Nothing
@@ -454,7 +455,7 @@ update msg model =
             )
 
         CancelEdit ->
-            ( { model | form = emptyLabelPresetForm }, Cmd.none, NoOp )
+            ( { model | form = Data.LabelPreset.empty }, Cmd.none, NoOp )
 
         DeletePreset name ->
             ( { model | deleteConfirm = Just name }, Cmd.none, NoOp )
@@ -471,7 +472,7 @@ update msg model =
         PresetSaved result ->
             case result of
                 Ok _ ->
-                    ( { model | loading = False, form = emptyLabelPresetForm }
+                    ( { model | loading = False, form = Data.LabelPreset.empty }
                     , Api.fetchLabelPresets GotPresets
                     , ShowNotification { id = 0, message = "Preset guardado", notificationType = Success }
                     )

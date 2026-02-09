@@ -6,8 +6,8 @@ module Page.LabelDesigner.Types exposing
     , requestMeasurement
     )
 
+import Data.Label as Label
 import Http
-import Label
 import Ports
 import Types exposing (..)
 

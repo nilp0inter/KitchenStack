@@ -5,6 +5,7 @@ module Page.NewBatch.Types exposing
     , presetToSettings
     )
 
+import Data.Label
 import Dict exposing (Dict)
 import Http
 import Label
@@ -30,7 +31,7 @@ type alias Model =
     , pendingPrintData : List PortionPrintData
     , pendingPngRequests : List String
     , pendingMeasurements : List String
-    , computedLabelData : Dict String Label.ComputedLabelData
+    , computedLabelData : Dict String Data.Label.ComputedLabelData
     }
 
 
@@ -70,7 +71,7 @@ type OutMsg
 
 {-| Convert a LabelPreset to LabelSettings for Label module functions.
 -}
-presetToSettings : LabelPreset -> Label.LabelSettings
+presetToSettings : LabelPreset -> Data.Label.LabelSettings
 presetToSettings preset =
     { name = preset.name
     , labelType = preset.labelType

@@ -12,6 +12,7 @@ import Components
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes as Attr exposing (class, href, title)
+import Data.Label
 import Html.Events exposing (onClick, onInput)
 import Http
 import Label
@@ -36,7 +37,7 @@ type alias Model =
     , pendingPrintData : List PortionPrintData
     , pendingPngRequests : List String
     , pendingMeasurements : List String
-    , computedLabelData : Dict String Label.ComputedLabelData
+    , computedLabelData : Dict String Data.Label.ComputedLabelData
     }
 
 
@@ -161,7 +162,7 @@ update msg model =
                             , titleFontSize = preset.titleFontSize
                             , titleMinFontSize = preset.titleMinFontSize
                             , smallFontSize = preset.smallFontSize
-                            , maxWidth = Label.textMaxWidth labelSettings
+                            , maxWidth = Data.Label.textMaxWidth labelSettings
                             , ingredientsMaxChars = preset.ingredientsMaxChars
                             }
                     in
@@ -220,7 +221,7 @@ update msg model =
                                         , titleFontSize = preset.titleFontSize
                                         , titleMinFontSize = preset.titleMinFontSize
                                         , smallFontSize = preset.smallFontSize
-                                        , maxWidth = Label.textMaxWidth labelSettings
+                                        , maxWidth = Data.Label.textMaxWidth labelSettings
                                         , ingredientsMaxChars = preset.ingredientsMaxChars
                                         }
 
@@ -512,7 +513,7 @@ update msg model =
                                             , titleFontSize = preset.titleFontSize
                                             , titleMinFontSize = preset.titleMinFontSize
                                             , smallFontSize = preset.smallFontSize
-                                            , maxWidth = Label.textMaxWidth labelSettings
+                                            , maxWidth = Data.Label.textMaxWidth labelSettings
                                             , ingredientsMaxChars = preset.ingredientsMaxChars
                                             }
 
@@ -557,7 +558,7 @@ update msg model =
                             , titleFontSize = preset.titleFontSize
                             , titleMinFontSize = preset.titleMinFontSize
                             , smallFontSize = preset.smallFontSize
-                            , maxWidth = Label.textMaxWidth labelSettings
+                            , maxWidth = Data.Label.textMaxWidth labelSettings
                             , ingredientsMaxChars = preset.ingredientsMaxChars
                             }
                     in
@@ -881,7 +882,7 @@ viewPortionRow batch index portion =
 
 {-| Convert a LabelPreset to LabelSettings for Label module functions.
 -}
-presetToSettings : LabelPreset -> Label.LabelSettings
+presetToSettings : LabelPreset -> Data.Label.LabelSettings
 presetToSettings preset =
     { name = preset.name
     , labelType = preset.labelType

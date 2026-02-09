@@ -1,5 +1,6 @@
 module Page.LabelDesigner.View exposing (view)
 
+import Data.Label
 import Data.LabelTypes exposing (LabelTypeSpec, isEndlessLabel, labelTypes)
 import Html exposing (..)
 import Html.Attributes as Attr exposing (checked, class, disabled, placeholder, required, selected, title, type_, value)
@@ -477,7 +478,7 @@ viewPreview model =
 
         -- Dimension info
         , div [ class "mt-4 text-center text-sm text-gray-500" ]
-            [ text (String.fromInt (Label.displayWidth settings) ++ " x " ++ String.fromInt (Label.displayHeight settings) ++ " px (pantalla)")
+            [ text (String.fromInt (Data.Label.displayWidth settings) ++ " x " ++ String.fromInt (Data.Label.displayHeight settings) ++ " px (pantalla)")
             , Html.br [] []
             , text (String.fromInt settings.width ++ " x " ++ String.fromInt settings.height ++ " px (impresión)")
             , if settings.cornerRadius > 0 then
@@ -595,7 +596,7 @@ viewDeleteConfirm maybeName =
 
 {-| Render a hidden label for SVG→PNG conversion.
 -}
-viewHiddenLabel : Model -> Label.LabelSettings -> Label.LabelData -> Label.ComputedLabelData -> Html Msg
+viewHiddenLabel : Model -> Data.Label.LabelSettings -> Data.Label.LabelData -> Data.Label.ComputedLabelData -> Html Msg
 viewHiddenLabel model settings sampleData computed =
     if model.isPrinting then
         let

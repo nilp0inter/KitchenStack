@@ -8,6 +8,7 @@ module Page.ContainerTypes exposing
     )
 
 import Api
+import Data.ContainerType
 import Html exposing (..)
 import Html.Attributes as Attr exposing (class, disabled, placeholder, required, title, type_, value)
 import Html.Events exposing (onClick, onInput, onSubmit)
@@ -45,7 +46,7 @@ type OutMsg
 init : List ContainerType -> ( Model, Cmd Msg )
 init containerTypes =
     ( { containerTypes = containerTypes
-      , form = emptyContainerTypeForm
+      , form = Data.ContainerType.empty
       , loading = False
       , deleteConfirm = Nothing
       }
@@ -103,7 +104,7 @@ update msg model =
             )
 
         CancelEdit ->
-            ( { model | form = emptyContainerTypeForm }, Cmd.none, NoOp )
+            ( { model | form = Data.ContainerType.empty }, Cmd.none, NoOp )
 
         DeleteContainerType name ->
             ( { model | deleteConfirm = Just name }, Cmd.none, NoOp )
@@ -120,7 +121,7 @@ update msg model =
         ContainerTypeSaved result ->
             case result of
                 Ok _ ->
-                    ( { model | loading = False, form = emptyContainerTypeForm }
+                    ( { model | loading = False, form = Data.ContainerType.empty }
                     , Api.fetchContainerTypes GotContainerTypes
                     , ShowNotification { id = 0, message = "Container type saved", notificationType = Success }
                     )

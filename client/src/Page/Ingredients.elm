@@ -8,6 +8,7 @@ module Page.Ingredients exposing
     )
 
 import Api
+import Data.Ingredient
 import Html exposing (..)
 import Html.Attributes as Attr exposing (class, disabled, placeholder, required, title, type_, value)
 import Html.Events exposing (onClick, onInput, onSubmit)
@@ -47,7 +48,7 @@ type OutMsg
 init : List Ingredient -> ( Model, Cmd Msg )
 init ingredients =
     ( { ingredients = ingredients
-      , form = emptyIngredientForm
+      , form = Data.Ingredient.empty
       , loading = False
       , deleteConfirm = Nothing
       }
@@ -113,7 +114,7 @@ update msg model =
             )
 
         CancelEdit ->
-            ( { model | form = emptyIngredientForm }, Cmd.none, NoOp )
+            ( { model | form = Data.Ingredient.empty }, Cmd.none, NoOp )
 
         DeleteIngredient name ->
             ( { model | deleteConfirm = Just name }, Cmd.none, NoOp )
@@ -130,7 +131,7 @@ update msg model =
         IngredientSaved result ->
             case result of
                 Ok _ ->
-                    ( { model | loading = False, form = emptyIngredientForm }
+                    ( { model | loading = False, form = Data.Ingredient.empty }
                     , Api.fetchIngredients GotIngredients
                     , ShowNotification { id = 0, message = "Ingrediente guardado", notificationType = Success }
                     )

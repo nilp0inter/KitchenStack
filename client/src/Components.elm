@@ -8,6 +8,7 @@ module Components exposing
     , viewPrintingProgress
     )
 
+import Data.Label
 import Html exposing (..)
 import Html.Attributes as Attr exposing (class, href, style, title)
 import Html.Events exposing (onClick)
@@ -246,7 +247,7 @@ viewPreviewModal maybePreview closeMsg =
 {-| SVG-based preview modal for labels.
 Uses Label.viewLabelWithComputed to render the label with text fitting.
 -}
-viewPreviewModalSvg : Label.LabelSettings -> String -> Maybe PortionPrintData -> Maybe Label.ComputedLabelData -> msg -> Html msg
+viewPreviewModalSvg : Data.Label.LabelSettings -> String -> Maybe PortionPrintData -> Maybe Data.Label.ComputedLabelData -> msg -> Html msg
 viewPreviewModalSvg settings appHost maybePreview maybeComputed closeMsg =
     case maybePreview of
         Just portionData ->

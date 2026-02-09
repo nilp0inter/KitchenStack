@@ -20,11 +20,6 @@ module Types exposing
     , Recipe
     , RecipeForm
     , SelectedIngredient
-    , emptyBatchForm
-    , emptyContainerTypeForm
-    , emptyIngredientForm
-    , emptyLabelPresetForm
-    , emptyRecipeForm
     )
 
 
@@ -170,36 +165,6 @@ type alias PortionPrintData =
     }
 
 
-emptyBatchForm : String -> BatchForm
-emptyBatchForm currentDate =
-    { name = ""
-    , selectedIngredients = []
-    , ingredientInput = ""
-    , containerId = ""
-    , quantity = "1"
-    , createdAt = currentDate
-    , expiryDate = ""
-    , details = ""
-    }
-
-
-emptyContainerTypeForm : ContainerTypeForm
-emptyContainerTypeForm =
-    { name = ""
-    , servingsPerUnit = ""
-    , editing = Nothing
-    }
-
-
-emptyIngredientForm : IngredientForm
-emptyIngredientForm =
-    { name = ""
-    , expireDays = ""
-    , bestBeforeDays = ""
-    , editing = Nothing
-    }
-
-
 type alias Recipe =
     { name : String
     , defaultPortions : Int
@@ -219,19 +184,6 @@ type alias RecipeForm =
     , defaultLabelPreset : String
     , editing : Maybe String
     , details : String
-    }
-
-
-emptyRecipeForm : RecipeForm
-emptyRecipeForm =
-    { name = ""
-    , selectedIngredients = []
-    , ingredientInput = ""
-    , defaultPortions = "1"
-    , defaultContainerId = ""
-    , defaultLabelPreset = ""
-    , editing = Nothing
-    , details = ""
     }
 
 
@@ -292,31 +244,3 @@ type alias LabelPresetForm =
     }
 
 
-emptyLabelPresetForm : LabelPresetForm
-emptyLabelPresetForm =
-    { name = ""
-    , labelType = "29"
-    , width = "306"
-    , height = "200"
-    , qrSize = "215"
-    , padding = "10"
-    , titleFontSize = "30"
-    , dateFontSize = "18"
-    , smallFontSize = "12"
-    , fontFamily = "Atkinson Hyperlegible, sans-serif"
-    , showTitle = True
-    , showIngredients = True
-    , showExpiryDate = True
-    , showBestBefore = False
-    , showQr = True
-    , showBranding = True
-    , verticalSpacing = "8"
-    , showSeparator = True
-    , separatorThickness = "1"
-    , separatorColor = "#cccccc"
-    , cornerRadius = "0"
-    , titleMinFontSize = "26"
-    , ingredientsMaxChars = "80"
-    , rotate = False
-    , editing = Nothing
-    }
