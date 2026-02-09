@@ -52,10 +52,12 @@ def print_to_brother_ql(image_path: str, label_type: str) -> None:
         cut=True,
     )
 
-    # Send to printer (assumes USB connection)
+    # Send to printer via USB
+    # Uses BROTHER_QL_PRINTER env var (e.g., "usb://0x04f9:0x209b/000H2G261629")
+    printer_uri = os.getenv("BROTHER_QL_PRINTER", "usb://0x04f9:0x209b")
     send(
         instructions=instructions,
-        printer_identifier="usb://0x04f9:0x2042",
+        printer_identifier=printer_uri,
         backend_identifier="pyusb"
     )
 
