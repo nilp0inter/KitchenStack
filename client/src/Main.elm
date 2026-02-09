@@ -10,17 +10,24 @@ import Http
 import Process
 import Task
 import Page.BatchDetail as BatchDetail
+import Page.BatchDetail.Types as BatchDetailTypes
 import Page.ContainerTypes as ContainerTypes
+import Page.ContainerTypes.Types as ContainerTypesTypes
 import Page.Dashboard as Dashboard
+import Page.Dashboard.Types as DashboardTypes
 import Page.History as History
+import Page.History.Types as HistoryTypes
 import Page.Ingredients as Ingredients
+import Page.Ingredients.Types as IngredientsTypes
 import Page.ItemDetail as ItemDetail
+import Page.ItemDetail.Types as ItemDetailTypes
 import Page.LabelDesigner as LabelDesigner
 import Page.LabelDesigner.Types as LabelDesignerTypes
 import Page.NewBatch as NewBatch
 import Page.NewBatch.Types as NewBatchTypes
 import Page.NotFound as NotFound
 import Page.Recipes as Recipes
+import Page.Recipes.Types as RecipesTypes
 import Ports
 import Route exposing (Route(..))
 import Types exposing (..)
@@ -482,7 +489,7 @@ update msg model =
                     update (NewBatchMsg (NewBatchTypes.GotPngResult pngResult)) model
 
                 BatchDetailPage _ ->
-                    update (BatchDetailMsg (BatchDetail.GotPngResult pngResult)) model
+                    update (BatchDetailMsg (BatchDetailTypes.GotPngResult pngResult)) model
 
                 LabelDesignerPage _ ->
                     update (LabelDesignerMsg (LabelDesignerTypes.GotPngResult pngResult)) model
@@ -497,7 +504,7 @@ update msg model =
                     update (NewBatchMsg (NewBatchTypes.GotTextMeasureResult measureResult)) model
 
                 BatchDetailPage _ ->
-                    update (BatchDetailMsg (BatchDetail.GotTextMeasureResult measureResult)) model
+                    update (BatchDetailMsg (BatchDetailTypes.GotTextMeasureResult measureResult)) model
 
                 LabelDesignerPage _ ->
                     update (LabelDesignerMsg (LabelDesignerTypes.GotTextMeasureResult measureResult)) model
@@ -586,10 +593,10 @@ setNotification message notificationType model =
 handleDashboardOutMsg : Dashboard.OutMsg -> Model -> Cmd Dashboard.Msg -> ( Model, Cmd Msg )
 handleDashboardOutMsg outMsg model pageCmd =
     case outMsg of
-        Dashboard.NoOp ->
+        DashboardTypes.NoOp ->
             ( model, Cmd.map DashboardMsg pageCmd )
 
-        Dashboard.NavigateToBatch batchId ->
+        DashboardTypes.NavigateToBatch batchId ->
             ( model
             , Cmd.batch
                 [ Cmd.map DashboardMsg pageCmd
@@ -597,7 +604,7 @@ handleDashboardOutMsg outMsg model pageCmd =
                 ]
             )
 
-        Dashboard.ShowError message ->
+        DashboardTypes.ShowError message ->
             let
                 ( newModel, dismissCmd ) =
                     setNotification message Error model
@@ -667,10 +674,10 @@ handleNewBatchOutMsg outMsg model pageCmd =
 handleItemDetailOutMsg : ItemDetail.OutMsg -> Model -> Cmd ItemDetail.Msg -> ( Model, Cmd Msg )
 handleItemDetailOutMsg outMsg model pageCmd =
     case outMsg of
-        ItemDetail.NoOp ->
+        ItemDetailTypes.NoOp ->
             ( model, Cmd.map ItemDetailMsg pageCmd )
 
-        ItemDetail.ShowNotification notification ->
+        ItemDetailTypes.ShowNotification notification ->
             let
                 ( newModel, dismissCmd ) =
                     setNotification notification.message notification.notificationType model
@@ -679,7 +686,7 @@ handleItemDetailOutMsg outMsg model pageCmd =
             , Cmd.batch [ Cmd.map ItemDetailMsg pageCmd, dismissCmd ]
             )
 
-        ItemDetail.RefreshBatches ->
+        ItemDetailTypes.RefreshBatches ->
             let
                 ( newModel, dismissCmd ) =
                     setNotification "Porción marcada como consumida" Success model
@@ -696,10 +703,10 @@ handleItemDetailOutMsg outMsg model pageCmd =
 handleBatchDetailOutMsg : BatchDetail.OutMsg -> Model -> Cmd BatchDetail.Msg -> ( Model, Cmd Msg )
 handleBatchDetailOutMsg outMsg model pageCmd =
     case outMsg of
-        BatchDetail.NoOp ->
+        BatchDetailTypes.NoOp ->
             ( model, Cmd.map BatchDetailMsg pageCmd )
 
-        BatchDetail.ShowNotification notification ->
+        BatchDetailTypes.ShowNotification notification ->
             let
                 ( newModel, dismissCmd ) =
                     setNotification notification.message notification.notificationType model
@@ -708,7 +715,7 @@ handleBatchDetailOutMsg outMsg model pageCmd =
             , Cmd.batch [ Cmd.map BatchDetailMsg pageCmd, dismissCmd ]
             )
 
-        BatchDetail.RequestSvgToPng request ->
+        BatchDetailTypes.RequestSvgToPng request ->
             ( model
             , Cmd.batch
                 [ Cmd.map BatchDetailMsg pageCmd
@@ -716,7 +723,7 @@ handleBatchDetailOutMsg outMsg model pageCmd =
                 ]
             )
 
-        BatchDetail.RequestTextMeasure request ->
+        BatchDetailTypes.RequestTextMeasure request ->
             ( model
             , Cmd.batch
                 [ Cmd.map BatchDetailMsg pageCmd
@@ -728,10 +735,10 @@ handleBatchDetailOutMsg outMsg model pageCmd =
 handleHistoryOutMsg : History.OutMsg -> Model -> Cmd History.Msg -> ( Model, Cmd Msg )
 handleHistoryOutMsg outMsg model pageCmd =
     case outMsg of
-        History.NoOp ->
+        HistoryTypes.NoOp ->
             ( model, Cmd.map HistoryMsg pageCmd )
 
-        History.ShowError message ->
+        HistoryTypes.ShowError message ->
             let
                 ( newModel, dismissCmd ) =
                     setNotification message Error model
@@ -744,10 +751,10 @@ handleHistoryOutMsg outMsg model pageCmd =
 handleContainerTypesOutMsg : ContainerTypes.OutMsg -> Model -> Cmd ContainerTypes.Msg -> ( Model, Cmd Msg )
 handleContainerTypesOutMsg outMsg model pageCmd =
     case outMsg of
-        ContainerTypes.NoOp ->
+        ContainerTypesTypes.NoOp ->
             ( model, Cmd.map ContainerTypesMsg pageCmd )
 
-        ContainerTypes.ShowNotification notification ->
+        ContainerTypesTypes.ShowNotification notification ->
             let
                 ( newModel, dismissCmd ) =
                     setNotification notification.message notification.notificationType model
@@ -760,10 +767,10 @@ handleContainerTypesOutMsg outMsg model pageCmd =
 handleIngredientsOutMsg : Ingredients.OutMsg -> Model -> Cmd Ingredients.Msg -> ( Model, Cmd Msg )
 handleIngredientsOutMsg outMsg model pageCmd =
     case outMsg of
-        Ingredients.NoOp ->
+        IngredientsTypes.NoOp ->
             ( model, Cmd.map IngredientsMsg pageCmd )
 
-        Ingredients.ShowNotification notification ->
+        IngredientsTypes.ShowNotification notification ->
             let
                 ( newModel, dismissCmd ) =
                     setNotification notification.message notification.notificationType model
@@ -772,7 +779,7 @@ handleIngredientsOutMsg outMsg model pageCmd =
             , Cmd.batch [ Cmd.map IngredientsMsg pageCmd, dismissCmd ]
             )
 
-        Ingredients.RefreshIngredients ->
+        IngredientsTypes.RefreshIngredients ->
             ( model
             , Cmd.batch
                 [ Cmd.map IngredientsMsg pageCmd
@@ -784,10 +791,10 @@ handleIngredientsOutMsg outMsg model pageCmd =
 handleRecipesOutMsg : Recipes.OutMsg -> Model -> Cmd Recipes.Msg -> ( Model, Cmd Msg )
 handleRecipesOutMsg outMsg model pageCmd =
     case outMsg of
-        Recipes.NoOp ->
+        RecipesTypes.NoOp ->
             ( model, Cmd.map RecipesMsg pageCmd )
 
-        Recipes.ShowNotification notification ->
+        RecipesTypes.ShowNotification notification ->
             let
                 ( newModel, dismissCmd ) =
                     setNotification notification.message notification.notificationType model
@@ -796,7 +803,7 @@ handleRecipesOutMsg outMsg model pageCmd =
             , Cmd.batch [ Cmd.map RecipesMsg pageCmd, dismissCmd ]
             )
 
-        Recipes.RefreshRecipes ->
+        RecipesTypes.RefreshRecipes ->
             ( model
             , Cmd.batch
                 [ Cmd.map RecipesMsg pageCmd

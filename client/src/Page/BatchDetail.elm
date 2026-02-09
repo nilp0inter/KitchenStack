@@ -13,6 +13,7 @@ import Data.LabelPreset
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Http
+import Label
 import Page.BatchDetail.Types as BD exposing (..)
 import Page.BatchDetail.View as View
 import Ports
