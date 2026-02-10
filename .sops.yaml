@@ -1,0 +1,10 @@
+keys:
+  - &admin_nilp0inter_ecc 2D229A9316284CB97556F2071CB026F214846EF6
+  - &frostbyte_pi age1tc525vmdlrg2m7cllcmdzqu2n4w728hdhers7q086xk4udyzqs9qszfvhd
+
+creation_rules:
+  - path_regex: \.env\.prod$
+    pgp: >-
+      2D229A9316284CB97556F2071CB026F214846EF6
+    age: >-
+      age1tc525vmdlrg2m7cllcmdzqu2n4w728hdhers7q086xk4udyzqs9qszfvhd

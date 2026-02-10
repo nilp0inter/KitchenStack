@@ -255,3 +255,31 @@ For features requiring JavaScript interop (like text measurement and SVG→PNG c
 ## Language Notes
 
 - UI is in Spanish (expiry label: "Caduca:", food categories like "Arroz", "Pollo", etc.)
+
+## Secrets Management
+
+FrostByte uses [SOPS](https://github.com/getsops/sops) with GPG for secrets management. Encrypted secrets are stored in `.env.prod` and committed to version control.
+
+### Prerequisites
+- SOPS installed on dev machine and Raspberry Pi
+- GPG key imported (YubiKey on dev, local key on Pi)
+
+### Edit Secrets
+```bash
+sops .env.prod
+```
+
+### Production Deployment (on Raspberry Pi)
+```bash
+docker compose --env-file <(sops -d .env.prod) \
+  -f docker-compose.yml \
+  -f docker-compose.secrets.yml \
+  -f docker-compose.prod.yml \
+  up -d
+```
+
+### Adding New Secrets
+1. Edit secrets: `sops .env.prod`
+2. Add new variable: `FROSTBYTE_NEW_SECRET=value`
+3. Update `docker-compose.secrets.yml` to use `${FROSTBYTE_NEW_SECRET}`
+4. Commit both files
