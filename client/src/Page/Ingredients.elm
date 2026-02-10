@@ -109,7 +109,7 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False, form = Data.Ingredient.empty }
                     , Api.fetchIngredients GotIngredients
-                    , ShowNotification { id = 0, message = "Ingrediente guardado", notificationType = Success }
+                    , RefreshIngredientsWithNotification { id = 0, message = "Ingrediente guardado", notificationType = Success }
                     )
 
                 Err _ ->
@@ -123,7 +123,7 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False }
                     , Api.fetchIngredients GotIngredients
-                    , ShowNotification { id = 0, message = "Ingrediente eliminado", notificationType = Success }
+                    , RefreshIngredientsWithNotification { id = 0, message = "Ingrediente eliminado", notificationType = Success }
                     )
 
                 Err _ ->

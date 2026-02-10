@@ -178,6 +178,21 @@ client/src/
 - Shared data (ingredients, containerTypes, batches, recipes, labelPresets) lives in Main and passed to pages
 - Port subscriptions handled in Main.elm, results forwarded to active page
 
+**OutMsg pattern for data refresh:**
+When a page modifies shared data (create/update/delete), it must emit a compound `OutMsg` that both shows a notification AND triggers Main.elm to refresh the shared state. This ensures other pages see updated data without requiring a browser refresh.
+
+- `RefreshIngredientsWithNotification Notification` - After ingredient save/delete
+- `RefreshContainerTypesWithNotification Notification` - After container type save/delete
+- `RefreshRecipesWithNotification Notification` - After recipe save/delete
+- `RefreshPresetsWithNotification Notification` - After label preset save/delete
+
+Main.elm handlers for these OutMsgs call the appropriate `Api.fetch*` function to update the shared state.
+
+**Data loading and page initialization:**
+On app load, Main.elm fetches all shared data (ingredients, containerTypes, batches, recipes, labelPresets) in parallel. The `maybeInitPage` function gates page initialization until required data is loaded (ingredients, containerTypes, and labelPresets must all be non-empty). This prevents race conditions where pages initialize with empty data.
+
+When pages receive fresh data from API responses (e.g., `GotBatches` in BatchDetail), they must recalculate any derived state (like `selectedPreset`) based on the new data, not just store it.
+
 **Routes:** `/` (Dashboard), `/new` (NewBatch), `/item/{uuid}` (ItemDetail), `/batch/{uuid}` (BatchDetail), `/history` (History), `/recipes` (Recipes), `/ingredients` (Ingredients), `/containers` (ContainerTypes), `/labels` (LabelDesigner)
 
 **Styling:** Tailwind CSS with custom "frost" color palette

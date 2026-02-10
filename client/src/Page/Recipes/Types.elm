@@ -46,3 +46,4 @@ type OutMsg
     = NoOp
     | ShowNotification Notification
     | RefreshRecipes
+    | RefreshRecipesWithNotification Notification

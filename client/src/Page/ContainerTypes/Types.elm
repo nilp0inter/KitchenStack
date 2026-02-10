@@ -33,3 +33,5 @@ type Msg
 type OutMsg
     = NoOp
     | ShowNotification Notification
+    | RefreshContainerTypes
+    | RefreshContainerTypesWithNotification Notification

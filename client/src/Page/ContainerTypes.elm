@@ -101,7 +101,7 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False, form = Data.ContainerType.empty }
                     , Api.fetchContainerTypes GotContainerTypes
-                    , ShowNotification { id = 0, message = "Container type saved", notificationType = Success }
+                    , RefreshContainerTypesWithNotification { id = 0, message = "Container type saved", notificationType = Success }
                     )
 
                 Err _ ->
@@ -115,7 +115,7 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False }
                     , Api.fetchContainerTypes GotContainerTypes
-                    , ShowNotification { id = 0, message = "Container type deleted", notificationType = Success }
+                    , RefreshContainerTypesWithNotification { id = 0, message = "Container type deleted", notificationType = Success }
                     )
 
                 Err _ ->

@@ -35,3 +35,4 @@ type OutMsg
     = NoOp
     | ShowNotification Notification
     | RefreshIngredients
+    | RefreshIngredientsWithNotification Notification

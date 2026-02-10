@@ -83,8 +83,27 @@ update msg model =
                         maybeBatch =
                             List.filter (\b -> b.batchId == model.batchId) batches
                                 |> List.head
+
+                        -- Recalculate selectedPreset based on fresh batch data
+                        -- If batch has a stored preset, use it; otherwise keep current selection
+                        updatedSelectedPreset =
+                            case maybeBatch |> Maybe.andThen .labelPreset of
+                                Just presetName ->
+                                    List.filter (\p -> p.name == presetName) model.labelPresets
+                                        |> List.head
+                                        |> (\found ->
+                                                case found of
+                                                    Just preset ->
+                                                        Just preset
+
+                                                    Nothing ->
+                                                        model.selectedPreset
+                                           )
+
+                                Nothing ->
+                                    model.selectedPreset
                     in
-                    ( { model | batch = maybeBatch }, Cmd.none, NoOp )
+                    ( { model | batch = maybeBatch, selectedPreset = updatedSelectedPreset }, Cmd.none, NoOp )
 
                 Err _ ->
                     ( model, Cmd.none, ShowNotification { id = 0, message = "Failed to load batch", notificationType = Error } )

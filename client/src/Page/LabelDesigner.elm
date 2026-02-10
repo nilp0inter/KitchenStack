@@ -474,7 +474,7 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False, form = Data.LabelPreset.empty }
                     , Api.fetchLabelPresets GotPresets
-                    , ShowNotification { id = 0, message = "Preset guardado", notificationType = Success }
+                    , RefreshPresetsWithNotification { id = 0, message = "Preset guardado", notificationType = Success }
                     )
 
                 Err _ ->
@@ -488,7 +488,7 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False }
                     , Api.fetchLabelPresets GotPresets
-                    , ShowNotification { id = 0, message = "Preset eliminado", notificationType = Success }
+                    , RefreshPresetsWithNotification { id = 0, message = "Preset eliminado", notificationType = Success }
                     )
 
                 Err _ ->

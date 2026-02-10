@@ -218,7 +218,7 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False, form = Data.Recipe.empty }
                     , Api.fetchRecipes GotRecipes
-                    , ShowNotification { id = 0, message = "Receta guardada", notificationType = Success }
+                    , RefreshRecipesWithNotification { id = 0, message = "Receta guardada", notificationType = Success }
                     )
 
                 Err _ ->
@@ -232,7 +232,7 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False }
                     , Api.fetchRecipes GotRecipes
-                    , ShowNotification { id = 0, message = "Receta eliminada", notificationType = Success }
+                    , RefreshRecipesWithNotification { id = 0, message = "Receta eliminada", notificationType = Success }
                     )
 
                 Err _ ->

@@ -546,7 +546,14 @@ update msg model =
 
 maybeInitPage : Model -> ( Model, Cmd Msg )
 maybeInitPage model =
-    if not (List.isEmpty model.ingredients) && not (List.isEmpty model.containerTypes) then
+    let
+        -- Check if all required data is loaded
+        hasRequiredData =
+            not (List.isEmpty model.ingredients)
+                && not (List.isEmpty model.containerTypes)
+                && not (List.isEmpty model.labelPresets)
+    in
+    if hasRequiredData then
         case model.page of
             NotFoundPage ->
                 initPage model.route model
@@ -763,6 +770,27 @@ handleContainerTypesOutMsg outMsg model pageCmd =
             , Cmd.batch [ Cmd.map ContainerTypesMsg pageCmd, dismissCmd ]
             )
 
+        ContainerTypesTypes.RefreshContainerTypes ->
+            ( model
+            , Cmd.batch
+                [ Cmd.map ContainerTypesMsg pageCmd
+                , Api.fetchContainerTypes GotContainerTypes
+                ]
+            )
+
+        ContainerTypesTypes.RefreshContainerTypesWithNotification notification ->
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification notification.message notification.notificationType model
+            in
+            ( newModel
+            , Cmd.batch
+                [ Cmd.map ContainerTypesMsg pageCmd
+                , Api.fetchContainerTypes GotContainerTypes
+                , dismissCmd
+                ]
+            )
+
 
 handleIngredientsOutMsg : Ingredients.OutMsg -> Model -> Cmd Ingredients.Msg -> ( Model, Cmd Msg )
 handleIngredientsOutMsg outMsg model pageCmd =
@@ -784,6 +812,19 @@ handleIngredientsOutMsg outMsg model pageCmd =
             , Cmd.batch
                 [ Cmd.map IngredientsMsg pageCmd
                 , Api.fetchIngredients GotIngredients
+                ]
+            )
+
+        IngredientsTypes.RefreshIngredientsWithNotification notification ->
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification notification.message notification.notificationType model
+            in
+            ( newModel
+            , Cmd.batch
+                [ Cmd.map IngredientsMsg pageCmd
+                , Api.fetchIngredients GotIngredients
+                , dismissCmd
                 ]
             )
 
@@ -812,6 +853,20 @@ handleRecipesOutMsg outMsg model pageCmd =
                 ]
             )
 
+        RecipesTypes.RefreshRecipesWithNotification notification ->
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification notification.message notification.notificationType model
+            in
+            ( newModel
+            , Cmd.batch
+                [ Cmd.map RecipesMsg pageCmd
+                , Api.fetchRecipes GotRecipes
+                , Api.fetchIngredients GotIngredients
+                , dismissCmd
+                ]
+            )
+
 
 handleLabelDesignerOutMsg : LabelDesigner.OutMsg -> Model -> Cmd LabelDesigner.Msg -> ( Model, Cmd Msg )
 handleLabelDesignerOutMsg outMsg model pageCmd =
@@ -833,6 +888,19 @@ handleLabelDesignerOutMsg outMsg model pageCmd =
             , Cmd.batch
                 [ Cmd.map LabelDesignerMsg pageCmd
                 , Api.fetchLabelPresets GotLabelPresets
+                ]
+            )
+
+        LabelDesignerTypes.RefreshPresetsWithNotification notification ->
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification notification.message notification.notificationType model
+            in
+            ( newModel
+            , Cmd.batch
+                [ Cmd.map LabelDesignerMsg pageCmd
+                , Api.fetchLabelPresets GotLabelPresets
+                , dismissCmd
                 ]
             )
 

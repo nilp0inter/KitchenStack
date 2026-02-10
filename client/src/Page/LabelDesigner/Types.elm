@@ -81,6 +81,7 @@ type OutMsg
     = NoOp
     | ShowNotification Notification
     | RefreshPresets
+    | RefreshPresetsWithNotification Notification
     | RequestTextMeasure Ports.TextMeasureRequest
     | RequestSvgToPng Ports.SvgToPngRequest
     | RequestInitPinchZoom { elementId : String, initialZoom : Float }
