@@ -5,6 +5,7 @@ import Chart.Attributes as CA
 import Chart.Events as CE
 import Chart.Item as CI
 import Components
+import Data.Date as Date
 import Html exposing (..)
 import Html.Attributes exposing (class, style)
 import Page.History.Types exposing (..)
@@ -102,103 +103,14 @@ findInList date list =
 
 
 generateDateRange : String -> String -> List String
-generateDateRange startDate endDate =
-    generateDateRangeHelper startDate endDate []
-
-
-generateDateRangeHelper : String -> String -> List String -> List String
-generateDateRangeHelper current end acc =
-    if current > end then
-        List.reverse acc
-
-    else
-        generateDateRangeHelper (addOneDay current) end (current :: acc)
-
-
-addOneDay : String -> String
-addOneDay dateStr =
-    case String.split "-" dateStr of
-        [ yearStr, monthStr, dayStr ] ->
-            case ( String.toInt yearStr, String.toInt monthStr, String.toInt dayStr ) of
-                ( Just year, Just month, Just day ) ->
-                    let
-                        daysInMonth =
-                            getDaysInMonth year month
-
-                        ( newYear, newMonth, newDay ) =
-                            if day + 1 > daysInMonth then
-                                if month + 1 > 12 then
-                                    ( year + 1, 1, 1 )
-
-                                else
-                                    ( year, month + 1, 1 )
-
-                            else
-                                ( year, month, day + 1 )
-                    in
-                    String.fromInt newYear
-                        ++ "-"
-                        ++ String.padLeft 2 '0' (String.fromInt newMonth)
-                        ++ "-"
-                        ++ String.padLeft 2 '0' (String.fromInt newDay)
-
-                _ ->
-                    dateStr
+generateDateRange startStr endStr =
+    case ( Date.fromIsoString startStr, Date.fromIsoString endStr ) of
+        ( Just start, Just end ) ->
+            Date.range start end
+                |> List.map Date.toIsoString
 
         _ ->
-            dateStr
-
-
-getDaysInMonth : Int -> Int -> Int
-getDaysInMonth year month =
-    case month of
-        1 ->
-            31
-
-        2 ->
-            if isLeapYear year then
-                29
-
-            else
-                28
-
-        3 ->
-            31
-
-        4 ->
-            30
-
-        5 ->
-            31
-
-        6 ->
-            30
-
-        7 ->
-            31
-
-        8 ->
-            31
-
-        9 ->
-            30
-
-        10 ->
-            31
-
-        11 ->
-            30
-
-        12 ->
-            31
-
-        _ ->
-            30
-
-
-isLeapYear : Int -> Bool
-isLeapYear year =
-    (modBy 4 year == 0) && (modBy 100 year /= 0 || modBy 400 year == 0)
+            []
 
 
 
@@ -357,21 +269,21 @@ viewLegend =
 
 formatDateShort : String -> String
 formatDateShort dateStr =
-    case String.split "-" dateStr of
-        [ _, month, day ] ->
-            day ++ "/" ++ month
+    case Date.fromIsoString dateStr of
+        Just date ->
+            Date.formatShort date
 
-        _ ->
+        Nothing ->
             dateStr
 
 
 formatDateFull : String -> String
 formatDateFull dateStr =
-    case String.split "-" dateStr of
-        [ year, month, day ] ->
-            day ++ "/" ++ month ++ "/" ++ year
+    case Date.fromIsoString dateStr of
+        Just date ->
+            Date.formatDisplay date
 
-        _ ->
+        Nothing ->
             dateStr
 
 

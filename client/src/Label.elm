@@ -10,6 +10,7 @@ Layout matches the original Python printer service output.
 
 -}
 
+import Data.Date as Date
 import Data.Label exposing (ComputedLabelData, LabelData, LabelSettings, displayHeight, displayWidth, textMaxWidth)
 import Html exposing (Html)
 import QRCode
@@ -411,9 +412,9 @@ truncateText maxLength text =
 -}
 formatDate : String -> String
 formatDate isoDate =
-    case String.split "-" (String.left 10 isoDate) of
-        [ year, month, day ] ->
-            day ++ "/" ++ month ++ "/" ++ year
+    case Date.fromIsoString isoDate of
+        Just date ->
+            Date.formatDisplay date
 
-        _ ->
+        Nothing ->
             isoDate
