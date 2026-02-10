@@ -10,6 +10,14 @@ FrostByte runs on a Raspberry Pi Zero 2W (aarch64):
 - **User**: `nil`
 - **Repo path**: `~/FrostByte`
 - **OS**: Debian 13 (trixie)
+- **Systemd service**: `frostbyte.service` (starts on boot)
+
+```bash
+# Service management
+sudo systemctl status frostbyte
+sudo systemctl restart frostbyte
+sudo systemctl stop frostbyte
+```
 
 ## Build and Run Commands
 
