@@ -17,6 +17,7 @@
             "elm/svg": "1.0.1",
             "elm/time": "1.0.0",
             "elm/url": "1.0.0",
+            "elm-explorations/test": "2.2.1",
             "justinmimbs/date": "4.1.0",
             "justinmimbs/time-extra": "1.2.0",
             "pablohirafuji/elm-qrcode": "4.0.2",
