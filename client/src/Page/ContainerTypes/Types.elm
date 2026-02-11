@@ -28,6 +28,7 @@ type Msg
     | CancelDelete
     | ContainerTypeSaved (Result Http.Error ())
     | ContainerTypeDeleted (Result Http.Error ())
+    | ReceivedContainerTypes (List ContainerType)
 
 
 type OutMsg

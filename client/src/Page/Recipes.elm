@@ -272,6 +272,18 @@ update msg model =
             else
                 ( model, Cmd.none, NoOp )
 
+        ReceivedIngredients ingredients ->
+            ( { model | ingredients = ingredients }, Cmd.none, NoOp )
+
+        ReceivedContainerTypes containerTypes ->
+            ( { model | containerTypes = containerTypes }, Cmd.none, NoOp )
+
+        ReceivedRecipes recipes ->
+            ( { model | recipes = recipes }, Cmd.none, NoOp )
+
+        ReceivedLabelPresets labelPresets ->
+            ( { model | labelPresets = labelPresets }, Cmd.none, NoOp )
+
 
 view : Model -> Html Msg
 view =

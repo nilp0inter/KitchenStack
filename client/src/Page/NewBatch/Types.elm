@@ -33,6 +33,8 @@ type alias Model =
     , pendingMeasurements : List String
     , computedLabelData : Dict String Data.Label.ComputedLabelData
     , detailsEditor : MarkdownEditor.Model
+    , pendingExpiryDate : String
+    , pendingBestBeforeDate : Maybe String
     }
 
 
@@ -58,6 +60,10 @@ type Msg
     | GotPngResult Ports.PngResult
     | GotTextMeasureResult Ports.TextMeasureResult
     | DetailsEditorMsg MarkdownEditor.Msg
+    | ReceivedIngredients (List Ingredient)
+    | ReceivedContainerTypes (List ContainerType)
+    | ReceivedRecipes (List Recipe)
+    | ReceivedLabelPresets (List LabelPreset)
 
 
 type OutMsg
@@ -66,5 +72,6 @@ type OutMsg
     | NavigateToHome
     | NavigateToBatch String
     | RefreshBatches
+    | BatchCreatedLocally BatchSummary String
     | RequestSvgToPng Ports.SvgToPngRequest
     | RequestTextMeasure Ports.TextMeasureRequest

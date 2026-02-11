@@ -574,6 +574,9 @@ update msg model =
                 }
             )
 
+        ReceivedLabelPresets labelPresets ->
+            ( { model | presets = labelPresets }, Cmd.none, NoOp )
+
 
 view : Model -> Html Msg
 view =

@@ -66,10 +66,8 @@ init batchId appHost batches labelPresets =
       , pendingMeasurements = []
       , computedLabelData = Dict.empty
       }
-    , Cmd.batch
-        [ Api.fetchBatches GotBatches
-        , Api.fetchBatchPortions batchId GotBatchPortions
-        ]
+      -- Only fetch portions - batch data comes from Main.elm shared state
+    , Api.fetchBatchPortions batchId GotBatchPortions
     )
 
 
@@ -574,6 +572,48 @@ update msg model =
                     , Cmd.none
                     , ShowNotification { id = 0, message = "Error al devolver porción al congelador", notificationType = Error }
                     )
+
+        ReceivedBatches batches ->
+            let
+                maybeBatch =
+                    List.filter (\b -> b.batchId == model.batchId) batches
+                        |> List.head
+
+                -- Recalculate selectedPreset based on fresh batch data
+                updatedSelectedPreset =
+                    case maybeBatch |> Maybe.andThen .labelPreset of
+                        Just presetName ->
+                            List.filter (\p -> p.name == presetName) model.labelPresets
+                                |> List.head
+                                |> (\found ->
+                                        case found of
+                                            Just preset ->
+                                                Just preset
+
+                                            Nothing ->
+                                                model.selectedPreset
+                                   )
+
+                        Nothing ->
+                            model.selectedPreset
+            in
+            ( { model | batch = maybeBatch, selectedPreset = updatedSelectedPreset }, Cmd.none, NoOp )
+
+        ReceivedLabelPresets labelPresets ->
+            let
+                -- Preserve the selected preset if it still exists
+                updatedSelectedPreset =
+                    model.selectedPreset
+                        |> Maybe.andThen
+                            (\current ->
+                                List.filter (\p -> p.name == current.name) labelPresets
+                                    |> List.head
+                            )
+            in
+            ( { model | labelPresets = labelPresets, selectedPreset = updatedSelectedPreset }
+            , Cmd.none
+            , NoOp
+            )
 
 
 view : Model -> Html Msg

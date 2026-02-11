@@ -29,6 +29,7 @@ type Msg
     | CancelDelete
     | IngredientSaved (Result Http.Error ())
     | IngredientDeleted (Result Http.Error ())
+    | ReceivedIngredients (List Ingredient)
 
 
 type OutMsg

@@ -124,6 +124,9 @@ update msg model =
                     , ShowNotification { id = 0, message = "Failed to delete container type (may be in use)", notificationType = Error }
                     )
 
+        ReceivedContainerTypes containerTypes ->
+            ( { model | containerTypes = containerTypes }, Cmd.none, NoOp )
+
 
 view : Model -> Html Msg
 view =

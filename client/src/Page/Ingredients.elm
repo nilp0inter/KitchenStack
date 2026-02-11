@@ -132,6 +132,9 @@ update msg model =
                     , ShowNotification { id = 0, message = "Error al eliminar ingrediente (puede estar en uso)", notificationType = Error }
                     )
 
+        ReceivedIngredients ingredients ->
+            ( { model | ingredients = ingredients }, Cmd.none, NoOp )
+
 
 view : Model -> Html Msg
 view =

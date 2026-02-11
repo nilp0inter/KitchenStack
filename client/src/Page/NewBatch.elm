@@ -12,6 +12,7 @@ import Components.MarkdownEditor as MarkdownEditor
 import Data.Batch
 import Data.Label
 import Data.LabelPreset
+import Date
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Http
@@ -64,6 +65,8 @@ init currentDate appHost ingredients containerTypes recipes labelPresets =
       , pendingMeasurements = []
       , computedLabelData = Dict.empty
       , detailsEditor = MarkdownEditor.init ""
+      , pendingExpiryDate = ""
+      , pendingBestBeforeDate = Nothing
       }
     , Cmd.none
     )
@@ -277,9 +280,19 @@ update msg model =
                     let
                         labelPresetName =
                             Maybe.map .name model.selectedPreset
+
+                        -- Compute dates client-side
+                        expiryDate =
+                            computeExpiryDate model.form.createdAt model.form.expiryDate model.form.selectedIngredients model.ingredients
+
+                        bestBeforeDate =
+                            computeBestBeforeDate model.form.createdAt model.form.selectedIngredients model.ingredients
                     in
-                    ( model
-                    , Api.createBatch model.form batchUuid portionUuids labelPresetName BatchCreated
+                    ( { model
+                        | pendingExpiryDate = expiryDate
+                        , pendingBestBeforeDate = bestBeforeDate
+                      }
+                    , Api.createBatch model.form batchUuid portionUuids labelPresetName expiryDate bestBeforeDate BatchCreated
                     , NoOp
                     )
 
@@ -292,13 +305,20 @@ update msg model =
         BatchCreated result ->
             case result of
                 Ok response ->
+                    let
+                        ingredientsText =
+                            String.join ", " (List.map .name model.form.selectedIngredients)
+
+                        currentDate =
+                            model.form.createdAt
+
+                        details =
+                            model.form.details
+                    in
                     if model.printWithSave then
                         let
                             quantity =
                                 List.length response.portionIds
-
-                            ingredientsText =
-                                String.join ", " (List.map .name model.form.selectedIngredients)
 
                             printData =
                                 List.map
@@ -307,14 +327,11 @@ update msg model =
                                         , name = model.form.name
                                         , ingredients = ingredientsText
                                         , containerId = model.form.containerId
-                                        , expiryDate = model.form.expiryDate
-                                        , bestBeforeDate = Nothing
+                                        , expiryDate = model.pendingExpiryDate
+                                        , bestBeforeDate = model.pendingBestBeforeDate
                                         }
                                     )
                                     response.portionIds
-
-                            currentDate =
-                                model.form.createdAt
 
                             -- Start text measurement for the first label
                             -- The rest will be triggered after each measurement completes
@@ -350,6 +367,8 @@ update msg model =
                             , pendingMeasurements = List.map .portionId printData
                             , computedLabelData = Dict.empty
                             , detailsEditor = MarkdownEditor.init ""
+                            , pendingExpiryDate = ""
+                            , pendingBestBeforeDate = Nothing
                           }
                         , Cmd.none
                         , case firstMeasureRequest of
@@ -362,17 +381,38 @@ update msg model =
 
                     else
                         let
-                            currentDate =
-                                model.form.createdAt
+                            -- Construct BatchSummary locally for zero-fetch navigation
+                            newBatch : BatchSummary
+                            newBatch =
+                                { batchId = response.batchId
+                                , name = model.form.name
+                                , containerId = model.form.containerId
+                                , bestBeforeDate = model.pendingBestBeforeDate
+                                , labelPreset = Maybe.map .name model.selectedPreset
+                                , batchCreatedAt = currentDate
+                                , expiryDate = model.pendingExpiryDate
+                                , frozenCount = List.length response.portionIds
+                                , consumedCount = 0
+                                , totalCount = List.length response.portionIds
+                                , ingredients = ingredientsText
+                                , details =
+                                    if String.isEmpty (String.trim details) then
+                                        Nothing
+
+                                    else
+                                        Just details
+                                }
                         in
                         ( { model
                             | form = Data.Batch.empty currentDate
                             , loading = False
                             , expiryRequired = False
                             , detailsEditor = MarkdownEditor.init ""
+                            , pendingExpiryDate = ""
+                            , pendingBestBeforeDate = Nothing
                           }
                         , Cmd.none
-                        , NavigateToBatch response.batchId
+                        , BatchCreatedLocally newBatch response.batchId
                         )
 
                 Err _ ->
@@ -729,6 +769,102 @@ update msg model =
 
             else
                 ( model, Cmd.none, NoOp )
+
+        ReceivedIngredients ingredients ->
+            ( { model | ingredients = ingredients }, Cmd.none, NoOp )
+
+        ReceivedContainerTypes containerTypes ->
+            ( { model | containerTypes = containerTypes }, Cmd.none, NoOp )
+
+        ReceivedRecipes recipes ->
+            ( { model | recipes = recipes }, Cmd.none, NoOp )
+
+        ReceivedLabelPresets labelPresets ->
+            let
+                -- Preserve the selected preset if it still exists
+                updatedSelectedPreset =
+                    model.selectedPreset
+                        |> Maybe.andThen
+                            (\current ->
+                                List.filter (\p -> p.name == current.name) labelPresets
+                                    |> List.head
+                            )
+            in
+            ( { model | labelPresets = labelPresets, selectedPreset = updatedSelectedPreset }
+            , Cmd.none
+            , NoOp
+            )
+
+
+{-| Compute expiry date from created date and ingredients.
+If manual expiry is provided, use that. Otherwise compute from min(expire_days).
+-}
+computeExpiryDate : String -> String -> List SelectedIngredient -> List Ingredient -> String
+computeExpiryDate createdAt manualExpiry selectedIngredients allIngredients =
+    if manualExpiry /= "" then
+        manualExpiry
+
+    else
+        let
+            minDays =
+                selectedIngredients
+                    |> List.filterMap
+                        (\sel ->
+                            allIngredients
+                                |> List.filter (\i -> String.toLower i.name == String.toLower sel.name)
+                                |> List.head
+                                |> Maybe.andThen .expireDays
+                        )
+                    |> List.minimum
+        in
+        case minDays of
+            Just days ->
+                addDaysToDate createdAt days
+
+            Nothing ->
+                -- This shouldn't happen - validation should catch it
+                createdAt
+
+
+{-| Compute best before date from created date and ingredients.
+Returns Nothing if no ingredient has best_before_days.
+-}
+computeBestBeforeDate : String -> List SelectedIngredient -> List Ingredient -> Maybe String
+computeBestBeforeDate createdAt selectedIngredients allIngredients =
+    let
+        minDays =
+            selectedIngredients
+                |> List.filterMap
+                    (\sel ->
+                        allIngredients
+                            |> List.filter (\i -> String.toLower i.name == String.toLower sel.name)
+                            |> List.head
+                            |> Maybe.andThen .bestBeforeDays
+                    )
+                |> List.minimum
+    in
+    case minDays of
+        Just days ->
+            Just (addDaysToDate createdAt days)
+
+        Nothing ->
+            Nothing
+
+
+{-| Add days to an ISO date string (YYYY-MM-DD).
+Uses justinmimbs/date for proper date arithmetic.
+-}
+addDaysToDate : String -> Int -> String
+addDaysToDate isoDate days =
+    case Date.fromIsoString isoDate of
+        Ok date ->
+            date
+                |> Date.add Date.Days days
+                |> Date.toIsoString
+
+        Err _ ->
+            -- Fallback to original if parsing fails
+            isoDate
 
 
 view : Model -> Html Msg

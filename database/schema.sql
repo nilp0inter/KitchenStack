@@ -91,6 +91,7 @@ CREATE INDEX idx_portion_batch_id ON portion(batch_id);
 -- Function to create a batch with N portions
 -- Exposed via PostgREST as RPC endpoint: POST /rpc/create_batch
 -- Client provides UUIDs for idempotency (duplicate requests will fail on PK constraint)
+-- Client pre-computes expiry_date and best_before_date from ingredients
 CREATE OR REPLACE FUNCTION create_batch(
     p_batch_id UUID,
     p_portion_ids UUID[],
@@ -110,12 +111,13 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_expiry DATE;
-    v_best_before DATE;
     v_ingredient_name TEXT;
-    v_min_expire_days INTEGER;
-    v_min_best_before_days INTEGER;
 BEGIN
+    -- Expiry date must be provided by client (computed from ingredients client-side)
+    IF p_expiry_date IS NULL THEN
+        RAISE EXCEPTION 'Expiry date must be provided by client';
+    END IF;
+
     -- Auto-create unknown ingredients with NULL expire/best_before
     FOREACH v_ingredient_name IN ARRAY p_ingredient_names
     LOOP
@@ -124,38 +126,9 @@ BEGIN
         ON CONFLICT (name) DO NOTHING;
     END LOOP;
 
-    -- Get minimum expire_days from ingredients
-    SELECT MIN(expire_days) INTO v_min_expire_days
-    FROM ingredient
-    WHERE name = ANY(SELECT LOWER(unnest(p_ingredient_names)));
-
-    -- Get minimum best_before_days from ingredients
-    SELECT MIN(best_before_days) INTO v_min_best_before_days
-    FROM ingredient
-    WHERE name = ANY(SELECT LOWER(unnest(p_ingredient_names)));
-
-    -- Calculate expiry if not provided
-    IF p_expiry_date IS NOT NULL THEN
-        v_expiry := p_expiry_date;
-    ELSIF v_min_expire_days IS NOT NULL THEN
-        v_expiry := p_created_at + v_min_expire_days;
-    ELSE
-        -- No ingredient has expire_days and no manual expiry provided - error
-        RAISE EXCEPTION 'Expiry date required: no ingredient has expire_days defined';
-    END IF;
-
-    -- Calculate best_before if not provided
-    IF p_best_before_date IS NOT NULL THEN
-        v_best_before := p_best_before_date;
-    ELSIF v_min_best_before_days IS NOT NULL THEN
-        v_best_before := p_created_at + v_min_best_before_days;
-    ELSE
-        v_best_before := NULL;
-    END IF;
-
     -- Create batch with client-provided UUID
     INSERT INTO batch (id, name, container_id, best_before_date, label_preset, details)
-    VALUES (p_batch_id, p_name, p_container_id, v_best_before, p_label_preset, p_details);
+    VALUES (p_batch_id, p_name, p_container_id, p_best_before_date, p_label_preset, p_details);
 
     -- Link ingredients to batch
     INSERT INTO batch_ingredient (batch_id, ingredient_name)
@@ -163,7 +136,7 @@ BEGIN
 
     -- Create portions with client-provided UUIDs
     INSERT INTO portion (id, batch_id, created_at, expiry_date)
-    SELECT unnest(p_portion_ids), p_batch_id, p_created_at, v_expiry;
+    SELECT unnest(p_portion_ids), p_batch_id, p_created_at, p_expiry_date;
 
     RETURN QUERY SELECT p_batch_id, p_portion_ids;
 END;

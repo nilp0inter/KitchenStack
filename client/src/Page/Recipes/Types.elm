@@ -42,6 +42,10 @@ type Msg
     | HideSuggestions
     | IngredientKeyDown String
     | DetailsEditorMsg MarkdownEditor.Msg
+    | ReceivedIngredients (List Ingredient)
+    | ReceivedContainerTypes (List ContainerType)
+    | ReceivedRecipes (List Recipe)
+    | ReceivedLabelPresets (List LabelPreset)
 
 
 type OutMsg

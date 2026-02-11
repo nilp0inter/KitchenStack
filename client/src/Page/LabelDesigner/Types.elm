@@ -75,6 +75,7 @@ type Msg
     | PinchZoomUpdated { zoom : Float, panX : Float, panY : Float }
     | PreviewContainerHeightChanged String
     | ResetZoomPan
+    | ReceivedLabelPresets (List LabelPreset)
 
 
 type OutMsg

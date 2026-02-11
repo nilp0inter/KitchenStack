@@ -302,7 +302,17 @@ update msg model =
         GotIngredients result ->
             case result of
                 Ok ingredients ->
-                    maybeInitPage { model | ingredients = Loaded ingredients }
+                    let
+                        updatedModel =
+                            { model | ingredients = Loaded ingredients }
+
+                        ( initedModel, initCmd ) =
+                            maybeInitPage updatedModel
+
+                        ( dispatchedModel, dispatchCmd ) =
+                            dispatchIngredientsToPage ingredients initedModel
+                    in
+                    ( dispatchedModel, Cmd.batch [ initCmd, dispatchCmd ] )
 
                 Err _ ->
                     let
@@ -315,7 +325,17 @@ update msg model =
         GotContainerTypes result ->
             case result of
                 Ok containerTypes ->
-                    maybeInitPage { model | containerTypes = Loaded containerTypes }
+                    let
+                        updatedModel =
+                            { model | containerTypes = Loaded containerTypes }
+
+                        ( initedModel, initCmd ) =
+                            maybeInitPage updatedModel
+
+                        ( dispatchedModel, dispatchCmd ) =
+                            dispatchContainerTypesToPage containerTypes initedModel
+                    in
+                    ( dispatchedModel, Cmd.batch [ initCmd, dispatchCmd ] )
 
                 Err _ ->
                     let
@@ -328,7 +348,17 @@ update msg model =
         GotBatches result ->
             case result of
                 Ok batches ->
-                    maybeInitPage { model | batches = Loaded batches }
+                    let
+                        updatedModel =
+                            { model | batches = Loaded batches }
+
+                        ( initedModel, initCmd ) =
+                            maybeInitPage updatedModel
+
+                        ( dispatchedModel, dispatchCmd ) =
+                            dispatchBatchesToPage batches initedModel
+                    in
+                    ( dispatchedModel, Cmd.batch [ initCmd, dispatchCmd ] )
 
                 Err _ ->
                     let
@@ -341,7 +371,17 @@ update msg model =
         GotRecipes result ->
             case result of
                 Ok recipes ->
-                    maybeInitPage { model | recipes = Loaded recipes }
+                    let
+                        updatedModel =
+                            { model | recipes = Loaded recipes }
+
+                        ( initedModel, initCmd ) =
+                            maybeInitPage updatedModel
+
+                        ( dispatchedModel, dispatchCmd ) =
+                            dispatchRecipesToPage recipes initedModel
+                    in
+                    ( dispatchedModel, Cmd.batch [ initCmd, dispatchCmd ] )
 
                 Err _ ->
                     let
@@ -354,7 +394,17 @@ update msg model =
         GotLabelPresets result ->
             case result of
                 Ok labelPresets ->
-                    maybeInitPage { model | labelPresets = Loaded labelPresets }
+                    let
+                        updatedModel =
+                            { model | labelPresets = Loaded labelPresets }
+
+                        ( initedModel, initCmd ) =
+                            maybeInitPage updatedModel
+
+                        ( dispatchedModel, dispatchCmd ) =
+                            dispatchPresetsToPage labelPresets initedModel
+                    in
+                    ( dispatchedModel, Cmd.batch [ initCmd, dispatchCmd ] )
 
                 Err _ ->
                     let
@@ -630,6 +680,156 @@ maybeInitPage model =
         ( model, Cmd.none )
 
 
+{-| Dispatch updated batches to the active page.
+-}
+dispatchBatchesToPage : List BatchSummary -> Model -> ( Model, Cmd Msg )
+dispatchBatchesToPage batches model =
+    case model.page of
+        DashboardPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Dashboard.update (DashboardTypes.ReceivedBatches batches) pageModel
+            in
+            ( { model | page = DashboardPage newPageModel }, Cmd.map DashboardMsg pageCmd )
+
+        BatchDetailPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    BatchDetail.update (BatchDetailTypes.ReceivedBatches batches) pageModel
+            in
+            ( { model | page = BatchDetailPage newPageModel }, Cmd.map BatchDetailMsg pageCmd )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+{-| Dispatch updated ingredients to the active page.
+-}
+dispatchIngredientsToPage : List Ingredient -> Model -> ( Model, Cmd Msg )
+dispatchIngredientsToPage ingredients model =
+    case model.page of
+        NewBatchPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    NewBatch.update (NewBatchTypes.ReceivedIngredients ingredients) pageModel
+            in
+            ( { model | page = NewBatchPage newPageModel }, Cmd.map NewBatchMsg pageCmd )
+
+        IngredientsPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Ingredients.update (IngredientsTypes.ReceivedIngredients ingredients) pageModel
+            in
+            ( { model | page = IngredientsPage newPageModel }, Cmd.map IngredientsMsg pageCmd )
+
+        RecipesPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Recipes.update (RecipesTypes.ReceivedIngredients ingredients) pageModel
+            in
+            ( { model | page = RecipesPage newPageModel }, Cmd.map RecipesMsg pageCmd )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+{-| Dispatch updated container types to the active page.
+-}
+dispatchContainerTypesToPage : List ContainerType -> Model -> ( Model, Cmd Msg )
+dispatchContainerTypesToPage containerTypes model =
+    case model.page of
+        DashboardPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Dashboard.update (DashboardTypes.ReceivedContainerTypes containerTypes) pageModel
+            in
+            ( { model | page = DashboardPage newPageModel }, Cmd.map DashboardMsg pageCmd )
+
+        NewBatchPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    NewBatch.update (NewBatchTypes.ReceivedContainerTypes containerTypes) pageModel
+            in
+            ( { model | page = NewBatchPage newPageModel }, Cmd.map NewBatchMsg pageCmd )
+
+        ContainerTypesPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    ContainerTypes.update (ContainerTypesTypes.ReceivedContainerTypes containerTypes) pageModel
+            in
+            ( { model | page = ContainerTypesPage newPageModel }, Cmd.map ContainerTypesMsg pageCmd )
+
+        RecipesPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Recipes.update (RecipesTypes.ReceivedContainerTypes containerTypes) pageModel
+            in
+            ( { model | page = RecipesPage newPageModel }, Cmd.map RecipesMsg pageCmd )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+{-| Dispatch updated recipes to the active page.
+-}
+dispatchRecipesToPage : List Recipe -> Model -> ( Model, Cmd Msg )
+dispatchRecipesToPage recipes model =
+    case model.page of
+        NewBatchPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    NewBatch.update (NewBatchTypes.ReceivedRecipes recipes) pageModel
+            in
+            ( { model | page = NewBatchPage newPageModel }, Cmd.map NewBatchMsg pageCmd )
+
+        RecipesPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Recipes.update (RecipesTypes.ReceivedRecipes recipes) pageModel
+            in
+            ( { model | page = RecipesPage newPageModel }, Cmd.map RecipesMsg pageCmd )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+{-| Dispatch updated label presets to the active page.
+-}
+dispatchPresetsToPage : List LabelPreset -> Model -> ( Model, Cmd Msg )
+dispatchPresetsToPage labelPresets model =
+    case model.page of
+        NewBatchPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    NewBatch.update (NewBatchTypes.ReceivedLabelPresets labelPresets) pageModel
+            in
+            ( { model | page = NewBatchPage newPageModel }, Cmd.map NewBatchMsg pageCmd )
+
+        BatchDetailPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    BatchDetail.update (BatchDetailTypes.ReceivedLabelPresets labelPresets) pageModel
+            in
+            ( { model | page = BatchDetailPage newPageModel }, Cmd.map BatchDetailMsg pageCmd )
+
+        RecipesPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Recipes.update (RecipesTypes.ReceivedLabelPresets labelPresets) pageModel
+            in
+            ( { model | page = RecipesPage newPageModel }, Cmd.map RecipesMsg pageCmd )
+
+        LabelDesignerPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    LabelDesigner.update (LabelDesignerTypes.ReceivedLabelPresets labelPresets) pageModel
+            in
+            ( { model | page = LabelDesignerPage newPageModel }, Cmd.map LabelDesignerMsg pageCmd )
+
+        _ ->
+            ( model, Cmd.none )
+
+
 {-| Set a notification and schedule its auto-dismiss (except for errors which persist).
 -}
 setNotification : String -> NotificationType -> Model -> ( Model, Cmd Msg )
@@ -723,6 +923,35 @@ handleNewBatchOutMsg outMsg model pageCmd =
                 [ Cmd.map NewBatchMsg pageCmd
                 , Api.fetchBatches GotBatches
                 , Api.fetchIngredients GotIngredients
+                ]
+            )
+
+        NewBatchTypes.BatchCreatedLocally newBatch batchId ->
+            let
+                updatedBatches =
+                    case model.batches of
+                        Loaded batches ->
+                            Loaded (newBatch :: batches)
+
+                        other ->
+                            other
+
+                updatedModel =
+                    { model | batches = updatedBatches }
+
+                ( dispatchedModel, dispatchCmd ) =
+                    case updatedBatches of
+                        Loaded batches ->
+                            dispatchBatchesToPage batches updatedModel
+
+                        _ ->
+                            ( updatedModel, Cmd.none )
+            in
+            ( dispatchedModel
+            , Cmd.batch
+                [ Cmd.map NewBatchMsg pageCmd
+                , dispatchCmd
+                , Nav.pushUrl dispatchedModel.key ("/batch/" ++ batchId)
                 ]
             )
 

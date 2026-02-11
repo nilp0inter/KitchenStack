@@ -48,6 +48,12 @@ update msg model =
         SelectBatch batchId ->
             ( model, Cmd.none, NavigateToBatch batchId )
 
+        ReceivedBatches batches ->
+            ( { model | batches = batches }, Cmd.none, NoOp )
+
+        ReceivedContainerTypes containerTypes ->
+            ( { model | containerTypes = containerTypes }, Cmd.none, NoOp )
+
 
 view : Model -> Html Msg
 view =
