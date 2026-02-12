@@ -15,8 +15,8 @@ import Types exposing (..)
 import UUID exposing (UUID)
 
 
-encodeBatchRequest : BatchForm -> UUID -> List UUID -> Maybe String -> Encode.Value
-encodeBatchRequest form batchUuid portionUuids maybeLabelPreset =
+encodeBatchRequest : BatchForm -> UUID -> List UUID -> Maybe String -> String -> Maybe String -> Encode.Value
+encodeBatchRequest form batchUuid portionUuids maybeLabelPreset expiryDate maybeBestBeforeDate =
     let
         ingredientNames =
             List.map .name form.selectedIngredients
@@ -35,6 +35,14 @@ encodeBatchRequest form batchUuid portionUuids maybeLabelPreset =
 
             else
                 []
+
+        bestBeforeField =
+            case maybeBestBeforeDate of
+                Just date ->
+                    [ ( "p_best_before_date", Encode.string date ) ]
+
+                Nothing ->
+                    []
     in
     Encode.object
         ([ ( "p_batch_id", Encode.string (UUID.toString batchUuid) )
@@ -43,13 +51,9 @@ encodeBatchRequest form batchUuid portionUuids maybeLabelPreset =
          , ( "p_ingredient_names", Encode.list Encode.string ingredientNames )
          , ( "p_container_id", Encode.string form.containerId )
          , ( "p_created_at", Encode.string form.createdAt )
+         , ( "p_expiry_date", Encode.string expiryDate )
          ]
-            ++ (if form.expiryDate /= "" then
-                    [ ( "p_expiry_date", Encode.string form.expiryDate ) ]
-
-                else
-                    []
-               )
+            ++ bestBeforeField
             ++ labelPresetField
             ++ detailsField
         )

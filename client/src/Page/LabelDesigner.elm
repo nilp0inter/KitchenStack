@@ -45,6 +45,9 @@ init appHost presets =
             , previewPanX = 0
             , previewPanY = 0
             , previewContainerHeight = 400
+            , viewMode = ListMode
+            , selectedPreset = Nothing
+            , selectedPresetComputed = Nothing
             }
     in
     ( model
@@ -339,17 +342,26 @@ update msg model =
             ( newModel, Cmd.none, requestMeasurement newModel )
 
         GotTextMeasureResult result ->
-            ( { model
-                | computedLabelData =
-                    Just
-                        { titleFontSize = result.titleFittedFontSize
-                        , titleLines = result.titleLines
-                        , ingredientLines = result.ingredientLines
-                        }
-              }
-            , Cmd.none
-            , NoOp
-            )
+            let
+                computedData =
+                    { titleFontSize = result.titleFittedFontSize
+                    , titleLines = result.titleLines
+                    , ingredientLines = result.ingredientLines
+                    }
+            in
+            if String.startsWith "selected-" result.requestId then
+                -- This is a selected preset preview measurement
+                ( { model | selectedPresetComputed = Just computedData }
+                , Cmd.none
+                , NoOp
+                )
+
+            else
+                -- This is a form preview measurement
+                ( { model | computedLabelData = Just computedData }
+                , Cmd.none
+                , NoOp
+                )
 
         PrintLabel ->
             let
@@ -416,6 +428,21 @@ update msg model =
                 , NoOp
                 )
 
+        StartCreate ->
+            let
+                newModel =
+                    { model
+                        | form = Data.LabelPreset.empty
+                        , viewMode = FormMode
+                        , selectedPreset = Nothing
+                        , selectedPresetComputed = Nothing
+                    }
+            in
+            ( newModel
+            , Cmd.none
+            , requestMeasurement newModel
+            )
+
         EditPreset preset ->
             let
                 newModel =
@@ -447,6 +474,9 @@ update msg model =
                             , rotate = preset.rotate
                             , editing = Just preset.name
                             }
+                        , viewMode = FormMode
+                        , selectedPreset = Nothing
+                        , selectedPresetComputed = Nothing
                     }
             in
             ( newModel
@@ -455,7 +485,14 @@ update msg model =
             )
 
         CancelEdit ->
-            ( { model | form = Data.LabelPreset.empty }, Cmd.none, NoOp )
+            let
+                newModel =
+                    { model
+                        | form = Data.LabelPreset.empty
+                        , viewMode = ListMode
+                    }
+            in
+            ( newModel, Cmd.none, requestMeasurement newModel )
 
         DeletePreset name ->
             ( { model | deleteConfirm = Just name }, Cmd.none, NoOp )
@@ -472,7 +509,7 @@ update msg model =
         PresetSaved result ->
             case result of
                 Ok _ ->
-                    ( { model | loading = False, form = Data.LabelPreset.empty }
+                    ( { model | loading = False, form = Data.LabelPreset.empty, viewMode = ListMode }
                     , Api.fetchLabelPresets GotPresets
                     , RefreshPresetsWithNotification { id = 0, message = "Preset guardado", notificationType = Success }
                     )
@@ -573,6 +610,21 @@ update msg model =
                 , panY = 0
                 }
             )
+
+        ReceivedLabelPresets labelPresets ->
+            ( { model | presets = labelPresets }, Cmd.none, NoOp )
+
+        SelectPreset presetName ->
+            -- Find the preset and request measurement
+            case List.filter (\p -> p.name == presetName) model.presets |> List.head of
+                Just preset ->
+                    ( { model | selectedPreset = Just presetName, selectedPresetComputed = Nothing }
+                    , Cmd.none
+                    , requestMeasurementForPreset model preset
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none, NoOp )
 
 
 view : Model -> Html Msg

@@ -4,9 +4,11 @@ module Page.LabelDesigner.Types exposing
     , OutMsg(..)
     , formToSettings
     , requestMeasurement
+    , requestMeasurementForPreset
     )
 
 import Data.Label as Label
+import Data.LabelPreset
 import Http
 import Ports
 import Types exposing (..)
@@ -26,6 +28,9 @@ type alias Model =
     , previewPanX : Float
     , previewPanY : Float
     , previewContainerHeight : Int
+    , viewMode : ViewMode
+    , selectedPreset : Maybe String
+    , selectedPresetComputed : Maybe Label.ComputedLabelData
     }
 
 
@@ -58,6 +63,7 @@ type Msg
     | SampleNameChanged String
     | SampleIngredientsChanged String
     | SavePreset
+    | StartCreate
     | EditPreset LabelPreset
     | CancelEdit
     | DeletePreset String
@@ -75,6 +81,8 @@ type Msg
     | PinchZoomUpdated { zoom : Float, panX : Float, panY : Float }
     | PreviewContainerHeightChanged String
     | ResetZoomPan
+    | ReceivedLabelPresets (List LabelPreset)
+    | SelectPreset String
 
 
 type OutMsg
@@ -98,6 +106,27 @@ requestMeasurement model =
     in
     RequestTextMeasure
         { requestId = "preview"
+        , titleText = model.sampleName
+        , ingredientsText = model.sampleIngredients
+        , fontFamily = settings.fontFamily
+        , titleFontSize = settings.titleFontSize
+        , titleMinFontSize = settings.titleMinFontSize
+        , smallFontSize = settings.smallFontSize
+        , maxWidth = Label.textMaxWidth settings
+        , ingredientsMaxChars = settings.ingredientsMaxChars
+        }
+
+
+{-| Build a text measure request for a specific preset (for selected preset preview).
+-}
+requestMeasurementForPreset : Model -> LabelPreset -> OutMsg
+requestMeasurementForPreset model preset =
+    let
+        settings =
+            Data.LabelPreset.presetToSettings preset
+    in
+    RequestTextMeasure
+        { requestId = "selected-" ++ preset.name
         , titleText = model.sampleName
         , ingredientsText = model.sampleIngredients
         , fontFamily = settings.fontFamily

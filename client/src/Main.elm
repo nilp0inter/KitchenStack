@@ -60,16 +60,15 @@ type alias Model =
     , route : Route
     , currentDate : String
     , appHost : String
-    , ingredients : List Ingredient
-    , containerTypes : List ContainerType
-    , batches : List BatchSummary
-    , recipes : List Recipe
-    , labelPresets : List LabelPreset
+    , ingredients : RemoteData (List Ingredient)
+    , containerTypes : RemoteData (List ContainerType)
+    , batches : RemoteData (List BatchSummary)
+    , recipes : RemoteData (List Recipe)
+    , labelPresets : RemoteData (List LabelPreset)
     , page : Page
     , notification : Maybe Notification
     , notificationIdCounter : Int
     , printingProgress : Maybe PrintingProgress
-    , loading : Bool
     , mobileMenuOpen : Bool
     , configDropdownOpen : Bool
     }
@@ -100,16 +99,15 @@ init flags url key =
             , route = route
             , currentDate = flags.currentDate
             , appHost = flags.appHost
-            , ingredients = []
-            , containerTypes = []
-            , batches = []
-            , recipes = []
-            , labelPresets = []
+            , ingredients = Loading
+            , containerTypes = Loading
+            , batches = Loading
+            , recipes = Loading
+            , labelPresets = Loading
             , page = NotFoundPage
             , notification = Nothing
             , notificationIdCounter = 0
             , printingProgress = Nothing
-            , loading = True
             , mobileMenuOpen = False
             , configDropdownOpen = False
             }
@@ -125,13 +123,41 @@ init flags url key =
     )
 
 
+{-| Extract data from RemoteData, providing an empty list as default.
+-}
+remoteDataToList : RemoteData (List a) -> List a
+remoteDataToList rd =
+    case rd of
+        Loaded data ->
+            data
+
+        _ ->
+            []
+
+
 initPage : Route -> Model -> ( Model, Cmd Msg )
 initPage route model =
+    let
+        ingredients =
+            remoteDataToList model.ingredients
+
+        containerTypes =
+            remoteDataToList model.containerTypes
+
+        batches =
+            remoteDataToList model.batches
+
+        recipes =
+            remoteDataToList model.recipes
+
+        labelPresets =
+            remoteDataToList model.labelPresets
+    in
     case route of
         Dashboard ->
             let
                 ( pageModel, pageCmd ) =
-                    Dashboard.init model.batches model.containerTypes
+                    Dashboard.init batches containerTypes
             in
             ( { model | page = DashboardPage pageModel }
             , Cmd.map DashboardMsg pageCmd
@@ -140,7 +166,7 @@ initPage route model =
         NewBatch ->
             let
                 ( pageModel, pageCmd ) =
-                    NewBatch.init model.currentDate model.appHost model.ingredients model.containerTypes model.recipes model.labelPresets
+                    NewBatch.init model.currentDate model.appHost ingredients containerTypes recipes labelPresets
             in
             ( { model | page = NewBatchPage pageModel }
             , Cmd.map NewBatchMsg pageCmd
@@ -158,7 +184,7 @@ initPage route model =
         BatchDetail batchId ->
             let
                 ( pageModel, pageCmd ) =
-                    BatchDetail.init batchId model.appHost model.batches model.labelPresets
+                    BatchDetail.init batchId model.appHost batches labelPresets
             in
             ( { model | page = BatchDetailPage pageModel }
             , Cmd.map BatchDetailMsg pageCmd
@@ -176,7 +202,7 @@ initPage route model =
         ContainerTypes ->
             let
                 ( pageModel, pageCmd ) =
-                    ContainerTypes.init model.containerTypes
+                    ContainerTypes.init containerTypes
             in
             ( { model | page = ContainerTypesPage pageModel }
             , Cmd.map ContainerTypesMsg pageCmd
@@ -185,7 +211,7 @@ initPage route model =
         Route.Ingredients ->
             let
                 ( pageModel, pageCmd ) =
-                    Ingredients.init model.ingredients
+                    Ingredients.init ingredients
             in
             ( { model | page = IngredientsPage pageModel }
             , Cmd.map IngredientsMsg pageCmd
@@ -194,7 +220,7 @@ initPage route model =
         Route.Recipes ->
             let
                 ( pageModel, pageCmd ) =
-                    Recipes.init model.recipes model.ingredients model.containerTypes model.labelPresets
+                    Recipes.init recipes ingredients containerTypes labelPresets
             in
             ( { model | page = RecipesPage pageModel }
             , Cmd.map RecipesMsg pageCmd
@@ -203,7 +229,7 @@ initPage route model =
         Route.LabelDesigner ->
             let
                 ( pageModel, pageCmd, outMsg ) =
-                    LabelDesigner.init model.appHost model.labelPresets
+                    LabelDesigner.init model.appHost labelPresets
 
                 newModel =
                     { model | page = LabelDesignerPage pageModel }
@@ -277,69 +303,116 @@ update msg model =
             case result of
                 Ok ingredients ->
                     let
-                        newModel =
-                            { model | ingredients = ingredients }
+                        updatedModel =
+                            { model | ingredients = Loaded ingredients }
+
+                        ( initedModel, initCmd ) =
+                            maybeInitPage updatedModel
+
+                        ( dispatchedModel, dispatchCmd ) =
+                            dispatchIngredientsToPage ingredients initedModel
                     in
-                    maybeInitPage newModel
+                    ( dispatchedModel, Cmd.batch [ initCmd, dispatchCmd ] )
 
                 Err _ ->
-                    setNotification "Failed to load ingredients" Error model
+                    let
+                        ( newModel, cmd ) =
+                            setNotification "Failed to load ingredients" Error model
+                    in
+                    maybeInitPage { newModel | ingredients = Failed "Failed to load ingredients" }
+                        |> Tuple.mapSecond (\c -> Cmd.batch [ cmd, c ])
 
         GotContainerTypes result ->
             case result of
                 Ok containerTypes ->
                     let
-                        newModel =
-                            { model | containerTypes = containerTypes, loading = False }
+                        updatedModel =
+                            { model | containerTypes = Loaded containerTypes }
+
+                        ( initedModel, initCmd ) =
+                            maybeInitPage updatedModel
+
+                        ( dispatchedModel, dispatchCmd ) =
+                            dispatchContainerTypesToPage containerTypes initedModel
                     in
-                    maybeInitPage newModel
+                    ( dispatchedModel, Cmd.batch [ initCmd, dispatchCmd ] )
 
                 Err _ ->
                     let
                         ( newModel, cmd ) =
                             setNotification "Failed to load container types" Error model
                     in
-                    ( { newModel | loading = False }, cmd )
+                    maybeInitPage { newModel | containerTypes = Failed "Failed to load container types" }
+                        |> Tuple.mapSecond (\c -> Cmd.batch [ cmd, c ])
 
         GotBatches result ->
             case result of
                 Ok batches ->
                     let
-                        newModel =
-                            { model | batches = batches, loading = False }
+                        updatedModel =
+                            { model | batches = Loaded batches }
+
+                        ( initedModel, initCmd ) =
+                            maybeInitPage updatedModel
+
+                        ( dispatchedModel, dispatchCmd ) =
+                            dispatchBatchesToPage batches initedModel
                     in
-                    maybeInitPage newModel
+                    ( dispatchedModel, Cmd.batch [ initCmd, dispatchCmd ] )
 
                 Err _ ->
                     let
                         ( newModel, cmd ) =
                             setNotification "Failed to load batches" Error model
                     in
-                    ( { newModel | loading = False }, cmd )
+                    maybeInitPage { newModel | batches = Failed "Failed to load batches" }
+                        |> Tuple.mapSecond (\c -> Cmd.batch [ cmd, c ])
 
         GotRecipes result ->
             case result of
                 Ok recipes ->
                     let
-                        newModel =
-                            { model | recipes = recipes }
+                        updatedModel =
+                            { model | recipes = Loaded recipes }
+
+                        ( initedModel, initCmd ) =
+                            maybeInitPage updatedModel
+
+                        ( dispatchedModel, dispatchCmd ) =
+                            dispatchRecipesToPage recipes initedModel
                     in
-                    maybeInitPage newModel
+                    ( dispatchedModel, Cmd.batch [ initCmd, dispatchCmd ] )
 
                 Err _ ->
-                    setNotification "Failed to load recipes" Error model
+                    let
+                        ( newModel, cmd ) =
+                            setNotification "Failed to load recipes" Error model
+                    in
+                    maybeInitPage { newModel | recipes = Failed "Failed to load recipes" }
+                        |> Tuple.mapSecond (\c -> Cmd.batch [ cmd, c ])
 
         GotLabelPresets result ->
             case result of
                 Ok labelPresets ->
                     let
-                        newModel =
-                            { model | labelPresets = labelPresets }
+                        updatedModel =
+                            { model | labelPresets = Loaded labelPresets }
+
+                        ( initedModel, initCmd ) =
+                            maybeInitPage updatedModel
+
+                        ( dispatchedModel, dispatchCmd ) =
+                            dispatchPresetsToPage labelPresets initedModel
                     in
-                    maybeInitPage newModel
+                    ( dispatchedModel, Cmd.batch [ initCmd, dispatchCmd ] )
 
                 Err _ ->
-                    setNotification "Failed to load label presets" Error model
+                    let
+                        ( newModel, cmd ) =
+                            setNotification "Failed to load label presets" Error model
+                    in
+                    maybeInitPage { newModel | labelPresets = Failed "Failed to load label presets" }
+                        |> Tuple.mapSecond (\c -> Cmd.batch [ cmd, c ])
 
         DashboardMsg subMsg ->
             case model.page of
@@ -544,16 +617,58 @@ update msg model =
             ( { model | configDropdownOpen = not model.configDropdownOpen }, Cmd.none )
 
 
+{-| Check if RemoteData is in a terminal state (Loaded or Failed).
+-}
+isSettled : RemoteData a -> Bool
+isSettled rd =
+    case rd of
+        Loaded _ ->
+            True
+
+        Failed _ ->
+            True
+
+        _ ->
+            False
+
+
+{-| Check if RemoteData is successfully loaded.
+-}
+isLoaded : RemoteData a -> Bool
+isLoaded rd =
+    case rd of
+        Loaded _ ->
+            True
+
+        _ ->
+            False
+
+
+{-| Check if all RemoteData values are loaded (not failed).
+-}
+allLoaded : Model -> Bool
+allLoaded model =
+    isLoaded model.ingredients
+        && isLoaded model.containerTypes
+        && isLoaded model.batches
+        && isLoaded model.recipes
+        && isLoaded model.labelPresets
+
+
+{-| Check if all RemoteData values have settled (loaded or failed).
+-}
+allSettled : Model -> Bool
+allSettled model =
+    isSettled model.ingredients
+        && isSettled model.containerTypes
+        && isSettled model.batches
+        && isSettled model.recipes
+        && isSettled model.labelPresets
+
+
 maybeInitPage : Model -> ( Model, Cmd Msg )
 maybeInitPage model =
-    let
-        -- Check if all required data is loaded
-        hasRequiredData =
-            not (List.isEmpty model.ingredients)
-                && not (List.isEmpty model.containerTypes)
-                && not (List.isEmpty model.labelPresets)
-    in
-    if hasRequiredData then
+    if allSettled model then
         case model.page of
             NotFoundPage ->
                 initPage model.route model
@@ -563,6 +678,156 @@ maybeInitPage model =
 
     else
         ( model, Cmd.none )
+
+
+{-| Dispatch updated batches to the active page.
+-}
+dispatchBatchesToPage : List BatchSummary -> Model -> ( Model, Cmd Msg )
+dispatchBatchesToPage batches model =
+    case model.page of
+        DashboardPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Dashboard.update (DashboardTypes.ReceivedBatches batches) pageModel
+            in
+            ( { model | page = DashboardPage newPageModel }, Cmd.map DashboardMsg pageCmd )
+
+        BatchDetailPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    BatchDetail.update (BatchDetailTypes.ReceivedBatches batches) pageModel
+            in
+            ( { model | page = BatchDetailPage newPageModel }, Cmd.map BatchDetailMsg pageCmd )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+{-| Dispatch updated ingredients to the active page.
+-}
+dispatchIngredientsToPage : List Ingredient -> Model -> ( Model, Cmd Msg )
+dispatchIngredientsToPage ingredients model =
+    case model.page of
+        NewBatchPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    NewBatch.update (NewBatchTypes.ReceivedIngredients ingredients) pageModel
+            in
+            ( { model | page = NewBatchPage newPageModel }, Cmd.map NewBatchMsg pageCmd )
+
+        IngredientsPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Ingredients.update (IngredientsTypes.ReceivedIngredients ingredients) pageModel
+            in
+            ( { model | page = IngredientsPage newPageModel }, Cmd.map IngredientsMsg pageCmd )
+
+        RecipesPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Recipes.update (RecipesTypes.ReceivedIngredients ingredients) pageModel
+            in
+            ( { model | page = RecipesPage newPageModel }, Cmd.map RecipesMsg pageCmd )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+{-| Dispatch updated container types to the active page.
+-}
+dispatchContainerTypesToPage : List ContainerType -> Model -> ( Model, Cmd Msg )
+dispatchContainerTypesToPage containerTypes model =
+    case model.page of
+        DashboardPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Dashboard.update (DashboardTypes.ReceivedContainerTypes containerTypes) pageModel
+            in
+            ( { model | page = DashboardPage newPageModel }, Cmd.map DashboardMsg pageCmd )
+
+        NewBatchPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    NewBatch.update (NewBatchTypes.ReceivedContainerTypes containerTypes) pageModel
+            in
+            ( { model | page = NewBatchPage newPageModel }, Cmd.map NewBatchMsg pageCmd )
+
+        ContainerTypesPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    ContainerTypes.update (ContainerTypesTypes.ReceivedContainerTypes containerTypes) pageModel
+            in
+            ( { model | page = ContainerTypesPage newPageModel }, Cmd.map ContainerTypesMsg pageCmd )
+
+        RecipesPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Recipes.update (RecipesTypes.ReceivedContainerTypes containerTypes) pageModel
+            in
+            ( { model | page = RecipesPage newPageModel }, Cmd.map RecipesMsg pageCmd )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+{-| Dispatch updated recipes to the active page.
+-}
+dispatchRecipesToPage : List Recipe -> Model -> ( Model, Cmd Msg )
+dispatchRecipesToPage recipes model =
+    case model.page of
+        NewBatchPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    NewBatch.update (NewBatchTypes.ReceivedRecipes recipes) pageModel
+            in
+            ( { model | page = NewBatchPage newPageModel }, Cmd.map NewBatchMsg pageCmd )
+
+        RecipesPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Recipes.update (RecipesTypes.ReceivedRecipes recipes) pageModel
+            in
+            ( { model | page = RecipesPage newPageModel }, Cmd.map RecipesMsg pageCmd )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+{-| Dispatch updated label presets to the active page.
+-}
+dispatchPresetsToPage : List LabelPreset -> Model -> ( Model, Cmd Msg )
+dispatchPresetsToPage labelPresets model =
+    case model.page of
+        NewBatchPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    NewBatch.update (NewBatchTypes.ReceivedLabelPresets labelPresets) pageModel
+            in
+            ( { model | page = NewBatchPage newPageModel }, Cmd.map NewBatchMsg pageCmd )
+
+        BatchDetailPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    BatchDetail.update (BatchDetailTypes.ReceivedLabelPresets labelPresets) pageModel
+            in
+            ( { model | page = BatchDetailPage newPageModel }, Cmd.map BatchDetailMsg pageCmd )
+
+        RecipesPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Recipes.update (RecipesTypes.ReceivedLabelPresets labelPresets) pageModel
+            in
+            ( { model | page = RecipesPage newPageModel }, Cmd.map RecipesMsg pageCmd )
+
+        LabelDesignerPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    LabelDesigner.update (LabelDesignerTypes.ReceivedLabelPresets labelPresets) pageModel
+            in
+            ( { model | page = LabelDesignerPage newPageModel }, Cmd.map LabelDesignerMsg pageCmd )
+
+        _ ->
+            ( model, Cmd.none )
 
 
 {-| Set a notification and schedule its auto-dismiss (except for errors which persist).
@@ -658,6 +923,35 @@ handleNewBatchOutMsg outMsg model pageCmd =
                 [ Cmd.map NewBatchMsg pageCmd
                 , Api.fetchBatches GotBatches
                 , Api.fetchIngredients GotIngredients
+                ]
+            )
+
+        NewBatchTypes.BatchCreatedLocally newBatch batchId ->
+            let
+                updatedBatches =
+                    case model.batches of
+                        Loaded batches ->
+                            Loaded (newBatch :: batches)
+
+                        other ->
+                            other
+
+                updatedModel =
+                    { model | batches = updatedBatches }
+
+                ( dispatchedModel, dispatchCmd ) =
+                    case updatedBatches of
+                        Loaded batches ->
+                            dispatchBatchesToPage batches updatedModel
+
+                        _ ->
+                            ( updatedModel, Cmd.none )
+            in
+            ( dispatchedModel
+            , Cmd.batch
+                [ Cmd.map NewBatchMsg pageCmd
+                , dispatchCmd
+                , Nav.pushUrl dispatchedModel.key ("/batch/" ++ batchId)
                 ]
             )
 
@@ -963,7 +1257,7 @@ view model =
             , Components.viewNotification model.notification DismissNotification
             , Components.viewPrintingProgress model.printingProgress
             , main_ [ class "container mx-auto px-4 py-8" ]
-                [ if model.loading then
+                [ if not (allSettled model) then
                     Components.viewLoading
 
                   else

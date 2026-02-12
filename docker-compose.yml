@@ -48,10 +48,12 @@ services:
       - frostbyte_network
 
   client_builder:
-    image: node:20-alpine
+    build:
+      context: ./client
+      target: builder
     container_name: frostbyte_client_builder
     working_dir: /app
-    command: sh -c "apk add --no-cache curl && if [ \"$(uname -m)\" = \"aarch64\" ]; then curl -L https://github.com/punie/elm-linux-arm64/releases/download/0.19.1/elm-aarch64.tar.gz | tar xz; else curl -L -o elm.gz https://github.com/elm/compiler/releases/download/0.19.1/binary-for-linux-64-bit.gz && gunzip elm.gz; fi && chmod +x elm && mv elm /usr/local/bin/ && npm install && npm run build"
+    command: npm run build
     volumes:
       - ./client:/app
       - client_dist:/app/dist
@@ -71,9 +73,12 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - postgrest
-      - printer_service
-      - client_builder
+      postgrest:
+        condition: service_started
+      printer_service:
+        condition: service_started
+      client_builder:
+        condition: service_completed_successfully
     networks:
       - frostbyte_network
 

@@ -189,7 +189,7 @@ When a page modifies shared data (create/update/delete), it must emit a compound
 Main.elm handlers for these OutMsgs call the appropriate `Api.fetch*` function to update the shared state.
 
 **Data loading and page initialization:**
-On app load, Main.elm fetches all shared data (ingredients, containerTypes, batches, recipes, labelPresets) in parallel. The `maybeInitPage` function gates page initialization until required data is loaded (ingredients, containerTypes, and labelPresets must all be non-empty). This prevents race conditions where pages initialize with empty data.
+On app load, Main.elm fetches all shared data (ingredients, containerTypes, batches, recipes, labelPresets) in parallel. Each is tracked with `RemoteData` type (`Loading` -> `Loaded` or `Failed`). The `maybeInitPage` function gates page initialization until all data has settled (loaded or failed). This prevents race conditions where pages initialize with empty data.
 
 When pages receive fresh data from API responses (e.g., `GotBatches` in BatchDetail), they must recalculate any derived state (like `selectedPreset`) based on the new data, not just store it.
 
@@ -287,6 +287,48 @@ For features requiring JavaScript interop (like text measurement and SVG→PNG c
 ## Language Notes
 
 - UI is in Spanish (expiry label: "Caduca:", food categories like "Arroz", "Pollo", etc.)
+
+## Build & Deployment Architecture
+
+### Image Build Pipeline
+- **CI (GitHub Actions)**: Builds multi-arch Docker images on push to main
+- **Elm compilation**: Always runs on amd64 (output is platform-independent JS)
+- **Final image**: Minimal Alpine with static files (~5MB), supports amd64 and arm64
+
+### Development Workflow
+- `docker compose up --build -d` builds locally using `target: builder`
+- Source mounted at runtime, rebuilds on container start
+- Named volume `client_node_modules` persists dependencies for faster rebuilds
+
+### Production Workflow (Raspberry Pi)
+- Pi pulls pre-built image from `ghcr.io/nilp0inter/frostbyte-client:latest`
+- `docker-compose.prod.yml` overrides command to `cp -r /dist/* /output/`
+- **Pi never runs Elm** - just copies pre-built static files to volume
+- Caddy serves static files from shared volume
+
+### Key Files
+- `client/Dockerfile` - Multi-stage: builder (Node+Elm) -> final (Alpine+static)
+- `docker-compose.yml` - Dev config (uses `target: builder`)
+- `docker-compose.prod.yml` - Prod overrides (uses pre-built image)
+- `.github/workflows/build-client.yml` - CI pipeline
+
+### RemoteData Pattern for Loading State
+
+The frontend uses a `RemoteData` union type to track async data loading:
+
+```elm
+type RemoteData a
+    = NotAsked    -- Initial state before any request
+    | Loading     -- Request is in progress
+    | Loaded a    -- Data successfully loaded
+    | Failed String  -- Request failed with error message
+```
+
+This pattern makes impossible states unrepresentable:
+- No need for separate `data` and `dataLoaded` fields
+- Clear distinction between "loaded empty" and "failed to load"
+- Error messages stored with the failed state
+- Pattern matching enforces handling all cases
 
 ## Secrets Management
 

@@ -27,6 +27,7 @@ init containerTypes =
       , form = Data.ContainerType.empty
       , loading = False
       , deleteConfirm = Nothing
+      , viewMode = ListMode
       }
     , Cmd.none
     )
@@ -46,7 +47,7 @@ update msg model =
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { id = 0, message = "Failed to load container types", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al cargar envases", notificationType = Error }
                     )
 
         FormNameChanged name ->
@@ -69,6 +70,12 @@ update msg model =
             , NoOp
             )
 
+        StartCreate ->
+            ( { model | form = Data.ContainerType.empty, viewMode = FormMode }
+            , Cmd.none
+            , NoOp
+            )
+
         EditContainerType containerType ->
             ( { model
                 | form =
@@ -76,13 +83,14 @@ update msg model =
                     , servingsPerUnit = String.fromFloat containerType.servingsPerUnit
                     , editing = Just containerType.name
                     }
+                , viewMode = FormMode
               }
             , Cmd.none
             , NoOp
             )
 
         CancelEdit ->
-            ( { model | form = Data.ContainerType.empty }, Cmd.none, NoOp )
+            ( { model | form = Data.ContainerType.empty, viewMode = ListMode }, Cmd.none, NoOp )
 
         DeleteContainerType name ->
             ( { model | deleteConfirm = Just name }, Cmd.none, NoOp )
@@ -99,15 +107,15 @@ update msg model =
         ContainerTypeSaved result ->
             case result of
                 Ok _ ->
-                    ( { model | loading = False, form = Data.ContainerType.empty }
+                    ( { model | loading = False, form = Data.ContainerType.empty, viewMode = ListMode }
                     , Api.fetchContainerTypes GotContainerTypes
-                    , RefreshContainerTypesWithNotification { id = 0, message = "Container type saved", notificationType = Success }
+                    , RefreshContainerTypesWithNotification { id = 0, message = "Envase guardado", notificationType = Success }
                     )
 
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { id = 0, message = "Failed to save container type", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al guardar envase", notificationType = Error }
                     )
 
         ContainerTypeDeleted result ->
@@ -115,14 +123,17 @@ update msg model =
                 Ok _ ->
                     ( { model | loading = False }
                     , Api.fetchContainerTypes GotContainerTypes
-                    , RefreshContainerTypesWithNotification { id = 0, message = "Container type deleted", notificationType = Success }
+                    , RefreshContainerTypesWithNotification { id = 0, message = "Envase eliminado", notificationType = Success }
                     )
 
                 Err _ ->
                     ( { model | loading = False }
                     , Cmd.none
-                    , ShowNotification { id = 0, message = "Failed to delete container type (may be in use)", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al eliminar envase (puede estar en uso)", notificationType = Error }
                     )
+
+        ReceivedContainerTypes containerTypes ->
+            ( { model | containerTypes = containerTypes }, Cmd.none, NoOp )
 
 
 view : Model -> Html Msg

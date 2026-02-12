@@ -43,6 +43,8 @@ type Msg
     | SelectPreset String
     | GotPngResult Ports.PngResult
     | GotTextMeasureResult Ports.TextMeasureResult
+    | ReceivedBatches (List BatchSummary)
+    | ReceivedLabelPresets (List LabelPreset)
 
 
 type OutMsg

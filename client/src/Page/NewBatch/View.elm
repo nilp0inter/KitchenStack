@@ -14,7 +14,7 @@ import Types exposing (..)
 
 view : Model -> Html Msg
 view model =
-    div [ class "max-w-2xl mx-auto" ]
+    div []
         [ h1 [ class "text-3xl font-bold text-gray-800 mb-6" ] [ text "Añadir Nuevas Porciones" ]
         , div [ class "card" ]
             [ Html.form [ onSubmit SubmitBatchWithPrint, class "space-y-6" ]

@@ -27,6 +27,7 @@ init ingredients =
       , form = Data.Ingredient.empty
       , loading = False
       , deleteConfirm = Nothing
+      , viewMode = ListMode
       }
     , Cmd.none
     )
@@ -76,6 +77,12 @@ update msg model =
             , NoOp
             )
 
+        StartCreate ->
+            ( { model | form = Data.Ingredient.empty, viewMode = FormMode }
+            , Cmd.none
+            , NoOp
+            )
+
         EditIngredient ingredient ->
             ( { model
                 | form =
@@ -84,13 +91,14 @@ update msg model =
                     , bestBeforeDays = Maybe.withDefault "" (Maybe.map String.fromInt ingredient.bestBeforeDays)
                     , editing = Just ingredient.name
                     }
+                , viewMode = FormMode
               }
             , Cmd.none
             , NoOp
             )
 
         CancelEdit ->
-            ( { model | form = Data.Ingredient.empty }, Cmd.none, NoOp )
+            ( { model | form = Data.Ingredient.empty, viewMode = ListMode }, Cmd.none, NoOp )
 
         DeleteIngredient name ->
             ( { model | deleteConfirm = Just name }, Cmd.none, NoOp )
@@ -107,7 +115,7 @@ update msg model =
         IngredientSaved result ->
             case result of
                 Ok _ ->
-                    ( { model | loading = False, form = Data.Ingredient.empty }
+                    ( { model | loading = False, form = Data.Ingredient.empty, viewMode = ListMode }
                     , Api.fetchIngredients GotIngredients
                     , RefreshIngredientsWithNotification { id = 0, message = "Ingrediente guardado", notificationType = Success }
                     )
@@ -131,6 +139,9 @@ update msg model =
                     , Cmd.none
                     , ShowNotification { id = 0, message = "Error al eliminar ingrediente (puede estar en uso)", notificationType = Error }
                     )
+
+        ReceivedIngredients ingredients ->
+            ( { model | ingredients = ingredients }, Cmd.none, NoOp )
 
 
 view : Model -> Html Msg

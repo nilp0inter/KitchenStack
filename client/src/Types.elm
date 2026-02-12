@@ -19,7 +19,9 @@ module Types exposing
     , PrintingProgress
     , Recipe
     , RecipeForm
+    , RemoteData(..)
     , SelectedIngredient
+    , ViewMode(..)
     )
 
 
@@ -27,6 +29,28 @@ type alias Flags =
     { currentDate : String
     , appHost : String
     }
+
+
+{-| Represents the state of data that is loaded asynchronously.
+
+  - `NotAsked` - Initial state before any request
+  - `Loading` - Request is in progress
+  - `Loaded a` - Data successfully loaded
+  - `Failed String` - Request failed with error message
+
+-}
+type RemoteData a
+    = NotAsked
+    | Loading
+    | Loaded a
+    | Failed String
+
+
+{-| View mode for CRUD pages: show list or show form
+-}
+type ViewMode
+    = ListMode
+    | FormMode
 
 
 type alias BatchSummary =

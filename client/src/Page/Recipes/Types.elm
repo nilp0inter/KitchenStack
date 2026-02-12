@@ -19,6 +19,7 @@ type alias Model =
     , deleteConfirm : Maybe String
     , showSuggestions : Bool
     , detailsEditor : MarkdownEditor.Model
+    , viewMode : ViewMode
     }
 
 
@@ -32,6 +33,7 @@ type Msg
     | FormContainerChanged String
     | FormLabelPresetChanged String
     | SaveRecipe
+    | StartCreate
     | EditRecipe Recipe
     | CancelEdit
     | DeleteRecipe String
@@ -42,6 +44,10 @@ type Msg
     | HideSuggestions
     | IngredientKeyDown String
     | DetailsEditorMsg MarkdownEditor.Msg
+    | ReceivedIngredients (List Ingredient)
+    | ReceivedContainerTypes (List ContainerType)
+    | ReceivedRecipes (List Recipe)
+    | ReceivedLabelPresets (List LabelPreset)
 
 
 type OutMsg

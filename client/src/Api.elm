@@ -79,11 +79,11 @@ fetchBatchPortions batchId toMsg =
         }
 
 
-createBatch : BatchForm -> UUID -> List UUID -> Maybe String -> (Result Http.Error CreateBatchResponse -> msg) -> Cmd msg
-createBatch form batchUuid portionUuids maybeLabelPreset toMsg =
+createBatch : BatchForm -> UUID -> List UUID -> Maybe String -> String -> Maybe String -> (Result Http.Error CreateBatchResponse -> msg) -> Cmd msg
+createBatch form batchUuid portionUuids maybeLabelPreset expiryDate maybeBestBeforeDate toMsg =
     Http.post
         { url = "/api/db/rpc/create_batch"
-        , body = Http.jsonBody (encodeBatchRequest form batchUuid portionUuids maybeLabelPreset)
+        , body = Http.jsonBody (encodeBatchRequest form batchUuid portionUuids maybeLabelPreset expiryDate maybeBestBeforeDate)
         , expect = Http.expectJson toMsg createBatchResponseDecoder
         }
 

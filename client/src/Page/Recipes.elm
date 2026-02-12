@@ -33,6 +33,7 @@ init recipes ingredients containerTypes labelPresets =
       , deleteConfirm = Nothing
       , showSuggestions = False
       , detailsEditor = MarkdownEditor.init ""
+      , viewMode = ListMode
       }
     , Cmd.none
     )
@@ -177,6 +178,16 @@ update msg model =
                 , NoOp
                 )
 
+        StartCreate ->
+            ( { model
+                | form = Data.Recipe.empty
+                , detailsEditor = MarkdownEditor.init ""
+                , viewMode = FormMode
+              }
+            , Cmd.none
+            , NoOp
+            )
+
         EditRecipe recipe ->
             let
                 ingredientNames =
@@ -206,13 +217,14 @@ update msg model =
                     , details = details
                     }
                 , detailsEditor = MarkdownEditor.init details
+                , viewMode = FormMode
               }
             , Cmd.none
             , NoOp
             )
 
         CancelEdit ->
-            ( { model | form = Data.Recipe.empty, detailsEditor = MarkdownEditor.init "" }, Cmd.none, NoOp )
+            ( { model | form = Data.Recipe.empty, detailsEditor = MarkdownEditor.init "", viewMode = ListMode }, Cmd.none, NoOp )
 
         DeleteRecipe name ->
             ( { model | deleteConfirm = Just name }, Cmd.none, NoOp )
@@ -229,7 +241,7 @@ update msg model =
         RecipeSaved result ->
             case result of
                 Ok _ ->
-                    ( { model | loading = False, form = Data.Recipe.empty, detailsEditor = MarkdownEditor.init "" }
+                    ( { model | loading = False, form = Data.Recipe.empty, detailsEditor = MarkdownEditor.init "", viewMode = ListMode }
                     , Api.fetchRecipes GotRecipes
                     , RefreshRecipesWithNotification { id = 0, message = "Receta guardada", notificationType = Success }
                     )
@@ -271,6 +283,18 @@ update msg model =
 
             else
                 ( model, Cmd.none, NoOp )
+
+        ReceivedIngredients ingredients ->
+            ( { model | ingredients = ingredients }, Cmd.none, NoOp )
+
+        ReceivedContainerTypes containerTypes ->
+            ( { model | containerTypes = containerTypes }, Cmd.none, NoOp )
+
+        ReceivedRecipes recipes ->
+            ( { model | recipes = recipes }, Cmd.none, NoOp )
+
+        ReceivedLabelPresets labelPresets ->
+            ( { model | labelPresets = labelPresets }, Cmd.none, NoOp )
 
 
 view : Model -> Html Msg

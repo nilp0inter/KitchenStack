@@ -11,11 +11,46 @@ view : Model -> Html Msg
 view model =
     div []
         [ h1 [ class "text-3xl font-bold text-gray-800 mb-6" ] [ text "Ingredientes" ]
-        , div [ class "grid grid-cols-1 md:grid-cols-2 gap-6" ]
-            [ viewForm model
-            , viewList model
-            ]
+        , case model.viewMode of
+            Types.ListMode ->
+                viewListMode model
+
+            Types.FormMode ->
+                viewForm model
         , viewDeleteConfirm model.deleteConfirm
+        ]
+
+
+viewListMode : Model -> Html Msg
+viewListMode model =
+    div [ class "card" ]
+        [ div [ class "flex items-center justify-between mb-4" ]
+            [ h2 [ class "text-lg font-semibold text-gray-800" ] [ text "Ingredientes existentes" ]
+            , button
+                [ class "btn-primary"
+                , onClick StartCreate
+                ]
+                [ text "+ Nuevo Ingrediente" ]
+            ]
+        , if List.isEmpty model.ingredients then
+            div [ class "text-center py-8 text-gray-500" ]
+                [ text "No hay ingredientes definidos" ]
+
+          else
+            div [ class "overflow-x-auto" ]
+                [ table [ class "w-full" ]
+                    [ thead [ class "bg-gray-50" ]
+                        [ tr []
+                            [ th [ class "px-4 py-2 text-left text-sm font-semibold text-gray-600" ] [ text "Nombre" ]
+                            , th [ class "px-4 py-2 text-left text-sm font-semibold text-gray-600" ] [ text "Caduca (días)" ]
+                            , th [ class "px-4 py-2 text-left text-sm font-semibold text-gray-600" ] [ text "Consumo pref." ]
+                            , th [ class "px-4 py-2 text-left text-sm font-semibold text-gray-600" ] [ text "Acciones" ]
+                            ]
+                        ]
+                    , tbody [ class "divide-y divide-gray-200" ]
+                        (List.map viewRow model.ingredients)
+                    ]
+                ]
         ]
 
 
@@ -73,16 +108,12 @@ viewForm model =
                 , p [ class "text-xs text-gray-500 mt-1" ] [ text "Días hasta que la calidad se degrada (opcional)" ]
                 ]
             , div [ class "flex justify-end space-x-4 pt-4" ]
-                [ if model.form.editing /= Nothing then
-                    button
-                        [ type_ "button"
-                        , class "px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
-                        , onClick CancelEdit
-                        ]
-                        [ text "Cancelar" ]
-
-                  else
-                    text ""
+                [ button
+                    [ type_ "button"
+                    , class "px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
+                    , onClick CancelEdit
+                    ]
+                    [ text "Cancelar" ]
                 , button
                     [ type_ "submit"
                     , class "btn-primary"
@@ -96,32 +127,6 @@ viewForm model =
                     ]
                 ]
             ]
-        ]
-
-
-viewList : Model -> Html Msg
-viewList model =
-    div [ class "card" ]
-        [ h2 [ class "text-lg font-semibold text-gray-800 mb-4" ] [ text "Ingredientes existentes" ]
-        , if List.isEmpty model.ingredients then
-            div [ class "text-center py-8 text-gray-500" ]
-                [ text "No hay ingredientes definidos" ]
-
-          else
-            div [ class "overflow-x-auto" ]
-                [ table [ class "w-full" ]
-                    [ thead [ class "bg-gray-50" ]
-                        [ tr []
-                            [ th [ class "px-4 py-2 text-left text-sm font-semibold text-gray-600" ] [ text "Nombre" ]
-                            , th [ class "px-4 py-2 text-left text-sm font-semibold text-gray-600" ] [ text "Caduca (días)" ]
-                            , th [ class "px-4 py-2 text-left text-sm font-semibold text-gray-600" ] [ text "Consumo pref." ]
-                            , th [ class "px-4 py-2 text-left text-sm font-semibold text-gray-600" ] [ text "Acciones" ]
-                            ]
-                        ]
-                    , tbody [ class "divide-y divide-gray-200" ]
-                        (List.map viewRow model.ingredients)
-                    ]
-                ]
         ]
 
 

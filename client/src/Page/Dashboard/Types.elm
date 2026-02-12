@@ -19,6 +19,8 @@ type alias Model =
 type Msg
     = GotBatches (Result Http.Error (List BatchSummary))
     | SelectBatch String
+    | ReceivedBatches (List BatchSummary)
+    | ReceivedContainerTypes (List ContainerType)
 
 
 type OutMsg
