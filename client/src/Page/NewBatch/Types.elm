@@ -64,6 +64,9 @@ type Msg
     | ReceivedContainerTypes (List ContainerType)
     | ReceivedRecipes (List Recipe)
     | ReceivedLabelPresets (List LabelPreset)
+    | SelectImage
+    | GotImageResult Ports.FileSelectResult
+    | RemoveImage
 
 
 type OutMsg
@@ -75,3 +78,4 @@ type OutMsg
     | BatchCreatedLocally BatchSummary String
     | RequestSvgToPng Ports.SvgToPngRequest
     | RequestTextMeasure Ports.TextMeasureRequest
+    | RequestFileSelect Ports.FileSelectRequest

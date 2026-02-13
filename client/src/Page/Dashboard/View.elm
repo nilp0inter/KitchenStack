@@ -2,7 +2,7 @@ module Page.Dashboard.View exposing (view)
 
 import Components
 import Html exposing (..)
-import Html.Attributes exposing (class, href)
+import Html.Attributes exposing (alt, class, href, src)
 import Html.Events exposing (onClick)
 import Page.Dashboard.Types exposing (..)
 import Types exposing (..)
@@ -52,7 +52,8 @@ viewBatchesTable model =
             [ table [ class "w-full" ]
                 [ thead [ class "bg-gray-50" ]
                     [ tr []
-                        [ th [ class "px-4 py-3 text-left text-sm font-semibold text-gray-600" ] [ text "Nombre" ]
+                        [ th [ class "px-4 py-3 text-left text-sm font-semibold text-gray-600 w-16" ] [ text "" ]
+                        , th [ class "px-4 py-3 text-left text-sm font-semibold text-gray-600" ] [ text "Nombre" ]
                         , th [ class "px-4 py-3 text-left text-sm font-semibold text-gray-600" ] [ text "Ingredientes" ]
                         , th [ class "px-4 py-3 text-left text-sm font-semibold text-gray-600" ] [ text "Envase" ]
                         , th [ class "px-4 py-3 text-left text-sm font-semibold text-gray-600" ] [ text "Congeladas" ]
@@ -67,7 +68,21 @@ viewBatchesTable model =
                                 [ class "hover:bg-gray-50 cursor-pointer"
                                 , onClick (SelectBatch batch.batchId)
                                 ]
-                                [ td [ class "px-4 py-3 font-medium text-gray-900" ] [ text batch.name ]
+                                [ td [ class "px-4 py-3" ]
+                                    [ case batch.image of
+                                        Just imageData ->
+                                            img
+                                                [ src ("data:image/png;base64," ++ imageData)
+                                                , alt batch.name
+                                                , class "w-12 h-12 object-cover rounded-lg"
+                                                ]
+                                                []
+
+                                        Nothing ->
+                                            div [ class "w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400" ]
+                                                [ text "📷" ]
+                                    ]
+                                , td [ class "px-4 py-3 font-medium text-gray-900" ] [ text batch.name ]
                                 , td [ class "px-4 py-3 text-gray-600 text-sm" ]
                                     [ span [ class "text-gray-500" ]
                                         [ text (truncateIngredients batch.ingredients) ]

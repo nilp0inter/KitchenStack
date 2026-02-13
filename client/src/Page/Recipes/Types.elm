@@ -6,6 +6,7 @@ module Page.Recipes.Types exposing
 
 import Components.MarkdownEditor as MarkdownEditor
 import Http
+import Ports
 import Types exposing (..)
 
 
@@ -48,6 +49,9 @@ type Msg
     | ReceivedContainerTypes (List ContainerType)
     | ReceivedRecipes (List Recipe)
     | ReceivedLabelPresets (List LabelPreset)
+    | SelectImage
+    | GotImageResult Ports.FileSelectResult
+    | RemoveImage
 
 
 type OutMsg
@@ -55,3 +59,4 @@ type OutMsg
     | ShowNotification Notification
     | RefreshRecipes
     | RefreshRecipesWithNotification Notification
+    | RequestFileSelect Ports.FileSelectRequest

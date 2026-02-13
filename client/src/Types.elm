@@ -66,6 +66,7 @@ type alias BatchSummary =
     , totalCount : Int
     , ingredients : String
     , details : Maybe String
+    , image : Maybe String
     }
 
 
@@ -127,6 +128,7 @@ type alias BatchForm =
     , createdAt : String
     , expiryDate : String
     , details : String
+    , image : Maybe String
     }
 
 
@@ -196,6 +198,7 @@ type alias Recipe =
     , defaultLabelPreset : Maybe String
     , ingredients : String
     , details : Maybe String
+    , image : Maybe String
     }
 
 
@@ -208,6 +211,7 @@ type alias RecipeForm =
     , defaultLabelPreset : String
     , editing : Maybe String
     , details : String
+    , image : Maybe String
     }
 
 

@@ -14,6 +14,7 @@ import Html exposing (Html)
 import Http
 import Page.Recipes.Types as RT exposing (..)
 import Page.Recipes.View as View
+import Ports
 import Types exposing (..)
 
 
@@ -215,6 +216,7 @@ update msg model =
                     , defaultLabelPreset = Maybe.withDefault "" recipe.defaultLabelPreset
                     , editing = Just recipe.name
                     , details = details
+                    , image = recipe.image
                     }
                 , detailsEditor = MarkdownEditor.init details
                 , viewMode = FormMode
@@ -295,6 +297,47 @@ update msg model =
 
         ReceivedLabelPresets labelPresets ->
             ( { model | labelPresets = labelPresets }, Cmd.none, NoOp )
+
+        SelectImage ->
+            ( model
+            , Cmd.none
+            , RequestFileSelect
+                { requestId = "recipe-image"
+                , maxSizeKb = 500
+                , acceptTypes = [ "image/png", "image/jpeg", "image/webp" ]
+                }
+            )
+
+        GotImageResult result ->
+            case result.dataUrl of
+                Just base64 ->
+                    let
+                        form =
+                            model.form
+                    in
+                    ( { model | form = { form | image = Just base64 } }
+                    , Cmd.none
+                    , NoOp
+                    )
+
+                Nothing ->
+                    case result.error of
+                        Just errorMsg ->
+                            ( model
+                            , Cmd.none
+                            , ShowNotification { id = 0, message = errorMsg, notificationType = Error }
+                            )
+
+                        Nothing ->
+                            -- User cancelled, no error
+                            ( model, Cmd.none, NoOp )
+
+        RemoveImage ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | image = Nothing } }, Cmd.none, NoOp )
 
 
 view : Model -> Html Msg

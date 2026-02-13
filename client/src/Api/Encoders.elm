@@ -43,6 +43,14 @@ encodeBatchRequest form batchUuid portionUuids maybeLabelPreset expiryDate maybe
 
                 Nothing ->
                     []
+
+        imageField =
+            case form.image of
+                Just imageData ->
+                    [ ( "p_image_data", Encode.string imageData ) ]
+
+                Nothing ->
+                    []
     in
     Encode.object
         ([ ( "p_batch_id", Encode.string (UUID.toString batchUuid) )
@@ -56,6 +64,7 @@ encodeBatchRequest form batchUuid portionUuids maybeLabelPreset expiryDate maybe
             ++ bestBeforeField
             ++ labelPresetField
             ++ detailsField
+            ++ imageField
         )
 
 
@@ -159,15 +168,23 @@ encodeRecipeRequest form =
             , ( "p_details", detailsValue )
             ]
 
-        fields =
-            case form.editing of
-                Just originalName ->
-                    baseFields ++ [ ( "p_original_name", Encode.string originalName ) ]
+        imageField =
+            case form.image of
+                Just imageData ->
+                    [ ( "p_image_data", Encode.string imageData ) ]
 
                 Nothing ->
-                    baseFields
+                    []
+
+        editingField =
+            case form.editing of
+                Just originalName ->
+                    [ ( "p_original_name", Encode.string originalName ) ]
+
+                Nothing ->
+                    []
     in
-    Encode.object fields
+    Encode.object (baseFields ++ imageField ++ editingField)
 
 
 encodeLabelPreset : LabelPresetForm -> Encode.Value

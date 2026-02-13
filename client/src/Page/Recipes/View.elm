@@ -2,7 +2,7 @@ module Page.Recipes.View exposing (view)
 
 import Components.MarkdownEditor as MarkdownEditor
 import Html exposing (..)
-import Html.Attributes as Attr exposing (class, disabled, id, placeholder, required, selected, title, type_, value)
+import Html.Attributes as Attr exposing (alt, class, disabled, id, placeholder, required, selected, src, title, type_, value)
 import Html.Events exposing (onClick, onInput, onSubmit)
 import Json.Decode as Decode
 import Page.Recipes.Types exposing (..)
@@ -43,7 +43,8 @@ viewListMode model =
                 [ table [ class "w-full" ]
                     [ thead [ class "bg-gray-50" ]
                         [ tr []
-                            [ th [ class "px-4 py-2 text-left text-sm font-semibold text-gray-600" ] [ text "Nombre" ]
+                            [ th [ class "px-4 py-2 text-left text-sm font-semibold text-gray-600 w-16" ] [ text "" ]
+                            , th [ class "px-4 py-2 text-left text-sm font-semibold text-gray-600" ] [ text "Nombre" ]
                             , th [ class "px-4 py-2 text-left text-sm font-semibold text-gray-600" ] [ text "Ingredientes" ]
                             , th [ class "px-4 py-2 text-left text-sm font-semibold text-gray-600" ] [ text "Porciones" ]
                             , th [ class "px-4 py-2 text-left text-sm font-semibold text-gray-600" ] [ text "Acciones" ]
@@ -128,6 +129,7 @@ viewForm model =
                         )
                     ]
                 ]
+            , viewImageSelector model.form.image
             , Html.map DetailsEditorMsg (MarkdownEditor.view model.detailsEditor)
             , div [ class "flex justify-end space-x-4 pt-4" ]
                 [ button
@@ -274,10 +276,64 @@ viewIngredientChip ingredient =
         ]
 
 
+viewImageSelector : Maybe String -> Html Msg
+viewImageSelector maybeImage =
+    div []
+        [ label [ class "block text-sm font-medium text-gray-700 mb-1" ] [ text "Imagen (opcional)" ]
+        , case maybeImage of
+            Just imageData ->
+                div [ class "flex items-center gap-4" ]
+                    [ img
+                        [ src ("data:image/png;base64," ++ imageData)
+                        , alt "Imagen de la receta"
+                        , class "w-24 h-24 object-cover rounded-lg border border-gray-200"
+                        ]
+                        []
+                    , div [ class "flex flex-col gap-2" ]
+                        [ button
+                            [ type_ "button"
+                            , class "px-3 py-1 bg-frost-500 hover:bg-frost-600 text-white text-sm rounded-lg transition-colors"
+                            , onClick SelectImage
+                            ]
+                            [ text "Cambiar" ]
+                        , button
+                            [ type_ "button"
+                            , class "px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors"
+                            , onClick RemoveImage
+                            ]
+                            [ text "Eliminar" ]
+                        ]
+                    ]
+
+            Nothing ->
+                button
+                    [ type_ "button"
+                    , class "px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-frost-400 hover:text-frost-600 transition-colors"
+                    , onClick SelectImage
+                    ]
+                    [ text "📷 Añadir imagen" ]
+        , p [ class "text-xs text-gray-500 mt-1" ] [ text "Máximo 500KB. Formatos: PNG, JPEG, WebP" ]
+        ]
+
+
 viewRow : Recipe -> Html Msg
 viewRow recipe =
     tr [ class "hover:bg-gray-50" ]
-        [ td [ class "px-4 py-3 font-medium text-gray-900" ] [ text recipe.name ]
+        [ td [ class "px-4 py-3" ]
+            [ case recipe.image of
+                Just imageData ->
+                    img
+                        [ src ("data:image/png;base64," ++ imageData)
+                        , alt recipe.name
+                        , class "w-12 h-12 object-cover rounded-lg"
+                        ]
+                        []
+
+                Nothing ->
+                    div [ class "w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400" ]
+                        [ text "📷" ]
+            ]
+        , td [ class "px-4 py-3 font-medium text-gray-900" ] [ text recipe.name ]
         , td [ class "px-4 py-3 text-gray-600 text-sm" ]
             [ text
                 (if String.length recipe.ingredients > 40 then

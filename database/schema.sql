@@ -38,6 +38,44 @@ CREATE TABLE label_preset (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Image table: stores images as binary data
+CREATE TABLE image (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    image_data BYTEA NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Function to store a base64-encoded image and return its UUID
+CREATE OR REPLACE FUNCTION store_image_base64(base64_data TEXT)
+RETURNS UUID
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    new_id UUID;
+BEGIN
+    INSERT INTO image (image_data)
+    VALUES (decode(base64_data, 'base64'))
+    RETURNING id INTO new_id;
+    RETURN new_id;
+END;
+$$;
+
+-- Function to retrieve an image as base64
+CREATE OR REPLACE FUNCTION get_image_base64(image_id UUID)
+RETURNS TEXT
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    result TEXT;
+BEGIN
+    SELECT encode(image_data, 'base64')
+    INTO result
+    FROM image
+    WHERE id = image_id;
+    RETURN result;  -- Returns NULL if not found
+END;
+$$;
+
 -- Ingredient table: defines ingredients with optional shelf life info
 CREATE TABLE ingredient (
     name CITEXT PRIMARY KEY,
@@ -59,6 +97,7 @@ CREATE TABLE batch (
     best_before_date DATE NULL,
     label_preset TEXT NULL REFERENCES label_preset(name) ON UPDATE CASCADE ON DELETE SET NULL,
     details TEXT NULL,
+    image_id UUID NULL REFERENCES image(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -102,7 +141,8 @@ CREATE OR REPLACE FUNCTION create_batch(
     p_expiry_date DATE DEFAULT NULL,
     p_best_before_date DATE DEFAULT NULL,
     p_label_preset TEXT DEFAULT NULL,
-    p_details TEXT DEFAULT NULL
+    p_details TEXT DEFAULT NULL,
+    p_image_data TEXT DEFAULT NULL
 )
 RETURNS TABLE (
     batch_id UUID,
@@ -112,10 +152,16 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     v_ingredient_name TEXT;
+    v_image_id UUID;
 BEGIN
     -- Expiry date must be provided by client (computed from ingredients client-side)
     IF p_expiry_date IS NULL THEN
         RAISE EXCEPTION 'Expiry date must be provided by client';
+    END IF;
+
+    -- Store image if provided
+    IF p_image_data IS NOT NULL AND p_image_data != '' THEN
+        v_image_id := store_image_base64(p_image_data);
     END IF;
 
     -- Auto-create unknown ingredients with NULL expire/best_before
@@ -127,8 +173,8 @@ BEGIN
     END LOOP;
 
     -- Create batch with client-provided UUID
-    INSERT INTO batch (id, name, container_id, best_before_date, label_preset, details)
-    VALUES (p_batch_id, p_name, p_container_id, p_best_before_date, p_label_preset, p_details);
+    INSERT INTO batch (id, name, container_id, best_before_date, label_preset, details, image_id)
+    VALUES (p_batch_id, p_name, p_container_id, p_best_before_date, p_label_preset, p_details, v_image_id);
 
     -- Link ingredients to batch
     INSERT INTO batch_ingredient (batch_id, ingredient_name)
@@ -161,10 +207,12 @@ SELECT
          WHERE bi.batch_id = b.id),
         ''
     ) AS ingredients,
-    b.details
+    b.details,
+    encode(i.image_data, 'base64') AS image
 FROM batch b
 JOIN portion p ON p.batch_id = b.id
-GROUP BY b.id, b.name, b.container_id, b.best_before_date, b.label_preset, b.created_at, b.details;
+LEFT JOIN image i ON i.id = b.image_id
+GROUP BY b.id, b.name, b.container_id, b.best_before_date, b.label_preset, b.created_at, b.details, i.image_data;
 
 -- View for portion details including batch info (for QR scan page)
 CREATE VIEW portion_detail AS
@@ -232,6 +280,7 @@ CREATE TABLE recipe (
     default_container_id TEXT NULL REFERENCES container_type(name),
     default_label_preset TEXT NULL REFERENCES label_preset(name) ON UPDATE CASCADE ON DELETE SET NULL,
     details TEXT NULL,
+    image_id UUID NULL REFERENCES image(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -252,13 +301,20 @@ CREATE OR REPLACE FUNCTION save_recipe(
     p_default_container_id TEXT DEFAULT NULL,
     p_original_name TEXT DEFAULT NULL,
     p_default_label_preset TEXT DEFAULT NULL,
-    p_details TEXT DEFAULT NULL
+    p_details TEXT DEFAULT NULL,
+    p_image_data TEXT DEFAULT NULL
 ) RETURNS TABLE (recipe_name TEXT)
 LANGUAGE plpgsql
 AS $$
 DECLARE
     v_ingredient_name TEXT;
+    v_image_id UUID;
 BEGIN
+    -- Store image if provided
+    IF p_image_data IS NOT NULL AND p_image_data != '' THEN
+        v_image_id := store_image_base64(p_image_data);
+    END IF;
+
     -- Auto-create unknown ingredients with NULL expire/best_before
     FOREACH v_ingredient_name IN ARRAY p_ingredient_names
     LOOP
@@ -273,13 +329,14 @@ BEGIN
     END IF;
 
     -- Insert or update recipe
-    INSERT INTO recipe (name, default_portions, default_container_id, default_label_preset, details)
-    VALUES (LOWER(p_name), p_default_portions, p_default_container_id, p_default_label_preset, p_details)
+    INSERT INTO recipe (name, default_portions, default_container_id, default_label_preset, details, image_id)
+    VALUES (LOWER(p_name), p_default_portions, p_default_container_id, p_default_label_preset, p_details, v_image_id)
     ON CONFLICT (name) DO UPDATE SET
         default_portions = EXCLUDED.default_portions,
         default_container_id = EXCLUDED.default_container_id,
         default_label_preset = EXCLUDED.default_label_preset,
-        details = EXCLUDED.details;
+        details = EXCLUDED.details,
+        image_id = COALESCE(EXCLUDED.image_id, recipe.image_id);
 
     -- Clear old ingredients and insert new ones
     DELETE FROM recipe_ingredient WHERE recipe_ingredient.recipe_name = LOWER(p_name);
@@ -304,5 +361,7 @@ SELECT
          WHERE ri.recipe_name = r.name),
         ''
     ) AS ingredients,
-    r.details
-FROM recipe r;
+    r.details,
+    encode(i.image_data, 'base64') AS image
+FROM recipe r
+LEFT JOIN image i ON i.id = r.image_id;

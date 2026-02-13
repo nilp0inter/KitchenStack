@@ -4,7 +4,7 @@ import Components.MarkdownEditor as MarkdownEditor
 import Data.LabelPreset
 import Dict exposing (Dict)
 import Html exposing (..)
-import Html.Attributes as Attr exposing (class, disabled, href, id, placeholder, required, selected, type_, value)
+import Html.Attributes as Attr exposing (alt, class, disabled, href, id, placeholder, required, selected, src, type_, value)
 import Html.Events exposing (onClick, onInput, onSubmit)
 import Json.Decode as Decode
 import Label
@@ -112,6 +112,7 @@ view model =
                         ]
                     ]
                 , viewPresetSelector model
+                , viewImageSelector model.form.image
                 , Html.map DetailsEditorMsg (MarkdownEditor.view model.detailsEditor)
                 , div [ class "flex justify-end space-x-4 pt-4" ]
                     [ a [ href "/", class "btn-secondary" ] [ text "Cancelar" ]
@@ -370,19 +371,75 @@ viewRecipeSuggestion recipe =
         , class "w-full text-left px-4 py-3 hover:bg-frost-50 border-b border-gray-100 last:border-b-0"
         , onClick (SelectRecipe recipe)
         ]
-        [ div [ class "flex items-center justify-between" ]
-            [ span [ class "font-medium text-gray-900" ] [ text recipe.name ]
-            , span [ class "text-xs bg-frost-100 text-frost-700 px-2 py-0.5 rounded" ] [ text "Receta" ]
-            ]
-        , div [ class "text-sm text-gray-500 mt-1" ]
-            [ text
-                (if String.length recipe.ingredients > 50 then
-                    String.left 50 recipe.ingredients ++ "..."
+        [ div [ class "flex items-start gap-3" ]
+            [ case recipe.image of
+                Just imageData ->
+                    img
+                        [ src ("data:image/png;base64," ++ imageData)
+                        , alt recipe.name
+                        , class "w-10 h-10 object-cover rounded-lg flex-shrink-0"
+                        ]
+                        []
 
-                 else
-                    recipe.ingredients
-                )
+                Nothing ->
+                    div [ class "w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 flex-shrink-0" ]
+                        [ text "📷" ]
+            , div [ class "flex-1 min-w-0" ]
+                [ div [ class "flex items-center justify-between" ]
+                    [ span [ class "font-medium text-gray-900" ] [ text recipe.name ]
+                    , span [ class "text-xs bg-frost-100 text-frost-700 px-2 py-0.5 rounded" ] [ text "Receta" ]
+                    ]
+                , div [ class "text-sm text-gray-500 mt-1 truncate" ]
+                    [ text
+                        (if String.length recipe.ingredients > 50 then
+                            String.left 50 recipe.ingredients ++ "..."
+
+                         else
+                            recipe.ingredients
+                        )
+                    ]
+                ]
             ]
+        ]
+
+
+viewImageSelector : Maybe String -> Html Msg
+viewImageSelector maybeImage =
+    div []
+        [ label [ class "block text-sm font-medium text-gray-700 mb-1" ] [ text "Imagen (opcional)" ]
+        , case maybeImage of
+            Just imageData ->
+                div [ class "flex items-center gap-4" ]
+                    [ img
+                        [ src ("data:image/png;base64," ++ imageData)
+                        , alt "Imagen del lote"
+                        , class "w-24 h-24 object-cover rounded-lg border border-gray-200"
+                        ]
+                        []
+                    , div [ class "flex flex-col gap-2" ]
+                        [ button
+                            [ type_ "button"
+                            , class "px-3 py-1 bg-frost-500 hover:bg-frost-600 text-white text-sm rounded-lg transition-colors"
+                            , onClick SelectImage
+                            ]
+                            [ text "Cambiar" ]
+                        , button
+                            [ type_ "button"
+                            , class "px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors"
+                            , onClick RemoveImage
+                            ]
+                            [ text "Eliminar" ]
+                        ]
+                    ]
+
+            Nothing ->
+                button
+                    [ type_ "button"
+                    , class "px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-frost-400 hover:text-frost-600 transition-colors"
+                    , onClick SelectImage
+                    ]
+                    [ text "📷 Añadir imagen" ]
+        , p [ class "text-xs text-gray-500 mt-1" ] [ text "Máximo 500KB. Formatos: PNG, JPEG, WebP" ]
         ]
 
 

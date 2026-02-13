@@ -1,14 +1,18 @@
 port module Ports exposing
-    ( PinchZoomConfig
+    ( FileSelectRequest
+    , FileSelectResult
+    , PinchZoomConfig
     , PinchZoomUpdate
     , PngResult
     , SvgToPngRequest
     , TextMeasureRequest
     , TextMeasureResult
     , initPinchZoom
+    , receiveFileSelectResult
     , receivePinchZoomUpdate
     , receivePngResult
     , receiveTextMeasureResult
+    , requestFileSelect
     , requestSvgToPng
     , requestTextMeasure
     , setPinchZoom
@@ -131,3 +135,35 @@ port setPinchZoom : { elementId : String, zoom : Float, panX : Float, panY : Flo
 {-| Receive zoom/pan updates from JavaScript.
 -}
 port receivePinchZoomUpdate : (PinchZoomUpdate -> msg) -> Sub msg
+
+
+
+-- FILE SELECTION PORTS
+
+
+{-| Request to open file selection dialog for images.
+-}
+type alias FileSelectRequest =
+    { requestId : String
+    , maxSizeKb : Int
+    , acceptTypes : List String
+    }
+
+
+{-| Result of file selection.
+-}
+type alias FileSelectResult =
+    { requestId : String
+    , dataUrl : Maybe String
+    , error : Maybe String
+    }
+
+
+{-| Request file selection.
+-}
+port requestFileSelect : FileSelectRequest -> Cmd msg
+
+
+{-| Receive file selection result.
+-}
+port receiveFileSelectResult : (FileSelectResult -> msg) -> Sub msg

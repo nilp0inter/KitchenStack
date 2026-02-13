@@ -13,4 +13,5 @@ empty currentDate =
     , createdAt = currentDate
     , expiryDate = ""
     , details = ""
+    , image = Nothing
     }

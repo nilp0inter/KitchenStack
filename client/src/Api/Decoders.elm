@@ -44,6 +44,7 @@ batchSummaryDecoder =
         |> andMap (Decode.field "total_count" Decode.int)
         |> andMap (Decode.field "ingredients" Decode.string)
         |> andMap (Decode.field "details" (Decode.nullable Decode.string))
+        |> andMap (Decode.field "image" (Decode.nullable Decode.string))
 
 
 andMap : Decoder a -> Decoder (a -> b) -> Decoder b
@@ -97,13 +98,14 @@ portionInBatchDecoder =
 
 recipeDecoder : Decoder Recipe
 recipeDecoder =
-    Decode.map6 Recipe
-        (Decode.field "name" Decode.string)
-        (Decode.field "default_portions" Decode.int)
-        (Decode.field "default_container_id" (Decode.nullable Decode.string))
-        (Decode.field "default_label_preset" (Decode.nullable Decode.string))
-        (Decode.field "ingredients" Decode.string)
-        (Decode.field "details" (Decode.nullable Decode.string))
+    Decode.succeed Recipe
+        |> andMap (Decode.field "name" Decode.string)
+        |> andMap (Decode.field "default_portions" Decode.int)
+        |> andMap (Decode.field "default_container_id" (Decode.nullable Decode.string))
+        |> andMap (Decode.field "default_label_preset" (Decode.nullable Decode.string))
+        |> andMap (Decode.field "ingredients" Decode.string)
+        |> andMap (Decode.field "details" (Decode.nullable Decode.string))
+        |> andMap (Decode.field "image" (Decode.nullable Decode.string))
 
 
 labelPresetDecoder : Decoder LabelPreset

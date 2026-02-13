@@ -142,8 +142,8 @@ Text Measure Request → JS Canvas measureText() → Computed Data (font size, w
 
 **Key components:**
 - `Label.elm` - SVG label rendering with `viewLabelWithComputed` for text-fitted labels
-- `Ports.elm` - Port definitions for text measurement and SVG→PNG conversion
-- `main.js` - JavaScript handlers for text measurement (Canvas measureText) and PNG conversion
+- `Ports.elm` - Port definitions for text measurement, SVG→PNG conversion, and file selection
+- `main.js` - JavaScript handlers for text measurement (Canvas measureText), PNG conversion, and file selection (with validation)
 - `label_preset` table - Stores named label configurations (dimensions, fonts, min font sizes)
 
 **Key types:**
@@ -166,12 +166,13 @@ Text Measure Request → JS Canvas measureText() → Computed Data (font size, w
 
 ### Key Database Objects
 
-- **`create_batch` function**: RPC endpoint that atomically creates a batch with N portions, auto-calculates expiry from ingredient.expire_days
-- **`save_recipe` function**: RPC endpoint that atomically creates/updates a recipe with ingredients, auto-creates unknown ingredients
-- **`batch_summary` view**: Aggregates portions by batch for dashboard display
+- **`image` table**: Stores images as BYTEA with helper functions `store_image_base64()` and `get_image_base64()`
+- **`create_batch` function**: RPC endpoint that atomically creates a batch with N portions, auto-calculates expiry from ingredient.expire_days, optionally stores image
+- **`save_recipe` function**: RPC endpoint that atomically creates/updates a recipe with ingredients, auto-creates unknown ingredients, optionally stores image
+- **`batch_summary` view**: Aggregates portions by batch for dashboard display, includes image
 - **`portion_detail` view**: Joins portion with batch info for QR scan page
 - **`freezer_history` view**: Running totals of frozen portions over time for chart
-- **`recipe_summary` view**: Recipes with aggregated ingredient names for listing
+- **`recipe_summary` view**: Recipes with aggregated ingredient names for listing, includes image
 - **`label_preset` table**: Named label configurations with dimensions, font sizes, and styling
 
 ### Elm Client Structure
@@ -315,6 +316,74 @@ For features requiring JavaScript interop (like text measurement and SVG→PNG c
 **Existing ports:**
 - `requestTextMeasure` / `receiveTextMeasureResult` - Measure text width and compute font sizes/line wrapping
 - `requestSvgToPng` / `receivePngResult` - Convert rendered SVG label to PNG for printing
+- `requestFileSelect` / `receiveFileSelectResult` - Open file picker for image uploads
+
+## Image Handling
+
+Recipes and batches support optional images stored as binary data in PostgreSQL.
+
+### Database Design
+
+Images use a normalized design with a separate `image` table:
+
+```sql
+-- Image storage table
+CREATE TABLE image (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    image_data BYTEA NOT NULL,  -- Binary storage
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Helper functions for base64 transport
+CREATE FUNCTION store_image_base64(base64_data TEXT) RETURNS UUID  -- Store and get UUID
+CREATE FUNCTION get_image_base64(image_id UUID) RETURNS TEXT       -- Retrieve as base64
+```
+
+Foreign keys link images to recipes and batches:
+- `recipe.image_id` → `image(id)` (nullable, ON DELETE SET NULL)
+- `batch.image_id` → `image(id)` (nullable, ON DELETE SET NULL)
+
+### Image Flow
+
+**Upload flow (Elm → JS → Elm → API → PostgreSQL):**
+1. User clicks image selector → Elm sends `requestFileSelect` port
+2. JavaScript opens file picker, validates file (500KB max, PNG/JPEG/WebP)
+3. JS reads file as base64, sends via `receiveFileSelectResult` port
+4. Elm stores base64 in form state (`form.image : Maybe String`)
+5. On save, base64 sent as `p_image_data` parameter to RPC function
+6. PostgreSQL function calls `store_image_base64()` to create image record
+7. Image UUID stored in recipe/batch `image_id` column
+
+**Retrieval flow:**
+- `batch_summary` and `recipe_summary` views JOIN with `image` table
+- Images returned as base64 via `encode(image_data, 'base64') AS image`
+- Elm displays using `img [ src ("data:image/png;base64," ++ imageData) ]`
+
+### Recipe → Batch Image Inheritance
+
+When creating a batch from a recipe:
+1. User searches for recipe in NewBatch page
+2. Recipe suggestions dropdown shows thumbnails (if available)
+3. User selects recipe → `form.image` populated from `recipe.image`
+4. Image preview shown in form with change/remove buttons
+5. User can keep inherited image, upload different one, or remove entirely
+6. On save, new image record created if changed, or same `image_id` reused
+
+### Adding Image Support to New Entities
+
+To add images to a new entity:
+
+1. **Database**: Add `image_id UUID NULL REFERENCES image(id) ON DELETE SET NULL` to table
+2. **RPC function**: Add `p_image_data TEXT DEFAULT NULL` parameter, call `store_image_base64()` if provided
+3. **View**: LEFT JOIN with `image` table, include `encode(i.image_data, 'base64') AS image`
+4. **Elm Types**: Add `image : Maybe String` to both the entity type and form type
+5. **Decoders**: Add `|> andMap (Decode.field "image" (Decode.nullable Decode.string))`
+6. **Encoders**: Add image field encoding with `p_image_data` key
+7. **Page Types**: Add `SelectImage`, `GotImageResult Ports.FileSelectResult`, `RemoveImage` to Msg
+8. **Page Types**: Add `RequestFileSelect Ports.FileSelectRequest` to OutMsg
+9. **Page update**: Handle the three image messages
+10. **Page view**: Add `viewImageSelector` component
+11. **Main.elm**: Forward `GotFileSelectResult` to page, handle `RequestFileSelect` OutMsg
 
 ## Language Notes
 

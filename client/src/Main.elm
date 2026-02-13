@@ -274,6 +274,7 @@ type Msg
     | GotPngResult Ports.PngResult
     | GotTextMeasureResult Ports.TextMeasureResult
     | GotPinchZoomUpdate Ports.PinchZoomUpdate
+    | GotFileSelectResult Ports.FileSelectResult
     | ToggleMobileMenu
     | ToggleConfigDropdown
 
@@ -590,6 +591,18 @@ update msg model =
             case model.page of
                 LabelDesignerPage _ ->
                     update (LabelDesignerMsg (LabelDesignerTypes.PinchZoomUpdated zoomUpdate)) model
+
+                _ ->
+                    ( model, Cmd.none )
+
+        GotFileSelectResult fileResult ->
+            -- Forward file selection results to the active page that handles it
+            case model.page of
+                RecipesPage _ ->
+                    update (RecipesMsg (RecipesTypes.GotImageResult fileResult)) model
+
+                NewBatchPage _ ->
+                    update (NewBatchMsg (NewBatchTypes.GotImageResult fileResult)) model
 
                 _ ->
                     ( model, Cmd.none )
@@ -971,6 +984,14 @@ handleNewBatchOutMsg outMsg model pageCmd =
                 ]
             )
 
+        NewBatchTypes.RequestFileSelect request ->
+            ( model
+            , Cmd.batch
+                [ Cmd.map NewBatchMsg pageCmd
+                , Ports.requestFileSelect request
+                ]
+            )
+
 
 handleItemDetailOutMsg : ItemDetail.OutMsg -> Model -> Cmd ItemDetail.Msg -> ( Model, Cmd Msg )
 handleItemDetailOutMsg outMsg model pageCmd =
@@ -1161,6 +1182,14 @@ handleRecipesOutMsg outMsg model pageCmd =
                 ]
             )
 
+        RecipesTypes.RequestFileSelect request ->
+            ( model
+            , Cmd.batch
+                [ Cmd.map RecipesMsg pageCmd
+                , Ports.requestFileSelect request
+                ]
+            )
+
 
 handleLabelDesignerOutMsg : LabelDesigner.OutMsg -> Model -> Cmd LabelDesigner.Msg -> ( Model, Cmd Msg )
 handleLabelDesignerOutMsg outMsg model pageCmd =
@@ -1241,6 +1270,7 @@ subscriptions _ =
         [ Ports.receivePngResult GotPngResult
         , Ports.receiveTextMeasureResult GotTextMeasureResult
         , Ports.receivePinchZoomUpdate GotPinchZoomUpdate
+        , Ports.receiveFileSelectResult GotFileSelectResult
         ]
 
 

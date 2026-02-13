@@ -401,6 +401,7 @@ update msg model =
 
                                     else
                                         Just details
+                                , image = model.form.image
                                 }
                         in
                         ( { model
@@ -745,6 +746,7 @@ update msg model =
                         , quantity = String.fromInt recipe.defaultPortions
                         , containerId = containerId
                         , details = Maybe.withDefault "" recipe.details
+                        , image = recipe.image
                     }
                 , showRecipeSuggestions = False
                 , expiryRequired = not hasExpiryInfo && not (List.isEmpty selectedIngredients)
@@ -794,6 +796,47 @@ update msg model =
             , Cmd.none
             , NoOp
             )
+
+        SelectImage ->
+            ( model
+            , Cmd.none
+            , RequestFileSelect
+                { requestId = "batch-image"
+                , maxSizeKb = 500
+                , acceptTypes = [ "image/png", "image/jpeg", "image/webp" ]
+                }
+            )
+
+        GotImageResult result ->
+            case result.dataUrl of
+                Just base64 ->
+                    let
+                        form =
+                            model.form
+                    in
+                    ( { model | form = { form | image = Just base64 } }
+                    , Cmd.none
+                    , NoOp
+                    )
+
+                Nothing ->
+                    case result.error of
+                        Just errorMsg ->
+                            ( model
+                            , Cmd.none
+                            , ShowNotification { id = 0, message = errorMsg, notificationType = Error }
+                            )
+
+                        Nothing ->
+                            -- User cancelled, no error
+                            ( model, Cmd.none, NoOp )
+
+        RemoveImage ->
+            let
+                form =
+                    model.form
+            in
+            ( { model | form = { form | image = Nothing } }, Cmd.none, NoOp )
 
 
 view : Model -> Html Msg

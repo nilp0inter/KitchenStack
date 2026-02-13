@@ -13,4 +13,5 @@ empty =
     , defaultLabelPreset = ""
     , editing = Nothing
     , details = ""
+    , image = Nothing
     }

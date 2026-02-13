@@ -397,6 +397,87 @@ app.ports.setPinchZoom.subscribe(({ elementId, zoom, panX, panY }) => {
   }
 })
 
+// File selection port for image uploads
+app.ports.requestFileSelect.subscribe(({ requestId, maxSizeKb, acceptTypes }) => {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = acceptTypes.join(',')
+  input.style.display = 'none'
+
+  input.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) {
+      app.ports.receiveFileSelectResult.send({
+        requestId,
+        dataUrl: null,
+        error: 'No file selected'
+      })
+      document.body.removeChild(input)
+      return
+    }
+
+    // Check file size
+    const maxSizeBytes = maxSizeKb * 1024
+    if (file.size > maxSizeBytes) {
+      app.ports.receiveFileSelectResult.send({
+        requestId,
+        dataUrl: null,
+        error: `File too large. Maximum size is ${maxSizeKb}KB`
+      })
+      document.body.removeChild(input)
+      return
+    }
+
+    // Check file type
+    const validTypes = ['image/png', 'image/jpeg', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      app.ports.receiveFileSelectResult.send({
+        requestId,
+        dataUrl: null,
+        error: 'Invalid file type. Please select a PNG, JPEG, or WebP image'
+      })
+      document.body.removeChild(input)
+      return
+    }
+
+    // Read file as base64
+    const reader = new FileReader()
+    reader.onload = () => {
+      // Extract just the base64 data (remove data:image/...;base64, prefix)
+      const dataUrl = reader.result
+      const base64Data = dataUrl.split(',')[1]
+      app.ports.receiveFileSelectResult.send({
+        requestId,
+        dataUrl: base64Data,
+        error: null
+      })
+      document.body.removeChild(input)
+    }
+    reader.onerror = () => {
+      app.ports.receiveFileSelectResult.send({
+        requestId,
+        dataUrl: null,
+        error: 'Failed to read file'
+      })
+      document.body.removeChild(input)
+    }
+    reader.readAsDataURL(file)
+  })
+
+  // Handle cancel (no file selected)
+  input.addEventListener('cancel', () => {
+    app.ports.receiveFileSelectResult.send({
+      requestId,
+      dataUrl: null,
+      error: null  // No error, just cancelled
+    })
+    document.body.removeChild(input)
+  })
+
+  document.body.appendChild(input)
+  input.click()
+})
+
 // Register service worker for PWA (optional)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
