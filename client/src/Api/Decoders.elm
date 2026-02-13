@@ -66,6 +66,7 @@ portionDetailDecoder =
         |> andMap (Decode.field "best_before_date" (Decode.nullable Decode.string))
         |> andMap (Decode.field "ingredients" Decode.string)
         |> andMap (Decode.field "details" (Decode.nullable Decode.string))
+        |> andMap (Decode.field "image" (Decode.nullable Decode.string))
 
 
 createBatchResponseDecoder : Decoder CreateBatchResponse

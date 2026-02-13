@@ -82,6 +82,7 @@ type alias PortionDetail =
     , bestBeforeDate : Maybe String
     , ingredients : String
     , details : Maybe String
+    , image : Maybe String
     }
 
 

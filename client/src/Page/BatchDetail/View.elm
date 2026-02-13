@@ -5,7 +5,7 @@ import Data.Label
 import Data.LabelPreset
 import Dict
 import Html exposing (..)
-import Html.Attributes as Attr exposing (class, href, title)
+import Html.Attributes as Attr exposing (alt, class, href, src, title)
 import Html.Events exposing (onClick, onInput)
 import Label
 import Markdown.Parser
@@ -78,8 +78,20 @@ viewBatchHeader : Model -> BatchSummary -> Int -> Html Msg
 viewBatchHeader model batch frozenCount =
     div [ class "card mb-6" ]
         [ div [ class "flex justify-between items-start" ]
-            [ div []
-                [ h1 [ class "text-2xl font-bold text-gray-800" ] [ text batch.name ]
+            [ div [ class "flex items-start space-x-4" ]
+                [ case batch.image of
+                    Just imageData ->
+                        img
+                            [ src ("data:image/png;base64," ++ imageData)
+                            , alt batch.name
+                            , class "w-24 h-24 object-cover rounded-lg flex-shrink-0"
+                            ]
+                            []
+
+                    Nothing ->
+                        text ""
+                , div []
+                    [ h1 [ class "text-2xl font-bold text-gray-800" ] [ text batch.name ]
                 , p [ class "text-gray-600 mt-1" ]
                     [ text batch.containerId ]
                 , if batch.ingredients /= "" then
@@ -99,6 +111,7 @@ viewBatchHeader model batch frozenCount =
 
                     Nothing ->
                         text ""
+                ]
                 ]
             , div [ class "flex flex-col items-end space-y-2" ]
                 [ viewPresetSelector model

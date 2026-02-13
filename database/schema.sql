@@ -232,9 +232,11 @@ SELECT
          WHERE bi.batch_id = b.id),
         ''
     ) AS ingredients,
-    b.details
+    b.details,
+    encode(i.image_data, 'base64') AS image
 FROM portion p
-JOIN batch b ON b.id = p.batch_id;
+JOIN batch b ON b.id = p.batch_id
+LEFT JOIN image i ON i.id = b.image_id;
 
 -- View for History Chart: daily count of frozen portions
 -- This calculates the running total of frozen portions over time

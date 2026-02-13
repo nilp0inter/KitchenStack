@@ -2,7 +2,7 @@ module Page.ItemDetail.View exposing (view)
 
 import Components
 import Html exposing (..)
-import Html.Attributes exposing (class, disabled, href)
+import Html.Attributes exposing (alt, class, disabled, href, src)
 import Html.Events exposing (onClick)
 import Markdown.Parser
 import Markdown.Renderer
@@ -27,7 +27,18 @@ view model =
         Just portion ->
             div [ class "max-w-lg mx-auto" ]
                 [ div [ class "card text-center" ]
-                    [ if portion.status == "CONSUMED" then
+                    [ case portion.image of
+                        Just imageData ->
+                            img
+                                [ src ("data:image/png;base64," ++ imageData)
+                                , alt portion.name
+                                , class "w-32 h-32 object-cover rounded-lg mx-auto mb-4"
+                                ]
+                                []
+
+                        Nothing ->
+                            text ""
+                    , if portion.status == "CONSUMED" then
                         div []
                             [ span [ class "text-6xl" ] [ text "✅" ]
                             , h1 [ class "text-2xl font-bold text-gray-800 mt-4" ] [ text "Porción ya consumida" ]
