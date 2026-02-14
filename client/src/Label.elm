@@ -319,16 +319,34 @@ viewLabelWithComputed settings data computed =
             else
                 []
 
+        -- Snowflake size is 1.5x the small font size for better visibility
+        snowflakeFontSize =
+            (settings.smallFontSize * 3) // 2
+
+        -- Shift snowflake down to align with text baseline
+        snowflakeYOffset =
+            (snowflakeFontSize - settings.smallFontSize) // 3
+
         brandingElement =
             if settings.showBranding then
                 [ Svg.text_
                     [ SvgA.x (String.fromInt settings.padding)
                     , SvgA.y (String.fromInt brandingY)
-                    , SvgA.fontFamily settings.fontFamily
-                    , SvgA.fontSize (String.fromInt settings.smallFontSize ++ "px")
                     , SvgA.fill "#999999"
                     ]
-                    [ Svg.text "❄️ FrostByte" ]
+                    [ Svg.tspan
+                        [ SvgA.fontFamily "sans-serif"
+                        , SvgA.fontSize (String.fromInt snowflakeFontSize ++ "px")
+                        , SvgA.dy (String.fromInt snowflakeYOffset)
+                        ]
+                        [ Svg.text "❄" ]
+                    , Svg.tspan
+                        [ SvgA.fontFamily settings.fontFamily
+                        , SvgA.fontSize (String.fromInt settings.smallFontSize ++ "px")
+                        , SvgA.dy (String.fromInt -snowflakeYOffset)
+                        ]
+                        [ Svg.text "FrostByte" ]
+                    ]
                 ]
 
             else
