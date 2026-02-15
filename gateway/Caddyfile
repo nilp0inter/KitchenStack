@@ -8,16 +8,6 @@
     # Serve the Elm PWA static files
     root * /srv/client
 
-    # Handle SPA routing - try files first, then fall back to index.html
-    @notApi {
-        not path /api/*
-    }
-
-    handle @notApi {
-        try_files {path} /index.html
-        file_server
-    }
-
     # Proxy PostgREST API requests
     handle /api/db/* {
         uri strip_prefix /api/db
@@ -31,13 +21,20 @@
     }
 
     # Proxy GoBackup Web UI
+    handle /backup {
+        redir /backup/ permanent
+    }
+
     handle /backup/* {
         uri strip_prefix /backup
         reverse_proxy gobackup:2703
     }
 
-    handle /backup {
-        redir /backup/ permanent
+    # Handle SPA routing - try files first, then fall back to index.html
+    # This must come last as it's the catch-all for the Elm app
+    handle {
+        try_files {path} /index.html
+        file_server
     }
 
     # Enable gzip compression
