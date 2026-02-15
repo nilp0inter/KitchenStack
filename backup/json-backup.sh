@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 API_URL="${API_URL:-http://caddy/api/db}"
