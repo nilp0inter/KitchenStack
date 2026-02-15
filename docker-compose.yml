@@ -83,13 +83,13 @@ services:
       - frostbyte_network
 
   gobackup:
-    image: huacnlee/gobackup:latest
+    build:
+      context: ./backup
     container_name: frostbyte_gobackup
     ports:
       - "2703:2703"
     volumes:
       - ./backup/gobackup.yml:/etc/gobackup/gobackup.yml:ro
-      - ./backup/json-backup.sh:/app/json-backup.sh:ro
       - gobackup_json:/data/json
     depends_on:
       postgres:
