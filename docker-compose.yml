@@ -88,10 +88,14 @@ services:
     ports:
       - "2703:2703"
     volumes:
-      - ./backup:/etc/gobackup:ro
+      - ./backup/gobackup.yml:/etc/gobackup/gobackup.yml:ro
+      - ./backup/json-backup.sh:/app/json-backup.sh:ro
+      - gobackup_json:/data/json
     depends_on:
       postgres:
         condition: service_healthy
+      caddy:
+        condition: service_started
     networks:
       - frostbyte_network
 
@@ -101,6 +105,7 @@ volumes:
   client_node_modules:
   caddy_data:
   caddy_config:
+  gobackup_json:
 
 networks:
   frostbyte_network:

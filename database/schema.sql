@@ -327,12 +327,12 @@ BEGIN
 
     -- If editing (original name provided), delete old recipe first
     IF p_original_name IS NOT NULL THEN
-        DELETE FROM recipe WHERE name = LOWER(p_original_name);
+        DELETE FROM recipe WHERE name = p_original_name;
     END IF;
 
     -- Insert or update recipe
     INSERT INTO recipe (name, default_portions, default_container_id, default_label_preset, details, image_id)
-    VALUES (LOWER(p_name), p_default_portions, p_default_container_id, p_default_label_preset, p_details, v_image_id)
+    VALUES (p_name, p_default_portions, p_default_container_id, p_default_label_preset, p_details, v_image_id)
     ON CONFLICT (name) DO UPDATE SET
         default_portions = EXCLUDED.default_portions,
         default_container_id = EXCLUDED.default_container_id,
@@ -341,11 +341,11 @@ BEGIN
         image_id = COALESCE(EXCLUDED.image_id, recipe.image_id);
 
     -- Clear old ingredients and insert new ones
-    DELETE FROM recipe_ingredient WHERE recipe_ingredient.recipe_name = LOWER(p_name);
+    DELETE FROM recipe_ingredient WHERE recipe_ingredient.recipe_name = p_name;
     INSERT INTO recipe_ingredient (recipe_name, ingredient_name)
-    SELECT LOWER(p_name), LOWER(unnest(p_ingredient_names));
+    SELECT p_name, LOWER(unnest(p_ingredient_names));
 
-    RETURN QUERY SELECT LOWER(p_name)::TEXT AS recipe_name;
+    RETURN QUERY SELECT p_name::TEXT AS recipe_name;
 END;
 $$;
 

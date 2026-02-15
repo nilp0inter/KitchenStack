@@ -7,6 +7,10 @@ models:
     description: "FrostByte PostgreSQL daily backup"
     schedule:
       cron: "0 3 * * *"
+    before_script: /app/json-backup.sh
+    archive:
+      includes:
+        - /data/json
     databases:
       postgresql:
         type: postgresql
