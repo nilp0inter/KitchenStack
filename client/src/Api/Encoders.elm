@@ -160,7 +160,7 @@ encodeRecipeRequest form =
             Maybe.withDefault 1 (String.toInt form.defaultPortions)
 
         baseFields =
-            [ ( "p_name", Encode.string (String.toLower form.name) )
+            [ ( "p_name", Encode.string form.name )
             , ( "p_ingredient_names", Encode.list Encode.string ingredientNames )
             , ( "p_default_portions", Encode.int portions )
             , ( "p_default_container_id", containerValue )
