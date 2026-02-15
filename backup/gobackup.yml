@@ -1,0 +1,34 @@
+web:
+  host: "0.0.0.0"
+  port: 2703
+
+models:
+  frostbyte_db:
+    description: "FrostByte PostgreSQL daily backup"
+    schedule:
+      cron: "0 3 * * *"
+    databases:
+      postgresql:
+        type: postgresql
+        host: postgres
+        port: 5432
+        database: frostbyte_db
+        username: frostbyte_user
+        password: $POSTGRES_PASSWORD
+    storages:
+      b2:
+        type: s3
+        bucket: $B2_BUCKET
+        region: $B2_REGION
+        endpoint: $B2_ENDPOINT
+        path: frostbyte
+        access_key_id: $B2_KEY_ID
+        secret_access_key: $B2_APP_KEY
+        timeout: 600
+        max_retries: 5
+    compress_with:
+      type: tgz
+    notifiers:
+      healthchecks:
+        type: healthchecks
+        url: $HEALTHCHECKS_URL

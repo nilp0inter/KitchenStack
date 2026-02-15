@@ -161,6 +161,7 @@ Text Measure Request → JS Canvas measureText() → Computed Data (font size, w
 │   /          → Elm SPA (static files from client_dist volume)    │
 │   /api/db/*  → PostgREST (:3000) → PostgreSQL                    │
 │   /api/printer/* → Printer Service (:8000)                       │
+│   /backup/*  → GoBackup Web UI (:2703)                           │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -475,3 +476,45 @@ Note: Process substitution (`<(sops -d ...)`) doesn't work reliably with docker 
 2. Add new variable: `FROSTBYTE_NEW_SECRET=value`
 3. Update `docker-compose.secrets.yml` to use `${FROSTBYTE_NEW_SECRET}`
 4. Commit both files
+
+### Current Secrets
+- `FROSTBYTE_POSTGRES_PASSWORD` - PostgreSQL password
+- `FROSTBYTE_B2_BUCKET` - Backblaze B2 bucket name
+- `FROSTBYTE_B2_REGION` - B2 region (e.g., `us-west-002`)
+- `FROSTBYTE_B2_ENDPOINT` - B2 S3-compatible endpoint (e.g., `https://s3.us-west-002.backblazeb2.com`)
+- `FROSTBYTE_B2_KEY_ID` - B2 application key ID
+- `FROSTBYTE_B2_APP_KEY` - B2 application key
+- `FROSTBYTE_HEALTHCHECKS_URL` - Healthchecks.io ping URL
+
+## Database Backups
+
+FrostByte uses [GoBackup](https://gobackup.github.io/) for automated PostgreSQL backups to Backblaze B2 with Healthchecks.io monitoring.
+
+### Configuration
+- **Schedule**: Daily at 3:00 AM
+- **Retention**: 30 days (managed by B2 lifecycle rules)
+- **Storage**: Backblaze B2 (S3-compatible)
+- **Monitoring**: Healthchecks.io ping on success/failure
+
+### Key Files
+- `backup/gobackup.yml` - GoBackup configuration (uses env vars for secrets)
+- `docker-compose.secrets.yml` - Maps SOPS secrets to gobackup environment
+
+### Web UI
+Access backup status at: `http://KitchenLabelPrinter.local/backup/`
+
+### Manual Backup
+```bash
+docker exec frostbyte_gobackup gobackup perform frostbyte_db
+```
+
+### Setting Up B2 Bucket
+1. Log into Backblaze B2 console
+2. Create bucket (e.g., `frostbyte-backups`)
+3. Create Application Key with read/write access to the bucket
+4. Note the region and construct endpoint: `https://s3.{region}.backblazeb2.com`
+
+### Setting Up Healthchecks.io
+1. Create account at healthchecks.io
+2. Create new check with 24-hour period and grace period
+3. Copy the ping URL (format: `https://healthchecks.io/ping/uuid`)

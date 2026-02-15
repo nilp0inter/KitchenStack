@@ -30,6 +30,16 @@
         reverse_proxy printer_service:8000
     }
 
+    # Proxy GoBackup Web UI
+    handle /backup/* {
+        uri strip_prefix /backup
+        reverse_proxy gobackup:2703
+    }
+
+    handle /backup {
+        redir /backup/ permanent
+    }
+
     # Enable gzip compression
     encode gzip
 

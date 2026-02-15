@@ -82,6 +82,17 @@ services:
     networks:
       - frostbyte_network
 
+  gobackup:
+    image: huacnlee/gobackup:latest
+    container_name: frostbyte_gobackup
+    volumes:
+      - ./backup:/etc/gobackup:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - frostbyte_network
+
 volumes:
   postgres_data:
   client_dist:
