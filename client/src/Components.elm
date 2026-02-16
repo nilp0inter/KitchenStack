@@ -29,8 +29,8 @@ viewHeader currentRoute mobileMenuOpen configDropdownOpen toggleMobileMsg toggle
                     ]
                 , -- Desktop navigation (hidden on mobile)
                   nav [ class "hidden md:flex space-x-4 items-center" ]
-                    [ navLink "/new" "✚ Añadir" (currentRoute == NewBatch)
-                    , navLink "/" "Inventario" (currentRoute == Dashboard)
+                    [ navLink "/" "Menú" (currentRoute == Menu)
+                    , navLink "/inventory" "Inventario" (currentRoute == Dashboard)
                     , navLink "/history" "Historial" (currentRoute == History)
                     , viewConfigDropdown currentRoute configDropdownOpen toggleConfigMsg
                     ]
@@ -52,8 +52,8 @@ viewHeader currentRoute mobileMenuOpen configDropdownOpen toggleMobileMsg toggle
           if mobileMenuOpen then
             div [ class "md:hidden absolute top-full left-0 right-0 bg-frost-600 shadow-lg z-50" ]
                 [ nav [ class "container mx-auto px-4 py-2 flex flex-col space-y-1" ]
-                    [ mobileNavLink "/new" "✚ Añadir" (currentRoute == NewBatch)
-                    , mobileNavLink "/" "Inventario" (currentRoute == Dashboard)
+                    [ mobileNavLink "/" "Menú" (currentRoute == Menu)
+                    , mobileNavLink "/inventory" "Inventario" (currentRoute == Dashboard)
                     , mobileNavLink "/history" "Historial" (currentRoute == History)
                     , div [ class "border-t border-frost-500 my-2" ] []
                     , div [ class "px-4 py-1 text-frost-300 text-sm" ] [ text "Ajustes" ]

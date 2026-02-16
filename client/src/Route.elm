@@ -9,7 +9,8 @@ import Url.Parser as Parser exposing ((</>), Parser)
 
 
 type Route
-    = Dashboard
+    = Menu
+    | Dashboard
     | NewBatch
     | ItemDetail String
     | BatchDetail String
@@ -29,7 +30,8 @@ parseUrl url =
 routeParser : Parser (Route -> a) a
 routeParser =
     Parser.oneOf
-        [ Parser.map Dashboard Parser.top
+        [ Parser.map Menu Parser.top
+        , Parser.map Dashboard (Parser.s "inventory")
         , Parser.map NewBatch (Parser.s "new")
         , Parser.map ItemDetail (Parser.s "item" </> Parser.string)
         , Parser.map BatchDetail (Parser.s "batch" </> Parser.string)

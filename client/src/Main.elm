@@ -15,6 +15,8 @@ import Page.ContainerTypes as ContainerTypes
 import Page.ContainerTypes.Types as ContainerTypesTypes
 import Page.Dashboard as Dashboard
 import Page.Dashboard.Types as DashboardTypes
+import Page.Menu as Menu
+import Page.Menu.Types as MenuTypes
 import Page.History as History
 import Page.History.Types as HistoryTypes
 import Page.Ingredients as Ingredients
@@ -75,7 +77,8 @@ type alias Model =
 
 
 type Page
-    = DashboardPage Dashboard.Model
+    = MenuPage Menu.Model
+    | DashboardPage Dashboard.Model
     | NewBatchPage NewBatch.Model
     | ItemDetailPage ItemDetail.Model
     | BatchDetailPage BatchDetail.Model
@@ -154,6 +157,15 @@ initPage route model =
             remoteDataToList model.labelPresets
     in
     case route of
+        Menu ->
+            let
+                ( pageModel, pageCmd ) =
+                    Menu.init batches
+            in
+            ( { model | page = MenuPage pageModel }
+            , Cmd.map MenuMsg pageCmd
+            )
+
         Dashboard ->
             let
                 ( pageModel, pageCmd ) =
@@ -260,6 +272,7 @@ type Msg
     | GotBatches (Result Http.Error (List BatchSummary))
     | GotRecipes (Result Http.Error (List Recipe))
     | GotLabelPresets (Result Http.Error (List LabelPreset))
+    | MenuMsg Menu.Msg
     | DashboardMsg Dashboard.Msg
     | NewBatchMsg NewBatch.Msg
     | ItemDetailMsg ItemDetail.Msg
@@ -414,6 +427,21 @@ update msg model =
                     in
                     maybeInitPage { newModel | labelPresets = Failed "Failed to load label presets" }
                         |> Tuple.mapSecond (\c -> Cmd.batch [ cmd, c ])
+
+        MenuMsg subMsg ->
+            case model.page of
+                MenuPage pageModel ->
+                    let
+                        ( newPageModel, pageCmd, outMsg ) =
+                            Menu.update subMsg pageModel
+
+                        newModel =
+                            { model | page = MenuPage newPageModel }
+                    in
+                    handleMenuOutMsg outMsg newModel pageCmd
+
+                _ ->
+                    ( model, Cmd.none )
 
         DashboardMsg subMsg ->
             case model.page of
@@ -698,6 +726,13 @@ maybeInitPage model =
 dispatchBatchesToPage : List BatchSummary -> Model -> ( Model, Cmd Msg )
 dispatchBatchesToPage batches model =
     case model.page of
+        MenuPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    Menu.update (MenuTypes.ReceivedBatches batches) pageModel
+            in
+            ( { model | page = MenuPage newPageModel }, Cmd.map MenuMsg pageCmd )
+
         DashboardPage pageModel ->
             let
                 ( newPageModel, pageCmd, _ ) =
@@ -873,6 +908,13 @@ setNotification message notificationType model =
       }
     , dismissCmd
     )
+
+
+handleMenuOutMsg : Menu.OutMsg -> Model -> Cmd Menu.Msg -> ( Model, Cmd Msg )
+handleMenuOutMsg outMsg model pageCmd =
+    case outMsg of
+        MenuTypes.NoOp ->
+            ( model, Cmd.map MenuMsg pageCmd )
 
 
 handleDashboardOutMsg : Dashboard.OutMsg -> Model -> Cmd Dashboard.Msg -> ( Model, Cmd Msg )
@@ -1301,6 +1343,9 @@ view model =
 viewPage : Model -> Html Msg
 viewPage model =
     case model.page of
+        MenuPage pageModel ->
+            Html.map MenuMsg (Menu.view pageModel)
+
         DashboardPage pageModel ->
             Html.map DashboardMsg (Dashboard.view pageModel)
 
