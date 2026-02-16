@@ -4,13 +4,14 @@ services:
   printer_service:
     image: ghcr.io/nilp0inter/frostbyte-printer:latest
     build: !reset null
-    privileged: true
+    device_cgroup_rules:
+      - 'c 189:* rwm'
     environment:
       DRY_RUN: "false"
       BROTHER_QL_PRINTER: "usb://0x04f9:0x209b"
       BROTHER_QL_MODEL: "QL-800"
     volumes:
-      - /dev:/dev
+      - /dev/bus/usb:/dev/bus/usb
       - /run/udev:/run/udev:ro
 
   client_builder:
