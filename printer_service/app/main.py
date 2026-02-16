@@ -5,6 +5,7 @@ PNG images and sends them directly to the printer.
 """
 
 import base64
+import multiprocessing
 import os
 import tempfile
 from datetime import datetime
@@ -28,38 +29,59 @@ class PrintRequest(BaseModel):
     label_type: str  # Brother QL label identifier (e.g., "62", "29x90", "d24")
 
 
+def _print_worker(image_path: str, label_type: str, printer_model: str, printer_uri: str, error_queue):
+    """Worker function that runs in a subprocess with fresh USB state."""
+    try:
+        from brother_ql.conversion import convert
+        from brother_ql.backends.helpers import send
+        from brother_ql.raster import BrotherQLRaster
+
+        qlr = BrotherQLRaster(printer_model)
+        instructions = convert(
+            qlr=qlr,
+            images=[image_path],
+            label=label_type,
+            rotate="auto",
+            threshold=70,
+            dither=False,
+            compress=False,
+            red=False,
+            dpi_600=False,
+            hq=True,
+            cut=True,
+        )
+        send(
+            instructions=instructions,
+            printer_identifier=printer_uri,
+            backend_identifier="pyusb"
+        )
+    except Exception as e:
+        error_queue.put(str(e))
+
+
 def print_to_brother_ql(image_path: str, label_type: str) -> None:
-    """Send PNG image to Brother QL printer."""
-    from brother_ql.conversion import convert
-    from brother_ql.backends.helpers import send
-    from brother_ql.raster import BrotherQLRaster
+    """Send PNG image to Brother QL printer.
 
-    # Create raster data
-    qlr = BrotherQLRaster(PRINTER_MODEL)
-
-    # Convert image to raster instructions
-    instructions = convert(
-        qlr=qlr,
-        images=[image_path],
-        label=label_type,
-        rotate="auto",
-        threshold=70,
-        dither=False,
-        compress=False,
-        red=False,
-        dpi_600=False,
-        hq=True,
-        cut=True,
-    )
-
-    # Send to printer via USB
-    # Uses BROTHER_QL_PRINTER env var (e.g., "usb://0x04f9:0x209b/000H2G261629")
+    Runs in a subprocess so that libusb/pyusb always gets fresh USB
+    device state — avoids stale handles after printer standby/wake.
+    """
     printer_uri = os.getenv("BROTHER_QL_PRINTER", "usb://0x04f9:0x209b")
-    send(
-        instructions=instructions,
-        printer_identifier=printer_uri,
-        backend_identifier="pyusb"
+    error_queue = multiprocessing.Queue()
+    proc = multiprocessing.Process(
+        target=_print_worker,
+        args=(image_path, label_type, PRINTER_MODEL, printer_uri, error_queue),
     )
+    proc.start()
+    proc.join(timeout=30)
+    if proc.is_alive():
+        proc.kill()
+        raise RuntimeError("Printing timed out")
+    if proc.exitcode != 0:
+        if not error_queue.empty():
+            raise RuntimeError(error_queue.get())
+        raise RuntimeError(f"Print worker exited with code {proc.exitcode}")
+    if not error_queue.empty():
+        raise RuntimeError(error_queue.get())
 
 
 @app.get("/health")
