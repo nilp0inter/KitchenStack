@@ -77,7 +77,8 @@ Browser :80 → Caddy → printer_service:8000 (/api/printer/*)
 - `gateway/Caddyfile.dev` - Dev Caddyfile (proxies to Vite instead of static files)
 
 **Available routes to test:**
-- http://localhost/ - Dashboard (batch list)
+- http://localhost/ - Menu (visual card grid of what's in the freezer)
+- http://localhost/inventory - Inventory (batch table with servings)
 - http://localhost/new - Create new batch (with recipe search)
 - http://localhost/batch/{uuid} - Batch detail
 - http://localhost/item/{uuid} - Portion detail (QR scan target)
@@ -120,7 +121,7 @@ FrostByte is an **append-only** home freezer management system. Each physical fo
 
 1. **Batch Creation**: User creates a batch via Elm UI → `POST /api/db/rpc/create_batch` → PostgreSQL function creates batch + N portions → Returns `{batch_id, portion_ids[]}` → Client renders SVG labels → converts to PNG via JS ports → sends to printer service
 2. **QR Scan Consumption**: User scans QR code → `/item/{portion_uuid}` route → Fetches from `portion_detail` view → User confirms → `PATCH /api/db/portion` sets status=CONSUMED
-3. **Dashboard**: Fetches `batch_summary` view (batches grouped with frozen/consumed counts)
+3. **Inventory**: Fetches `batch_summary` view (batches grouped with frozen/consumed counts)
 
 ### Label Rendering Architecture
 
@@ -194,7 +195,8 @@ client/src/
 ├── Label.elm             # SVG label rendering with QR codes
 ├── Ports.elm             # Port definitions for SVG→PNG conversion
 └── Page/
-    ├── Dashboard.elm     # Batch list with servings calculation
+    ├── Menu.elm          # Visual menu grid (default landing page)
+    ├── Inventory.elm     # Batch list with servings calculation (/inventory)
     ├── NewBatch.elm      # Batch creation form with printing and recipe search
     ├── ItemDetail.elm    # Portion consumption (QR scan target)
     ├── BatchDetail.elm   # Batch detail with portion list, reprinting
@@ -209,7 +211,7 @@ client/src/
 **Architecture pattern:**
 - Each page module exposes: `Model`, `Msg`, `OutMsg`, `init`, `update`, `view`
 - Pages communicate up via `OutMsg` (navigation, notifications, refresh requests, port requests)
-- Main.elm wraps page messages: `DashboardMsg Page.Dashboard.Msg`
+- Main.elm wraps page messages: `InventoryMsg Page.Inventory.Msg`
 - Shared data (ingredients, containerTypes, batches, recipes, labelPresets) lives in Main and passed to pages
 - Port subscriptions handled in Main.elm, results forwarded to active page
 
@@ -228,7 +230,7 @@ On app load, Main.elm fetches all shared data (ingredients, containerTypes, batc
 
 When pages receive fresh data from API responses (e.g., `GotBatches` in BatchDetail), they must recalculate any derived state (like `selectedPreset`) based on the new data, not just store it.
 
-**Routes:** `/` (Dashboard), `/new` (NewBatch), `/item/{uuid}` (ItemDetail), `/batch/{uuid}` (BatchDetail), `/history` (History), `/recipes` (Recipes), `/ingredients` (Ingredients), `/containers` (ContainerTypes), `/labels` (LabelDesigner)
+**Routes:** `/` (Menu), `/inventory` (Inventory), `/new` (NewBatch), `/item/{uuid}` (ItemDetail), `/batch/{uuid}` (BatchDetail), `/history` (History), `/recipes` (Recipes), `/ingredients` (Ingredients), `/containers` (ContainerTypes), `/labels` (LabelDesigner)
 
 **Styling:** Tailwind CSS with custom "frost" color palette
 
@@ -252,7 +254,7 @@ Python FastAPI service that receives pre-rendered PNG labels and prints them via
 |----------|--------|---------|
 | `/api/db/rpc/create_batch` | POST | Create batch with N portions |
 | `/api/db/rpc/save_recipe` | POST | Create or update recipe with ingredients |
-| `/api/db/batch_summary?frozen_count=gt.0` | GET | Dashboard data |
+| `/api/db/batch_summary?frozen_count=gt.0` | GET | Inventory data |
 | `/api/db/portion_detail?portion_id=eq.{uuid}` | GET | QR scan page data |
 | `/api/db/portion?id=eq.{uuid}` | PATCH | Consume portion (set status, consumed_at) |
 | `/api/db/portion?batch_id=eq.{uuid}` | GET | Get portions for a batch |

@@ -10,7 +10,7 @@ import Url.Parser as Parser exposing ((</>), Parser)
 
 type Route
     = Menu
-    | Dashboard
+    | Inventory
     | NewBatch
     | ItemDetail String
     | BatchDetail String
@@ -31,7 +31,7 @@ routeParser : Parser (Route -> a) a
 routeParser =
     Parser.oneOf
         [ Parser.map Menu Parser.top
-        , Parser.map Dashboard (Parser.s "inventory")
+        , Parser.map Inventory (Parser.s "inventory")
         , Parser.map NewBatch (Parser.s "new")
         , Parser.map ItemDetail (Parser.s "item" </> Parser.string)
         , Parser.map BatchDetail (Parser.s "batch" </> Parser.string)

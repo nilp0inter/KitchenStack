@@ -1,4 +1,4 @@
-module Page.Dashboard exposing
+module Page.Inventory exposing
     ( Model
     , Msg
     , OutMsg
@@ -10,14 +10,14 @@ module Page.Dashboard exposing
 import Api
 import Html exposing (Html)
 import Http
-import Page.Dashboard.Types as DT exposing (..)
-import Page.Dashboard.View as View
+import Page.Inventory.Types as IT exposing (..)
+import Page.Inventory.View as View
 import Types exposing (..)
 
 
-type alias Model = DT.Model
-type alias Msg = DT.Msg
-type alias OutMsg = DT.OutMsg
+type alias Model = IT.Model
+type alias Msg = IT.Msg
+type alias OutMsg = IT.OutMsg
 
 
 init : List BatchSummary -> List ContainerType -> ( Model, Cmd Msg )

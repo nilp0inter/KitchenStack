@@ -1,4 +1,4 @@
-module Page.Dashboard.Types exposing
+module Page.Inventory.Types exposing
     ( Model
     , Msg(..)
     , OutMsg(..)

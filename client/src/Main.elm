@@ -13,8 +13,8 @@ import Page.BatchDetail as BatchDetail
 import Page.BatchDetail.Types as BatchDetailTypes
 import Page.ContainerTypes as ContainerTypes
 import Page.ContainerTypes.Types as ContainerTypesTypes
-import Page.Dashboard as Dashboard
-import Page.Dashboard.Types as DashboardTypes
+import Page.Inventory as Inventory
+import Page.Inventory.Types as InventoryTypes
 import Page.Menu as Menu
 import Page.Menu.Types as MenuTypes
 import Page.History as History
@@ -78,7 +78,7 @@ type alias Model =
 
 type Page
     = MenuPage Menu.Model
-    | DashboardPage Dashboard.Model
+    | InventoryPage Inventory.Model
     | NewBatchPage NewBatch.Model
     | ItemDetailPage ItemDetail.Model
     | BatchDetailPage BatchDetail.Model
@@ -166,13 +166,13 @@ initPage route model =
             , Cmd.map MenuMsg pageCmd
             )
 
-        Dashboard ->
+        Inventory ->
             let
                 ( pageModel, pageCmd ) =
-                    Dashboard.init batches containerTypes
+                    Inventory.init batches containerTypes
             in
-            ( { model | page = DashboardPage pageModel }
-            , Cmd.map DashboardMsg pageCmd
+            ( { model | page = InventoryPage pageModel }
+            , Cmd.map InventoryMsg pageCmd
             )
 
         NewBatch ->
@@ -273,7 +273,7 @@ type Msg
     | GotRecipes (Result Http.Error (List Recipe))
     | GotLabelPresets (Result Http.Error (List LabelPreset))
     | MenuMsg Menu.Msg
-    | DashboardMsg Dashboard.Msg
+    | InventoryMsg Inventory.Msg
     | NewBatchMsg NewBatch.Msg
     | ItemDetailMsg ItemDetail.Msg
     | BatchDetailMsg BatchDetail.Msg
@@ -443,17 +443,17 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
-        DashboardMsg subMsg ->
+        InventoryMsg subMsg ->
             case model.page of
-                DashboardPage pageModel ->
+                InventoryPage pageModel ->
                     let
                         ( newPageModel, pageCmd, outMsg ) =
-                            Dashboard.update subMsg pageModel
+                            Inventory.update subMsg pageModel
 
                         newModel =
-                            { model | page = DashboardPage newPageModel }
+                            { model | page = InventoryPage newPageModel }
                     in
-                    handleDashboardOutMsg outMsg newModel pageCmd
+                    handleInventoryOutMsg outMsg newModel pageCmd
 
                 _ ->
                     ( model, Cmd.none )
@@ -733,12 +733,12 @@ dispatchBatchesToPage batches model =
             in
             ( { model | page = MenuPage newPageModel }, Cmd.map MenuMsg pageCmd )
 
-        DashboardPage pageModel ->
+        InventoryPage pageModel ->
             let
                 ( newPageModel, pageCmd, _ ) =
-                    Dashboard.update (DashboardTypes.ReceivedBatches batches) pageModel
+                    Inventory.update (InventoryTypes.ReceivedBatches batches) pageModel
             in
-            ( { model | page = DashboardPage newPageModel }, Cmd.map DashboardMsg pageCmd )
+            ( { model | page = InventoryPage newPageModel }, Cmd.map InventoryMsg pageCmd )
 
         BatchDetailPage pageModel ->
             let
@@ -786,12 +786,12 @@ dispatchIngredientsToPage ingredients model =
 dispatchContainerTypesToPage : List ContainerType -> Model -> ( Model, Cmd Msg )
 dispatchContainerTypesToPage containerTypes model =
     case model.page of
-        DashboardPage pageModel ->
+        InventoryPage pageModel ->
             let
                 ( newPageModel, pageCmd, _ ) =
-                    Dashboard.update (DashboardTypes.ReceivedContainerTypes containerTypes) pageModel
+                    Inventory.update (InventoryTypes.ReceivedContainerTypes containerTypes) pageModel
             in
-            ( { model | page = DashboardPage newPageModel }, Cmd.map DashboardMsg pageCmd )
+            ( { model | page = InventoryPage newPageModel }, Cmd.map InventoryMsg pageCmd )
 
         NewBatchPage pageModel ->
             let
@@ -917,27 +917,27 @@ handleMenuOutMsg outMsg model pageCmd =
             ( model, Cmd.map MenuMsg pageCmd )
 
 
-handleDashboardOutMsg : Dashboard.OutMsg -> Model -> Cmd Dashboard.Msg -> ( Model, Cmd Msg )
-handleDashboardOutMsg outMsg model pageCmd =
+handleInventoryOutMsg : Inventory.OutMsg -> Model -> Cmd Inventory.Msg -> ( Model, Cmd Msg )
+handleInventoryOutMsg outMsg model pageCmd =
     case outMsg of
-        DashboardTypes.NoOp ->
-            ( model, Cmd.map DashboardMsg pageCmd )
+        InventoryTypes.NoOp ->
+            ( model, Cmd.map InventoryMsg pageCmd )
 
-        DashboardTypes.NavigateToBatch batchId ->
+        InventoryTypes.NavigateToBatch batchId ->
             ( model
             , Cmd.batch
-                [ Cmd.map DashboardMsg pageCmd
+                [ Cmd.map InventoryMsg pageCmd
                 , Nav.pushUrl model.key ("/batch/" ++ batchId)
                 ]
             )
 
-        DashboardTypes.ShowError message ->
+        InventoryTypes.ShowError message ->
             let
                 ( newModel, dismissCmd ) =
                     setNotification message Error model
             in
             ( newModel
-            , Cmd.batch [ Cmd.map DashboardMsg pageCmd, dismissCmd ]
+            , Cmd.batch [ Cmd.map InventoryMsg pageCmd, dismissCmd ]
             )
 
 
@@ -1346,8 +1346,8 @@ viewPage model =
         MenuPage pageModel ->
             Html.map MenuMsg (Menu.view pageModel)
 
-        DashboardPage pageModel ->
-            Html.map DashboardMsg (Dashboard.view pageModel)
+        InventoryPage pageModel ->
+            Html.map InventoryMsg (Inventory.view pageModel)
 
         NewBatchPage pageModel ->
             Html.map NewBatchMsg (NewBatch.view pageModel)

@@ -1,10 +1,10 @@
-module Page.Dashboard.View exposing (view)
+module Page.Inventory.View exposing (view)
 
 import Components
 import Html exposing (..)
 import Html.Attributes exposing (alt, class, href, src)
 import Html.Events exposing (onClick)
-import Page.Dashboard.Types exposing (..)
+import Page.Inventory.Types exposing (..)
 import Types exposing (..)
 
 
