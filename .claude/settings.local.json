@@ -13,7 +13,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(docker run --rm postgres:15-alpine find /usr -name \"*.control\")",
       "WebFetch(domain:gobackup.github.io)",
-      "Bash(git -C /home/nil/Projects/github.com/nilp0inter/FrostByte diff gateway/Caddyfile)"
+      "Bash(git -C /home/nil/Projects/github.com/nilp0inter/FrostByte diff common/gateway/Caddyfile)",
+      "Bash(git mv:*)"
     ]
   }
 }

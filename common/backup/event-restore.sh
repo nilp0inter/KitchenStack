@@ -2,10 +2,10 @@
 set -euo pipefail
 
 CONTAINER="${CONTAINER:-frostbyte_postgres}"
-DB_USER="${DB_USER:-frostbyte_user}"
-DB_NAME="${DB_NAME:-frostbyte_db}"
-EVENT_TABLE="${EVENT_TABLE:-data.event}"
-LOGIC_SCHEMA="${LOGIC_SCHEMA:-logic}"
+DB_USER="${DB_USER:-kitchen_user}"
+DB_NAME="${DB_NAME:-kitchen_db}"
+EVENT_TABLE="${EVENT_TABLE:-frostbyte_data.event}"
+LOGIC_SCHEMA="${LOGIC_SCHEMA:-frostbyte_logic}"
 
 CSV_FILE="${1:?Usage: $0 <path/to/events.csv>}"
 

@@ -1,6 +1,6 @@
 # FrostByte
 
-A home freezer management system for organizing frozen food portions, generating QR code labels, and managing inventory.
+A home freezer management system for organizing frozen food portions, generating QR code labels, and managing inventory. Part of the Kitchen Management Stack monorepo.
 
 ## Features
 
@@ -12,11 +12,11 @@ A home freezer management system for organizing frozen food portions, generating
 
 ## Architecture
 
-FrostByte uses a microservices architecture:
+FrostByte uses a microservices architecture with CQRS + Event Sourcing:
 
-- **PostgreSQL**: Data persistence
+- **PostgreSQL**: Data persistence (shared `kitchen_db` instance)
 - **PostgREST**: Automatic REST API from database schema
-- **Printer Service**: Python FastAPI for label generation
+- **Printer Service**: Python FastAPI for label printing
 - **Caddy**: Reverse proxy and static file server
 - **Elm PWA**: Single-page application frontend
 
@@ -30,7 +30,7 @@ FrostByte uses a microservices architecture:
 
 ```bash
 # Start all services
-docker-compose up --build
+docker compose up --build -d
 
 # Access the application
 open http://localhost
@@ -38,40 +38,53 @@ open http://localhost
 
 ### Development
 
-For local development of the Elm client:
+For local development with hot reloading:
 
 ```bash
-cd client
-npm install
-npm run dev
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```
 
 ## Project Structure
 
 ```
 FrostByte/
-├── client/                 # Elm PWA frontend
-│   ├── src/
-│   │   ├── Main.elm       # Main Elm application
-│   │   ├── main.js        # JavaScript entry point
-│   │   └── main.css       # Tailwind CSS
-│   ├── public/
-│   │   └── manifest.json  # PWA manifest
-│   ├── elm.json
-│   ├── package.json
-│   ├── vite.config.js
-│   └── tailwind.config.js
-├── database/
-│   ├── schema.sql         # Database schema
-│   └── seed.sql           # Initial data
-├── gateway/
-│   └── Caddyfile          # Caddy configuration
-├── printer_service/
-│   ├── app/
-│   │   └── main.py        # FastAPI application
-│   ├── requirements.txt
-│   └── Dockerfile
+├── common/                        # Shared infrastructure
+│   ├── gateway/                   # Caddy reverse proxy
+│   │   ├── Caddyfile              # Production config
+│   │   └── Caddyfile.dev          # Dev config (Vite proxy)
+│   ├── printer_service/           # Python FastAPI label printer
+│   │   ├── app/main.py
+│   │   ├── requirements.txt
+│   │   └── Dockerfile
+│   └── backup/                    # GoBackup config + scripts
+│       ├── gobackup.yml
+│       ├── json-backup.sh
+│       ├── json-restore.sh
+│       └── Dockerfile
+├── apps/
+│   └── frostbyte/                 # Freezer management app
+│       ├── client/                # Elm PWA frontend
+│       │   ├── src/
+│       │   │   ├── Main.elm
+│       │   │   ├── main.js
+│       │   │   └── main.css
+│       │   ├── public/
+│       │   │   └── manifest.json
+│       │   ├── elm.json
+│       │   ├── package.json
+│       │   ├── vite.config.js
+│       │   └── tailwind.config.js
+│       ├── database/
+│       │   ├── migrations/        # Persistent schema migrations
+│       │   ├── logic.sql          # Business logic (idempotent)
+│       │   ├── api.sql            # API views + RPCs (idempotent)
+│       │   └── seed.sql           # Initial data
+│       └── CLAUDE.md              # App-specific docs
 ├── docker-compose.yml
+├── docker-compose.dev.yml
+├── docker-compose.prod.yml
+├── docker-compose.secrets.yml
+├── CLAUDE.md                      # Monorepo-level docs
 └── README.md
 ```
 
@@ -79,57 +92,16 @@ FrostByte/
 
 ### PostgREST (via `/api/db/`)
 
-- `GET /api/db/category` - List all categories
+- `GET /api/db/ingredient` - List all ingredients
 - `GET /api/db/container_type` - List all container types
-- `GET /api/db/inventory_item` - List inventory items
-- `POST /api/db/inventory_item` - Create new item
-- `PATCH /api/db/inventory_item?id=eq.{uuid}` - Update item
+- `GET /api/db/batch_summary` - List inventory items
+- `POST /api/db/rpc/create_batch` - Create new batch
+- `POST /api/db/rpc/consume_portion` - Consume a portion
 
 ### Printer Service (via `/api/printer/`)
 
 - `GET /api/printer/health` - Health check
 - `POST /api/printer/print` - Print a label
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Service | Default | Description |
-|----------|---------|---------|-------------|
-| `DRY_RUN` | printer_service | `true` | Save labels as PNG instead of printing |
-| `APP_HOST` | printer_service | `localhost` | Hostname for QR code URLs |
-| `PRINTER_MODEL` | printer_service | `QL-700` | Brother printer model |
-| `PRINTER_TAPE` | printer_service | `62` | Label tape width in mm |
-
-### Dry Run Mode
-
-By default, the printer service runs in dry-run mode and saves label images to `/app/labels_output` instead of sending them to a physical printer.
-
-To enable actual printing, set `DRY_RUN=false` in the docker-compose.yml.
-
-## Data Model
-
-### Categories
-
-Food categories with freezer shelf life in days:
-
-| Category | Safe Days |
-|----------|-----------|
-| Arroz | 120 |
-| Pescado | 180 |
-| Marisco | 180 |
-| Ternera | 365 |
-| Pollo | 365 |
-| Cerdo | 365 |
-| Guiso | 365 |
-| Legumbres | 365 |
-| Verdura | 365 |
-| Salsa | 365 |
-| Postre | 90 |
-
-### Container Types
-
-Various container options with their serving sizes.
 
 ## License
 

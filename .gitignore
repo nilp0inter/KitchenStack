@@ -3,7 +3,7 @@ node_modules/
 elm-stuff/
 
 # Build outputs
-client/dist/
+apps/frostbyte/client/dist/
 
 # Python
 __pycache__/
@@ -31,7 +31,7 @@ ENV/
 postgres_data/
 
 # Printer service output (dry run labels)
-printer_service/labels_output/
+common/printer_service/labels_output/
 
 # OS
 .DS_Store

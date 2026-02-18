@@ -18,6 +18,6 @@ echo "Deploying api schema..."
 psql < /database/api.sql
 
 echo "Replaying events..."
-psql -c "SELECT logic.replay_all_events();"
+psql -c "SELECT frostbyte_logic.replay_all_events();"
 
 echo "Migration complete."

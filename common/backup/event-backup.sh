@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-EVENT_TABLE="${EVENT_TABLE:-data.event}"
+EVENT_TABLE="${EVENT_TABLE:-frostbyte_data.event}"
 OUTPUT_DIR="/data/json"
 
 mkdir -p "$OUTPUT_DIR"

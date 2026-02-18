@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'printer_service/**'
+      - 'common/printer_service/**'
 
 env:
   REGISTRY: ghcr.io
@@ -37,8 +37,8 @@ jobs:
       - name: Build and push printer service image
         uses: docker/build-push-action@v5
         with:
-          context: ./printer_service
-          file: ./printer_service/Dockerfile
+          context: ./common/printer_service
+          file: ./common/printer_service/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |

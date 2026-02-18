@@ -3,34 +3,35 @@
 -- This file is idempotent: DROP + CREATE on each deploy
 
 DROP SCHEMA IF EXISTS api CASCADE;
-CREATE SCHEMA api;
+DROP SCHEMA IF EXISTS frostbyte_api CASCADE;
+CREATE SCHEMA frostbyte_api;
 
 -- =============================================================================
 -- Read Views (same shape as original — client reads unchanged)
 -- =============================================================================
 
-CREATE VIEW api.ingredient AS
-SELECT * FROM logic.ingredient;
+CREATE VIEW frostbyte_api.ingredient AS
+SELECT * FROM frostbyte_logic.ingredient;
 
-CREATE VIEW api.container_type AS
-SELECT * FROM logic.container_type;
+CREATE VIEW frostbyte_api.container_type AS
+SELECT * FROM frostbyte_logic.container_type;
 
-CREATE VIEW api.label_preset AS
-SELECT * FROM logic.label_preset;
+CREATE VIEW frostbyte_api.label_preset AS
+SELECT * FROM frostbyte_logic.label_preset;
 
-CREATE VIEW api.portion AS
+CREATE VIEW frostbyte_api.portion AS
 SELECT id, batch_id, created_at, expiry_date, status, consumed_at, discarded_at, print_count
-FROM logic.portion;
+FROM frostbyte_logic.portion;
 
-CREATE VIEW api.event AS
-SELECT * FROM data.event;
+CREATE VIEW frostbyte_api.event AS
+SELECT * FROM frostbyte_data.event;
 
 -- Batch ingredients: exposed for edit page pre-fill
-CREATE VIEW api.batch_ingredient AS
-SELECT batch_id, ingredient_name FROM logic.batch_ingredient;
+CREATE VIEW frostbyte_api.batch_ingredient AS
+SELECT batch_id, ingredient_name FROM frostbyte_logic.batch_ingredient;
 
 -- Batch summary: batches grouped with frozen/consumed/discarded counts
-CREATE VIEW api.batch_summary AS
+CREATE VIEW frostbyte_api.batch_summary AS
 SELECT
     b.id AS batch_id,
     b.name,
@@ -45,19 +46,19 @@ SELECT
     COUNT(*) AS total_count,
     COALESCE(
         (SELECT string_agg(bi.ingredient_name::TEXT, ', ' ORDER BY bi.ingredient_name)
-         FROM logic.batch_ingredient bi
+         FROM frostbyte_logic.batch_ingredient bi
          WHERE bi.batch_id = b.id),
         ''
     ) AS ingredients,
     b.details,
     encode(i.image_data, 'base64') AS image
-FROM logic.batch b
-JOIN logic.portion p ON p.batch_id = b.id
-LEFT JOIN logic.image i ON i.id = b.image_id
+FROM frostbyte_logic.batch b
+JOIN frostbyte_logic.portion p ON p.batch_id = b.id
+LEFT JOIN frostbyte_logic.image i ON i.id = b.image_id
 GROUP BY b.id, b.name, b.container_id, b.best_before_date, b.label_preset, b.created_at, b.details, i.image_data;
 
 -- Portion detail: for QR scan page
-CREATE VIEW api.portion_detail AS
+CREATE VIEW frostbyte_api.portion_detail AS
 SELECT
     p.id AS portion_id,
     p.batch_id,
@@ -70,26 +71,26 @@ SELECT
     b.best_before_date,
     COALESCE(
         (SELECT string_agg(bi.ingredient_name::TEXT, ', ' ORDER BY bi.ingredient_name)
-         FROM logic.batch_ingredient bi
+         FROM frostbyte_logic.batch_ingredient bi
          WHERE bi.batch_id = b.id),
         ''
     ) AS ingredients,
     b.details,
     encode(i.image_data, 'base64') AS image
-FROM logic.portion p
-JOIN logic.batch b ON b.id = p.batch_id
-LEFT JOIN logic.image i ON i.id = b.image_id;
+FROM frostbyte_logic.portion p
+JOIN frostbyte_logic.batch b ON b.id = p.batch_id
+LEFT JOIN frostbyte_logic.image i ON i.id = b.image_id;
 
 -- Freezer history: daily running totals (DISCARDED portions excluded entirely)
-CREATE VIEW api.freezer_history AS
+CREATE VIEW frostbyte_api.freezer_history AS
 WITH daily_changes AS (
     SELECT created_at::DATE AS date, COUNT(*) AS added, 0 AS consumed
-    FROM logic.portion
+    FROM frostbyte_logic.portion
     WHERE status != 'DISCARDED'
     GROUP BY created_at::DATE
     UNION ALL
     SELECT consumed_at::DATE AS date, 0 AS added, COUNT(*) AS consumed
-    FROM logic.portion
+    FROM frostbyte_logic.portion
     WHERE consumed_at IS NOT NULL AND status != 'DISCARDED'
     GROUP BY consumed_at::DATE
 ),
@@ -101,7 +102,7 @@ aggregated AS (
 ),
 date_range AS (
     SELECT generate_series(
-        COALESCE((SELECT MIN(created_at) FROM logic.portion WHERE status != 'DISCARDED'), CURRENT_DATE),
+        COALESCE((SELECT MIN(created_at) FROM frostbyte_logic.portion WHERE status != 'DISCARDED'), CURRENT_DATE),
         CURRENT_DATE,
         '1 day'::interval
     )::date AS date
@@ -116,7 +117,7 @@ LEFT JOIN aggregated a ON d.date = a.date
 ORDER BY d.date;
 
 -- Recipe summary: recipes with aggregated ingredient names
-CREATE VIEW api.recipe_summary AS
+CREATE VIEW frostbyte_api.recipe_summary AS
 SELECT
     r.name,
     r.default_portions,
@@ -125,27 +126,27 @@ SELECT
     r.created_at,
     COALESCE(
         (SELECT string_agg(ri.ingredient_name::TEXT, ', ' ORDER BY ri.ingredient_name)
-         FROM logic.recipe_ingredient ri
+         FROM frostbyte_logic.recipe_ingredient ri
          WHERE ri.recipe_name = r.name),
         ''
     ) AS ingredients,
     r.details,
     encode(i.image_data, 'base64') AS image
-FROM logic.recipe r
-LEFT JOIN logic.image i ON i.id = r.image_id;
+FROM frostbyte_logic.recipe r
+LEFT JOIN frostbyte_logic.image i ON i.id = r.image_id;
 
 -- =============================================================================
 -- Write RPC Functions (all writes go through events)
 -- =============================================================================
 
 -- Ingredient CRUD
-CREATE FUNCTION api.create_ingredient(
+CREATE FUNCTION frostbyte_api.create_ingredient(
     p_name TEXT,
     p_expire_days INTEGER DEFAULT NULL,
     p_best_before_days INTEGER DEFAULT NULL
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('ingredient_created', jsonb_build_object(
         'name', LOWER(p_name),
         'expire_days', p_expire_days,
@@ -154,14 +155,14 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION api.update_ingredient(
+CREATE FUNCTION frostbyte_api.update_ingredient(
     p_original_name TEXT,
     p_name TEXT,
     p_expire_days INTEGER DEFAULT NULL,
     p_best_before_days INTEGER DEFAULT NULL
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('ingredient_updated', jsonb_build_object(
         'original_name', LOWER(p_original_name),
         'new_name', LOWER(p_name),
@@ -171,11 +172,11 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION api.delete_ingredient(
+CREATE FUNCTION frostbyte_api.delete_ingredient(
     p_name TEXT
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('ingredient_deleted', jsonb_build_object(
         'name', LOWER(p_name)
     ));
@@ -183,12 +184,12 @@ END;
 $$;
 
 -- Container Type CRUD
-CREATE FUNCTION api.create_container_type(
+CREATE FUNCTION frostbyte_api.create_container_type(
     p_name TEXT,
     p_servings_per_unit NUMERIC DEFAULT 1.0
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('container_type_created', jsonb_build_object(
         'name', p_name,
         'servings_per_unit', p_servings_per_unit
@@ -196,13 +197,13 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION api.update_container_type(
+CREATE FUNCTION frostbyte_api.update_container_type(
     p_original_name TEXT,
     p_name TEXT,
     p_servings_per_unit NUMERIC DEFAULT 1.0
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('container_type_updated', jsonb_build_object(
         'original_name', p_original_name,
         'new_name', p_name,
@@ -211,11 +212,11 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION api.delete_container_type(
+CREATE FUNCTION frostbyte_api.delete_container_type(
     p_name TEXT
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('container_type_deleted', jsonb_build_object(
         'name', p_name
     ));
@@ -223,7 +224,7 @@ END;
 $$;
 
 -- Label Preset CRUD
-CREATE FUNCTION api.create_label_preset(
+CREATE FUNCTION frostbyte_api.create_label_preset(
     p_name TEXT,
     p_label_type TEXT DEFAULT '62',
     p_width INTEGER DEFAULT 696,
@@ -250,7 +251,7 @@ CREATE FUNCTION api.create_label_preset(
     p_rotate BOOLEAN DEFAULT FALSE
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('label_preset_created', jsonb_build_object(
         'name', p_name,
         'label_type', p_label_type,
@@ -280,7 +281,7 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION api.update_label_preset(
+CREATE FUNCTION frostbyte_api.update_label_preset(
     p_original_name TEXT,
     p_name TEXT,
     p_label_type TEXT DEFAULT '62',
@@ -308,7 +309,7 @@ CREATE FUNCTION api.update_label_preset(
     p_rotate BOOLEAN DEFAULT FALSE
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('label_preset_updated', jsonb_build_object(
         'original_name', p_original_name,
         'new_name', p_name,
@@ -339,11 +340,11 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION api.delete_label_preset(
+CREATE FUNCTION frostbyte_api.delete_label_preset(
     p_name TEXT
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('label_preset_deleted', jsonb_build_object(
         'name', p_name
     ));
@@ -351,7 +352,7 @@ END;
 $$;
 
 -- Batch creation (computes expiry server-side)
-CREATE FUNCTION api.create_batch(
+CREATE FUNCTION frostbyte_api.create_batch(
     p_batch_id UUID,
     p_portion_ids UUID[],
     p_name TEXT,
@@ -374,10 +375,10 @@ DECLARE
     v_best_before_date DATE;
 BEGIN
     -- Compute expiry date server-side
-    v_expiry_date := logic.compute_expiry_date(p_created_at, p_expiry_date, p_ingredient_names);
+    v_expiry_date := frostbyte_logic.compute_expiry_date(p_created_at, p_expiry_date, p_ingredient_names);
 
     -- Compute best before date server-side
-    v_best_before_date := logic.compute_best_before_date(p_created_at, p_ingredient_names);
+    v_best_before_date := frostbyte_logic.compute_best_before_date(p_created_at, p_ingredient_names);
 
     -- Override best_before_date if client passed one explicitly
     IF p_best_before_date IS NOT NULL THEN
@@ -385,7 +386,7 @@ BEGIN
     END IF;
 
     -- Insert event with computed values (self-contained for replay)
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('batch_created', jsonb_build_object(
         'batch_id', p_batch_id,
         'portion_ids', to_jsonb(p_portion_ids),
@@ -405,7 +406,7 @@ END;
 $$;
 
 -- Batch update (single endpoint for edit form)
-CREATE FUNCTION api.update_batch(
+CREATE FUNCTION frostbyte_api.update_batch(
     p_batch_id UUID,
     p_name TEXT,
     p_container_id TEXT,
@@ -430,13 +431,13 @@ DECLARE
     v_portion_id UUID;
 BEGIN
     -- Compute best_before_date from ingredients (or use manual override)
-    v_best_before_date := logic.compute_best_before_date(p_new_portions_created_at, p_ingredient_names);
+    v_best_before_date := frostbyte_logic.compute_best_before_date(p_new_portions_created_at, p_ingredient_names);
     IF p_best_before_date IS NOT NULL THEN
         v_best_before_date := p_best_before_date;
     END IF;
 
     -- 1. Emit batch_updated event
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('batch_updated', jsonb_build_object(
         'batch_id', p_batch_id,
         'name', p_name,
@@ -453,7 +454,7 @@ BEGIN
     IF p_discard_portion_ids IS NOT NULL AND array_length(p_discard_portion_ids, 1) > 0 THEN
         FOREACH v_portion_id IN ARRAY p_discard_portion_ids
         LOOP
-            INSERT INTO data.event (type, payload)
+            INSERT INTO frostbyte_data.event (type, payload)
             VALUES ('portion_discarded', jsonb_build_object(
                 'portion_id', v_portion_id
             ));
@@ -463,13 +464,13 @@ BEGIN
     -- 3. Emit portions_added event if new portions requested
     IF p_new_portion_ids IS NOT NULL AND array_length(p_new_portion_ids, 1) > 0 THEN
         -- Compute expiry for new portions
-        v_new_expiry_date := logic.compute_expiry_date(
+        v_new_expiry_date := frostbyte_logic.compute_expiry_date(
             p_new_portions_created_at,
             p_new_portions_expiry_date,
             p_ingredient_names
         );
 
-        INSERT INTO data.event (type, payload)
+        INSERT INTO frostbyte_data.event (type, payload)
         VALUES ('portions_added', jsonb_build_object(
             'batch_id', p_batch_id,
             'portion_ids', to_jsonb(p_new_portion_ids),
@@ -483,44 +484,44 @@ END;
 $$;
 
 -- Portion state changes
-CREATE FUNCTION api.consume_portion(
+CREATE FUNCTION frostbyte_api.consume_portion(
     p_portion_id UUID
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('portion_consumed', jsonb_build_object(
         'portion_id', p_portion_id
     ));
 END;
 $$;
 
-CREATE FUNCTION api.return_portion(
+CREATE FUNCTION frostbyte_api.return_portion(
     p_portion_id UUID
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('portion_returned', jsonb_build_object(
         'portion_id', p_portion_id
     ));
 END;
 $$;
 
-CREATE FUNCTION api.discard_portion(
+CREATE FUNCTION frostbyte_api.discard_portion(
     p_portion_id UUID
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('portion_discarded', jsonb_build_object(
         'portion_id', p_portion_id
     ));
 END;
 $$;
 
-CREATE FUNCTION api.record_portion_printed(
+CREATE FUNCTION frostbyte_api.record_portion_printed(
     p_portion_id UUID
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('portion_printed', jsonb_build_object(
         'portion_id', p_portion_id
     ));
@@ -528,7 +529,7 @@ END;
 $$;
 
 -- Recipe CRUD
-CREATE FUNCTION api.save_recipe(
+CREATE FUNCTION frostbyte_api.save_recipe(
     p_name TEXT,
     p_ingredient_names TEXT[],
     p_default_portions INTEGER DEFAULT 1,
@@ -539,7 +540,7 @@ CREATE FUNCTION api.save_recipe(
     p_image_data TEXT DEFAULT NULL
 ) RETURNS TABLE (recipe_name TEXT) LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('recipe_saved', jsonb_build_object(
         'name', p_name,
         'ingredient_names', to_jsonb(p_ingredient_names),
@@ -555,11 +556,11 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION api.delete_recipe(
+CREATE FUNCTION frostbyte_api.delete_recipe(
     p_name TEXT
 ) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO data.event (type, payload)
+    INSERT INTO frostbyte_data.event (type, payload)
     VALUES ('recipe_deleted', jsonb_build_object(
         'name', p_name
     ));

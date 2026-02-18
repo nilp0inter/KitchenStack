@@ -3,30 +3,31 @@
 -- This file is idempotent: DROP + CREATE on each deploy
 
 DROP SCHEMA IF EXISTS logic CASCADE;
-CREATE SCHEMA logic;
+DROP SCHEMA IF EXISTS frostbyte_logic CASCADE;
+CREATE SCHEMA frostbyte_logic;
 
 -- =============================================================================
 -- Projection Tables (rebuilt from events on replay)
 -- =============================================================================
 
-CREATE TABLE logic.image (
+CREATE TABLE frostbyte_logic.image (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     image_data BYTEA NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE logic.ingredient (
+CREATE TABLE frostbyte_logic.ingredient (
     name CITEXT PRIMARY KEY,
     expire_days INTEGER NULL,
     best_before_days INTEGER NULL
 );
 
-CREATE TABLE logic.container_type (
+CREATE TABLE frostbyte_logic.container_type (
     name TEXT PRIMARY KEY,
     servings_per_unit NUMERIC(5,2) NOT NULL
 );
 
-CREATE TABLE logic.label_preset (
+CREATE TABLE frostbyte_logic.label_preset (
     name TEXT PRIMARY KEY,
     label_type TEXT NOT NULL DEFAULT '62',
     width INTEGER NOT NULL DEFAULT 696,
@@ -54,26 +55,26 @@ CREATE TABLE logic.label_preset (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE logic.batch (
+CREATE TABLE frostbyte_logic.batch (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
-    container_id TEXT NOT NULL REFERENCES logic.container_type(name),
+    container_id TEXT NOT NULL REFERENCES frostbyte_logic.container_type(name),
     best_before_date DATE NULL,
-    label_preset TEXT NULL REFERENCES logic.label_preset(name) ON UPDATE CASCADE ON DELETE SET NULL,
+    label_preset TEXT NULL REFERENCES frostbyte_logic.label_preset(name) ON UPDATE CASCADE ON DELETE SET NULL,
     details TEXT NULL,
-    image_id UUID NULL REFERENCES logic.image(id) ON DELETE SET NULL,
+    image_id UUID NULL REFERENCES frostbyte_logic.image(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE logic.batch_ingredient (
-    batch_id UUID NOT NULL REFERENCES logic.batch(id) ON DELETE CASCADE,
-    ingredient_name CITEXT NOT NULL REFERENCES logic.ingredient(name) ON UPDATE CASCADE,
+CREATE TABLE frostbyte_logic.batch_ingredient (
+    batch_id UUID NOT NULL REFERENCES frostbyte_logic.batch(id) ON DELETE CASCADE,
+    ingredient_name CITEXT NOT NULL REFERENCES frostbyte_logic.ingredient(name) ON UPDATE CASCADE,
     PRIMARY KEY (batch_id, ingredient_name)
 );
 
-CREATE TABLE logic.portion (
+CREATE TABLE frostbyte_logic.portion (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    batch_id UUID NOT NULL REFERENCES logic.batch(id),
+    batch_id UUID NOT NULL REFERENCES frostbyte_logic.batch(id),
     created_at DATE NOT NULL DEFAULT CURRENT_DATE,
     expiry_date DATE NOT NULL,
     status TEXT NOT NULL DEFAULT 'FROZEN' CHECK (status IN ('FROZEN', 'CONSUMED', 'DISCARDED')),
@@ -82,47 +83,47 @@ CREATE TABLE logic.portion (
     print_count INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE INDEX idx_portion_status ON logic.portion(status);
-CREATE INDEX idx_portion_expiry_date ON logic.portion(expiry_date);
-CREATE INDEX idx_portion_batch_id ON logic.portion(batch_id);
+CREATE INDEX idx_portion_status ON frostbyte_logic.portion(status);
+CREATE INDEX idx_portion_expiry_date ON frostbyte_logic.portion(expiry_date);
+CREATE INDEX idx_portion_batch_id ON frostbyte_logic.portion(batch_id);
 
-CREATE TABLE logic.recipe (
+CREATE TABLE frostbyte_logic.recipe (
     name CITEXT PRIMARY KEY,
     default_portions INTEGER NOT NULL DEFAULT 1,
-    default_container_id TEXT NULL REFERENCES logic.container_type(name),
-    default_label_preset TEXT NULL REFERENCES logic.label_preset(name) ON UPDATE CASCADE ON DELETE SET NULL,
+    default_container_id TEXT NULL REFERENCES frostbyte_logic.container_type(name),
+    default_label_preset TEXT NULL REFERENCES frostbyte_logic.label_preset(name) ON UPDATE CASCADE ON DELETE SET NULL,
     details TEXT NULL,
-    image_id UUID NULL REFERENCES logic.image(id) ON DELETE SET NULL,
+    image_id UUID NULL REFERENCES frostbyte_logic.image(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE logic.recipe_ingredient (
-    recipe_name CITEXT NOT NULL REFERENCES logic.recipe(name) ON DELETE CASCADE ON UPDATE CASCADE,
-    ingredient_name CITEXT NOT NULL REFERENCES logic.ingredient(name) ON UPDATE CASCADE,
+CREATE TABLE frostbyte_logic.recipe_ingredient (
+    recipe_name CITEXT NOT NULL REFERENCES frostbyte_logic.recipe(name) ON DELETE CASCADE ON UPDATE CASCADE,
+    ingredient_name CITEXT NOT NULL REFERENCES frostbyte_logic.ingredient(name) ON UPDATE CASCADE,
     PRIMARY KEY (recipe_name, ingredient_name)
 );
 
-CREATE INDEX idx_recipe_ingredient_recipe ON logic.recipe_ingredient(recipe_name);
+CREATE INDEX idx_recipe_ingredient_recipe ON frostbyte_logic.recipe_ingredient(recipe_name);
 
 -- =============================================================================
 -- Helper Functions
 -- =============================================================================
 
-CREATE FUNCTION logic.store_image_base64(base64_data TEXT)
+CREATE FUNCTION frostbyte_logic.store_image_base64(base64_data TEXT)
 RETURNS UUID
 LANGUAGE plpgsql
 AS $$
 DECLARE
     new_id UUID;
 BEGIN
-    INSERT INTO logic.image (image_data)
+    INSERT INTO frostbyte_logic.image (image_data)
     VALUES (decode(base64_data, 'base64'))
     RETURNING id INTO new_id;
     RETURN new_id;
 END;
 $$;
 
-CREATE FUNCTION logic.get_image_base64(image_id UUID)
+CREATE FUNCTION frostbyte_logic.get_image_base64(image_id UUID)
 RETURNS TEXT
 LANGUAGE plpgsql
 AS $$
@@ -131,13 +132,13 @@ DECLARE
 BEGIN
     SELECT encode(image_data, 'base64')
     INTO result
-    FROM logic.image
+    FROM frostbyte_logic.image
     WHERE id = image_id;
     RETURN result;
 END;
 $$;
 
-CREATE FUNCTION logic.compute_expiry_date(
+CREATE FUNCTION frostbyte_logic.compute_expiry_date(
     p_created_at DATE,
     p_manual_expiry DATE,
     p_ingredient_names TEXT[]
@@ -155,7 +156,7 @@ BEGIN
     -- Compute from min(expire_days) of selected ingredients
     SELECT MIN(i.expire_days)
     INTO v_min_days
-    FROM logic.ingredient i
+    FROM frostbyte_logic.ingredient i
     WHERE i.name = ANY(p_ingredient_names)
       AND i.expire_days IS NOT NULL;
 
@@ -167,7 +168,7 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION logic.compute_best_before_date(
+CREATE FUNCTION frostbyte_logic.compute_best_before_date(
     p_created_at DATE,
     p_ingredient_names TEXT[]
 ) RETURNS DATE
@@ -178,7 +179,7 @@ DECLARE
 BEGIN
     SELECT MIN(i.best_before_days)
     INTO v_min_days
-    FROM logic.ingredient i
+    FROM frostbyte_logic.ingredient i
     WHERE i.name = ANY(p_ingredient_names)
       AND i.best_before_days IS NOT NULL;
 
@@ -195,10 +196,10 @@ $$;
 -- =============================================================================
 
 -- Ingredient handlers
-CREATE FUNCTION logic.apply_ingredient_created(p JSONB)
+CREATE FUNCTION frostbyte_logic.apply_ingredient_created(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO logic.ingredient (name, expire_days, best_before_days)
+    INSERT INTO frostbyte_logic.ingredient (name, expire_days, best_before_days)
     VALUES (
         p->>'name',
         (p->>'expire_days')::INTEGER,
@@ -207,10 +208,10 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION logic.apply_ingredient_updated(p JSONB)
+CREATE FUNCTION frostbyte_logic.apply_ingredient_updated(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    UPDATE logic.ingredient
+    UPDATE frostbyte_logic.ingredient
     SET name = COALESCE(p->>'new_name', p->>'name'),
         expire_days = (p->>'expire_days')::INTEGER,
         best_before_days = (p->>'best_before_days')::INTEGER
@@ -218,18 +219,18 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION logic.apply_ingredient_deleted(p JSONB)
+CREATE FUNCTION frostbyte_logic.apply_ingredient_deleted(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    DELETE FROM logic.ingredient WHERE name = p->>'name';
+    DELETE FROM frostbyte_logic.ingredient WHERE name = p->>'name';
 END;
 $$;
 
 -- Container type handlers
-CREATE FUNCTION logic.apply_container_type_created(p JSONB)
+CREATE FUNCTION frostbyte_logic.apply_container_type_created(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO logic.container_type (name, servings_per_unit)
+    INSERT INTO frostbyte_logic.container_type (name, servings_per_unit)
     VALUES (
         p->>'name',
         (p->>'servings_per_unit')::NUMERIC(5,2)
@@ -237,28 +238,28 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION logic.apply_container_type_updated(p JSONB)
+CREATE FUNCTION frostbyte_logic.apply_container_type_updated(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    UPDATE logic.container_type
+    UPDATE frostbyte_logic.container_type
     SET name = COALESCE(p->>'new_name', p->>'name'),
         servings_per_unit = (p->>'servings_per_unit')::NUMERIC(5,2)
     WHERE name = COALESCE(p->>'original_name', p->>'name');
 END;
 $$;
 
-CREATE FUNCTION logic.apply_container_type_deleted(p JSONB)
+CREATE FUNCTION frostbyte_logic.apply_container_type_deleted(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    DELETE FROM logic.container_type WHERE name = p->>'name';
+    DELETE FROM frostbyte_logic.container_type WHERE name = p->>'name';
 END;
 $$;
 
 -- Label preset handlers
-CREATE FUNCTION logic.apply_label_preset_created(p JSONB)
+CREATE FUNCTION frostbyte_logic.apply_label_preset_created(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO logic.label_preset (
+    INSERT INTO frostbyte_logic.label_preset (
         name, label_type, width, height, qr_size, padding,
         title_font_size, date_font_size, small_font_size, font_family,
         show_title, show_ingredients, show_expiry_date, show_best_before,
@@ -294,10 +295,10 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION logic.apply_label_preset_updated(p JSONB)
+CREATE FUNCTION frostbyte_logic.apply_label_preset_updated(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    UPDATE logic.label_preset
+    UPDATE frostbyte_logic.label_preset
     SET name = COALESCE(p->>'new_name', p->>'name'),
         label_type = COALESCE(p->>'label_type', label_type),
         width = COALESCE((p->>'width')::INTEGER, width),
@@ -326,15 +327,15 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION logic.apply_label_preset_deleted(p JSONB)
+CREATE FUNCTION frostbyte_logic.apply_label_preset_deleted(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    DELETE FROM logic.label_preset WHERE name = p->>'name';
+    DELETE FROM frostbyte_logic.label_preset WHERE name = p->>'name';
 END;
 $$;
 
 -- Batch handler
-CREATE FUNCTION logic.apply_batch_created(p JSONB, p_created_at TIMESTAMPTZ)
+CREATE FUNCTION frostbyte_logic.apply_batch_created(p JSONB, p_created_at TIMESTAMPTZ)
 RETURNS void LANGUAGE plpgsql AS $$
 DECLARE
     v_ingredient_name TEXT;
@@ -356,7 +357,7 @@ BEGIN
     IF v_ingredient_names IS NOT NULL THEN
         FOREACH v_ingredient_name IN ARRAY v_ingredient_names
         LOOP
-            INSERT INTO logic.ingredient (name)
+            INSERT INTO frostbyte_logic.ingredient (name)
             VALUES (LOWER(v_ingredient_name))
             ON CONFLICT (name) DO NOTHING;
         END LOOP;
@@ -364,11 +365,11 @@ BEGIN
 
     -- Store image if provided
     IF p->>'image_data' IS NOT NULL AND p->>'image_data' != '' THEN
-        v_image_id := logic.store_image_base64(p->>'image_data');
+        v_image_id := frostbyte_logic.store_image_base64(p->>'image_data');
     END IF;
 
     -- Create batch
-    INSERT INTO logic.batch (id, name, container_id, best_before_date, label_preset, details, image_id, created_at)
+    INSERT INTO frostbyte_logic.batch (id, name, container_id, best_before_date, label_preset, details, image_id, created_at)
     VALUES (
         (p->>'batch_id')::UUID,
         p->>'name',
@@ -382,7 +383,7 @@ BEGIN
 
     -- Link ingredients
     IF v_ingredient_names IS NOT NULL THEN
-        INSERT INTO logic.batch_ingredient (batch_id, ingredient_name)
+        INSERT INTO frostbyte_logic.batch_ingredient (batch_id, ingredient_name)
         SELECT (p->>'batch_id')::UUID, LOWER(unnest(v_ingredient_names));
     END IF;
 
@@ -390,7 +391,7 @@ BEGIN
     IF v_portion_ids IS NOT NULL THEN
         FOREACH v_portion_id IN ARRAY v_portion_ids
         LOOP
-            INSERT INTO logic.portion (id, batch_id, created_at, expiry_date)
+            INSERT INTO frostbyte_logic.portion (id, batch_id, created_at, expiry_date)
             VALUES (
                 v_portion_id::UUID,
                 (p->>'batch_id')::UUID,
@@ -403,7 +404,7 @@ END;
 $$;
 
 -- Batch update handler
-CREATE FUNCTION logic.apply_batch_updated(p JSONB, p_created_at TIMESTAMPTZ)
+CREATE FUNCTION frostbyte_logic.apply_batch_updated(p JSONB, p_created_at TIMESTAMPTZ)
 RETURNS void LANGUAGE plpgsql AS $$
 DECLARE
     v_batch_id UUID;
@@ -423,18 +424,18 @@ BEGIN
     IF v_ingredient_names IS NOT NULL THEN
         FOREACH v_ingredient_name IN ARRAY v_ingredient_names
         LOOP
-            INSERT INTO logic.ingredient (name)
+            INSERT INTO frostbyte_logic.ingredient (name)
             VALUES (LOWER(v_ingredient_name))
             ON CONFLICT (name) DO NOTHING;
         END LOOP;
     END IF;
 
     -- Handle image
-    SELECT image_id INTO v_existing_image_id FROM logic.batch WHERE id = v_batch_id;
+    SELECT image_id INTO v_existing_image_id FROM frostbyte_logic.batch WHERE id = v_batch_id;
 
     IF p->>'image_data' IS NOT NULL AND p->>'image_data' != '' THEN
         -- New image provided
-        v_image_id := logic.store_image_base64(p->>'image_data');
+        v_image_id := frostbyte_logic.store_image_base64(p->>'image_data');
     ELSIF (p->>'remove_image')::BOOLEAN IS TRUE THEN
         -- Explicitly remove image
         v_image_id := NULL;
@@ -444,7 +445,7 @@ BEGIN
     END IF;
 
     -- Update batch fields
-    UPDATE logic.batch
+    UPDATE frostbyte_logic.batch
     SET name = COALESCE(p->>'name', name),
         container_id = COALESCE(p->>'container_id', container_id),
         best_before_date = (p->>'best_before_date')::DATE,
@@ -454,16 +455,16 @@ BEGIN
     WHERE id = v_batch_id;
 
     -- Replace ingredients
-    DELETE FROM logic.batch_ingredient WHERE batch_id = v_batch_id;
+    DELETE FROM frostbyte_logic.batch_ingredient WHERE batch_id = v_batch_id;
     IF v_ingredient_names IS NOT NULL THEN
-        INSERT INTO logic.batch_ingredient (batch_id, ingredient_name)
+        INSERT INTO frostbyte_logic.batch_ingredient (batch_id, ingredient_name)
         SELECT v_batch_id, LOWER(unnest(v_ingredient_names));
     END IF;
 END;
 $$;
 
 -- Portions added handler (for adding portions to existing batch)
-CREATE FUNCTION logic.apply_portions_added(p JSONB, p_created_at TIMESTAMPTZ)
+CREATE FUNCTION frostbyte_logic.apply_portions_added(p JSONB, p_created_at TIMESTAMPTZ)
 RETURNS void LANGUAGE plpgsql AS $$
 DECLARE
     v_portion_id TEXT;
@@ -476,7 +477,7 @@ BEGIN
     IF v_portion_ids IS NOT NULL THEN
         FOREACH v_portion_id IN ARRAY v_portion_ids
         LOOP
-            INSERT INTO logic.portion (id, batch_id, created_at, expiry_date)
+            INSERT INTO frostbyte_logic.portion (id, batch_id, created_at, expiry_date)
             VALUES (
                 v_portion_id::UUID,
                 (p->>'batch_id')::UUID,
@@ -489,47 +490,47 @@ END;
 $$;
 
 -- Portion handlers
-CREATE FUNCTION logic.apply_portion_consumed(p JSONB, p_created_at TIMESTAMPTZ)
+CREATE FUNCTION frostbyte_logic.apply_portion_consumed(p JSONB, p_created_at TIMESTAMPTZ)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    UPDATE logic.portion
+    UPDATE frostbyte_logic.portion
     SET status = 'CONSUMED',
         consumed_at = COALESCE((p->>'consumed_at')::TIMESTAMPTZ, p_created_at)
     WHERE id = (p->>'portion_id')::UUID;
 END;
 $$;
 
-CREATE FUNCTION logic.apply_portion_returned(p JSONB)
+CREATE FUNCTION frostbyte_logic.apply_portion_returned(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    UPDATE logic.portion
+    UPDATE frostbyte_logic.portion
     SET status = 'FROZEN',
         consumed_at = NULL
     WHERE id = (p->>'portion_id')::UUID;
 END;
 $$;
 
-CREATE FUNCTION logic.apply_portion_discarded(p JSONB, p_created_at TIMESTAMPTZ)
+CREATE FUNCTION frostbyte_logic.apply_portion_discarded(p JSONB, p_created_at TIMESTAMPTZ)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    UPDATE logic.portion
+    UPDATE frostbyte_logic.portion
     SET status = 'DISCARDED',
         discarded_at = COALESCE((p->>'discarded_at')::TIMESTAMPTZ, p_created_at)
     WHERE id = (p->>'portion_id')::UUID;
 END;
 $$;
 
-CREATE FUNCTION logic.apply_portion_printed(p JSONB)
+CREATE FUNCTION frostbyte_logic.apply_portion_printed(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    UPDATE logic.portion
+    UPDATE frostbyte_logic.portion
     SET print_count = print_count + 1
     WHERE id = (p->>'portion_id')::UUID;
 END;
 $$;
 
 -- Recipe handlers
-CREATE FUNCTION logic.apply_recipe_saved(p JSONB)
+CREATE FUNCTION frostbyte_logic.apply_recipe_saved(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 DECLARE
     v_ingredient_name TEXT;
@@ -548,7 +549,7 @@ BEGIN
     IF v_ingredient_names IS NOT NULL THEN
         FOREACH v_ingredient_name IN ARRAY v_ingredient_names
         LOOP
-            INSERT INTO logic.ingredient (name)
+            INSERT INTO frostbyte_logic.ingredient (name)
             VALUES (LOWER(v_ingredient_name))
             ON CONFLICT (name) DO NOTHING;
         END LOOP;
@@ -556,16 +557,16 @@ BEGIN
 
     -- Store image if provided
     IF p->>'image_data' IS NOT NULL AND p->>'image_data' != '' THEN
-        v_image_id := logic.store_image_base64(p->>'image_data');
+        v_image_id := frostbyte_logic.store_image_base64(p->>'image_data');
     END IF;
 
     -- If editing (original name provided), delete old recipe first
     IF p->>'original_name' IS NOT NULL THEN
-        DELETE FROM logic.recipe WHERE name = p->>'original_name';
+        DELETE FROM frostbyte_logic.recipe WHERE name = p->>'original_name';
     END IF;
 
     -- Insert or update recipe
-    INSERT INTO logic.recipe (name, default_portions, default_container_id, default_label_preset, details, image_id)
+    INSERT INTO frostbyte_logic.recipe (name, default_portions, default_container_id, default_label_preset, details, image_id)
     VALUES (
         v_recipe_name,
         COALESCE((p->>'default_portions')::INTEGER, 1),
@@ -579,21 +580,21 @@ BEGIN
         default_container_id = EXCLUDED.default_container_id,
         default_label_preset = EXCLUDED.default_label_preset,
         details = EXCLUDED.details,
-        image_id = COALESCE(EXCLUDED.image_id, logic.recipe.image_id);
+        image_id = COALESCE(EXCLUDED.image_id, frostbyte_logic.recipe.image_id);
 
     -- Clear old ingredients and insert new ones
-    DELETE FROM logic.recipe_ingredient WHERE recipe_name = v_recipe_name;
+    DELETE FROM frostbyte_logic.recipe_ingredient WHERE recipe_name = v_recipe_name;
     IF v_ingredient_names IS NOT NULL THEN
-        INSERT INTO logic.recipe_ingredient (recipe_name, ingredient_name)
+        INSERT INTO frostbyte_logic.recipe_ingredient (recipe_name, ingredient_name)
         SELECT v_recipe_name, LOWER(unnest(v_ingredient_names));
     END IF;
 END;
 $$;
 
-CREATE FUNCTION logic.apply_recipe_deleted(p JSONB)
+CREATE FUNCTION frostbyte_logic.apply_recipe_deleted(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    DELETE FROM logic.recipe WHERE name = p->>'name';
+    DELETE FROM frostbyte_logic.recipe WHERE name = p->>'name';
 END;
 $$;
 
@@ -601,52 +602,52 @@ $$;
 -- Event Dispatcher
 -- =============================================================================
 
-CREATE FUNCTION logic.apply_event(p_type TEXT, p_payload JSONB, p_created_at TIMESTAMPTZ)
+CREATE FUNCTION frostbyte_logic.apply_event(p_type TEXT, p_payload JSONB, p_created_at TIMESTAMPTZ)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
     CASE p_type
         -- Ingredients
         WHEN 'ingredient_created' THEN
-            PERFORM logic.apply_ingredient_created(p_payload);
+            PERFORM frostbyte_logic.apply_ingredient_created(p_payload);
         WHEN 'ingredient_updated' THEN
-            PERFORM logic.apply_ingredient_updated(p_payload);
+            PERFORM frostbyte_logic.apply_ingredient_updated(p_payload);
         WHEN 'ingredient_deleted' THEN
-            PERFORM logic.apply_ingredient_deleted(p_payload);
+            PERFORM frostbyte_logic.apply_ingredient_deleted(p_payload);
         -- Container types
         WHEN 'container_type_created' THEN
-            PERFORM logic.apply_container_type_created(p_payload);
+            PERFORM frostbyte_logic.apply_container_type_created(p_payload);
         WHEN 'container_type_updated' THEN
-            PERFORM logic.apply_container_type_updated(p_payload);
+            PERFORM frostbyte_logic.apply_container_type_updated(p_payload);
         WHEN 'container_type_deleted' THEN
-            PERFORM logic.apply_container_type_deleted(p_payload);
+            PERFORM frostbyte_logic.apply_container_type_deleted(p_payload);
         -- Label presets
         WHEN 'label_preset_created' THEN
-            PERFORM logic.apply_label_preset_created(p_payload);
+            PERFORM frostbyte_logic.apply_label_preset_created(p_payload);
         WHEN 'label_preset_updated' THEN
-            PERFORM logic.apply_label_preset_updated(p_payload);
+            PERFORM frostbyte_logic.apply_label_preset_updated(p_payload);
         WHEN 'label_preset_deleted' THEN
-            PERFORM logic.apply_label_preset_deleted(p_payload);
+            PERFORM frostbyte_logic.apply_label_preset_deleted(p_payload);
         -- Batches
         WHEN 'batch_created' THEN
-            PERFORM logic.apply_batch_created(p_payload, p_created_at);
+            PERFORM frostbyte_logic.apply_batch_created(p_payload, p_created_at);
         WHEN 'batch_updated' THEN
-            PERFORM logic.apply_batch_updated(p_payload, p_created_at);
+            PERFORM frostbyte_logic.apply_batch_updated(p_payload, p_created_at);
         WHEN 'portions_added' THEN
-            PERFORM logic.apply_portions_added(p_payload, p_created_at);
+            PERFORM frostbyte_logic.apply_portions_added(p_payload, p_created_at);
         -- Portions
         WHEN 'portion_consumed' THEN
-            PERFORM logic.apply_portion_consumed(p_payload, p_created_at);
+            PERFORM frostbyte_logic.apply_portion_consumed(p_payload, p_created_at);
         WHEN 'portion_returned' THEN
-            PERFORM logic.apply_portion_returned(p_payload);
+            PERFORM frostbyte_logic.apply_portion_returned(p_payload);
         WHEN 'portion_discarded' THEN
-            PERFORM logic.apply_portion_discarded(p_payload, p_created_at);
+            PERFORM frostbyte_logic.apply_portion_discarded(p_payload, p_created_at);
         WHEN 'portion_printed' THEN
-            PERFORM logic.apply_portion_printed(p_payload);
+            PERFORM frostbyte_logic.apply_portion_printed(p_payload);
         -- Recipes
         WHEN 'recipe_saved' THEN
-            PERFORM logic.apply_recipe_saved(p_payload);
+            PERFORM frostbyte_logic.apply_recipe_saved(p_payload);
         WHEN 'recipe_deleted' THEN
-            PERFORM logic.apply_recipe_deleted(p_payload);
+            PERFORM frostbyte_logic.apply_recipe_deleted(p_payload);
         ELSE
             RAISE WARNING 'Unknown event type: %', p_type;
     END CASE;
@@ -657,33 +658,33 @@ $$;
 -- Trigger: auto-apply events on INSERT
 -- =============================================================================
 
-CREATE FUNCTION logic.handle_event()
+CREATE FUNCTION frostbyte_logic.handle_event()
 RETURNS TRIGGER AS $$
 BEGIN
-    PERFORM logic.apply_event(NEW.type, NEW.payload, NEW.created_at);
+    PERFORM frostbyte_logic.apply_event(NEW.type, NEW.payload, NEW.created_at);
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER event_handler
-    AFTER INSERT ON data.event
-    FOR EACH ROW EXECUTE FUNCTION logic.handle_event();
+    AFTER INSERT ON frostbyte_data.event
+    FOR EACH ROW EXECUTE FUNCTION frostbyte_logic.handle_event();
 
 -- =============================================================================
 -- Replay Function
 -- =============================================================================
 
-CREATE FUNCTION logic.replay_all_events()
+CREATE FUNCTION frostbyte_logic.replay_all_events()
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
     -- Truncate all projection tables (reverse dependency order)
-    TRUNCATE logic.recipe_ingredient, logic.batch_ingredient,
-             logic.portion, logic.recipe, logic.batch,
-             logic.label_preset, logic.container_type,
-             logic.ingredient, logic.image CASCADE;
+    TRUNCATE frostbyte_logic.recipe_ingredient, frostbyte_logic.batch_ingredient,
+             frostbyte_logic.portion, frostbyte_logic.recipe, frostbyte_logic.batch,
+             frostbyte_logic.label_preset, frostbyte_logic.container_type,
+             frostbyte_logic.ingredient, frostbyte_logic.image CASCADE;
 
     -- Replay each event in order (calls apply_event directly, no trigger)
-    PERFORM logic.apply_event(e.type, e.payload, e.created_at)
-    FROM data.event e ORDER BY e.id;
+    PERFORM frostbyte_logic.apply_event(e.type, e.payload, e.created_at)
+    FROM frostbyte_data.event e ORDER BY e.id;
 END;
 $$;

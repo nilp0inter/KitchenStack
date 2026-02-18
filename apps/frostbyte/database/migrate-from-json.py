@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
 Converts a JSON backup from the old (pre-event-sourcing) schema into
-INSERT INTO data.event statements.
+INSERT INTO frostbyte_data.event statements.
 
 Usage:
     ./migrate-from-json.py /path/to/backup/data/json > events.sql
     # Then load:
-    docker exec -i frostbyte_postgres psql -U frostbyte_user -d frostbyte_db < events.sql
+    docker exec -i frostbyte_postgres psql -U kitchen_user -d kitchen_db < events.sql
 """
 
 import base64
@@ -22,13 +22,13 @@ def sql_escape(s):
 
 
 def emit_event(event_type, payload, created_at=None):
-    """Print an INSERT INTO data.event statement."""
+    """Print an INSERT INTO frostbyte_data.event statement."""
     payload_json = sql_escape(json.dumps(payload, ensure_ascii=False))
     if created_at:
         created_at_escaped = sql_escape(created_at)
-        print(f"INSERT INTO data.event (type, payload, created_at) VALUES ('{event_type}', '{payload_json}', '{created_at_escaped}');")
+        print(f"INSERT INTO frostbyte_data.event (type, payload, created_at) VALUES ('{event_type}', '{payload_json}', '{created_at_escaped}');")
     else:
-        print(f"INSERT INTO data.event (type, payload) VALUES ('{event_type}', '{payload_json}');")
+        print(f"INSERT INTO frostbyte_data.event (type, payload) VALUES ('{event_type}', '{payload_json}');")
 
 
 def load_json(backup_dir, filename):

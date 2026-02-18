@@ -1,17 +1,21 @@
+# =============================================================================
+# Common Services (shared infrastructure)
+# =============================================================================
+
 services:
   postgres:
     image: postgres:15-alpine
     container_name: frostbyte_postgres
     environment:
-      POSTGRES_DB: frostbyte_db
-      POSTGRES_USER: frostbyte_user
-      POSTGRES_PASSWORD: frostbyte_password
+      POSTGRES_DB: kitchen_db
+      POSTGRES_USER: kitchen_user
+      POSTGRES_PASSWORD: kitchen_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database:/database:ro
-      - ./database/init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+      - ./apps/frostbyte/database:/database:ro
+      - ./apps/frostbyte/database/init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U frostbyte_user -d frostbyte_db"]
+      test: ["CMD-SHELL", "pg_isready -U kitchen_user -d kitchen_db"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -25,12 +29,12 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      PGUSER: frostbyte_user
-      PGPASSWORD: frostbyte_password
-      PGDATABASE: frostbyte_db
+      PGUSER: kitchen_user
+      PGPASSWORD: kitchen_password
+      PGDATABASE: kitchen_db
       PGHOST: postgres
     volumes:
-      - ./database:/database:ro
+      - ./apps/frostbyte/database:/database:ro
     entrypoint: ["/database/migrate.sh"]
     networks:
       - frostbyte_network
@@ -40,9 +44,9 @@ services:
     image: postgrest/postgrest:v12.0.2
     container_name: frostbyte_postgrest
     environment:
-      PGRST_DB_URI: postgres://frostbyte_user:frostbyte_password@postgres:5432/frostbyte_db
-      PGRST_DB_SCHEMA: api
-      PGRST_DB_ANON_ROLE: frostbyte_user
+      PGRST_DB_URI: postgres://kitchen_user:kitchen_password@postgres:5432/kitchen_db
+      PGRST_DB_SCHEMA: frostbyte_api
+      PGRST_DB_ANON_ROLE: kitchen_user
       PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost/api/db
     depends_on:
       postgres:
@@ -54,7 +58,7 @@ services:
 
   printer_service:
     build:
-      context: ./printer_service
+      context: ./common/printer_service
       dockerfile: Dockerfile
     container_name: frostbyte_printer
     environment:
@@ -67,15 +71,19 @@ services:
     networks:
       - frostbyte_network
 
+# =============================================================================
+# FrostByte App Services
+# =============================================================================
+
   client_builder:
     build:
-      context: ./client
+      context: ./apps/frostbyte/client
       target: builder
     container_name: frostbyte_client_builder
     working_dir: /app
     command: npm run build
     volumes:
-      - ./client:/app
+      - ./apps/frostbyte/client:/app
       - client_dist:/app/dist
       - client_node_modules:/app/node_modules
     networks:
@@ -88,7 +96,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./gateway/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./common/gateway/Caddyfile:/etc/caddy/Caddyfile:ro
       - client_dist:/srv/client:ro
       - caddy_data:/data
       - caddy_config:/config
@@ -104,18 +112,18 @@ services:
 
   gobackup:
     build:
-      context: ./backup
+      context: ./common/backup
     container_name: frostbyte_gobackup
     ports:
       - "2703:2703"
     environment:
       PGHOST: postgres
-      PGUSER: frostbyte_user
-      PGPASSWORD: frostbyte_password
-      PGDATABASE: frostbyte_db
-      EVENT_TABLE: data.event
+      PGUSER: kitchen_user
+      PGPASSWORD: kitchen_password
+      PGDATABASE: kitchen_db
+      EVENT_TABLE: frostbyte_data.event
     volumes:
-      - ./backup/gobackup.yml:/etc/gobackup/gobackup.yml:ro
+      - ./common/backup/gobackup.yml:/etc/gobackup/gobackup.yml:ro
       - gobackup_json:/data/json
     depends_on:
       postgres:

@@ -2,7 +2,7 @@
 -- All seed data is inserted as events; the trigger populates projection tables.
 
 -- Label preset
-INSERT INTO data.event (type, payload) VALUES
+INSERT INTO frostbyte_data.event (type, payload) VALUES
 ('label_preset_created', '{
     "name": "29mm Custom",
     "label_type": "29",
@@ -31,7 +31,7 @@ INSERT INTO data.event (type, payload) VALUES
 }');
 
 -- Ingredients
-INSERT INTO data.event (type, payload) VALUES
+INSERT INTO frostbyte_data.event (type, payload) VALUES
 ('ingredient_created', '{"name": "arroz", "expire_days": 120, "best_before_days": 90}'),
 ('ingredient_created', '{"name": "pollo", "expire_days": 365, "best_before_days": 270}'),
 ('ingredient_created', '{"name": "verduras", "expire_days": 240, "best_before_days": 180}'),
@@ -49,7 +49,7 @@ INSERT INTO data.event (type, payload) VALUES
 ('ingredient_created', '{"name": "salsa", "expire_days": 365, "best_before_days": 300}');
 
 -- Container types
-INSERT INTO data.event (type, payload) VALUES
+INSERT INTO frostbyte_data.event (type, payload) VALUES
 ('container_type_created', '{"name": "Bolsa 1L", "servings_per_unit": 2}'),
 ('container_type_created', '{"name": "Tupper pequeño", "servings_per_unit": 1}'),
 ('container_type_created', '{"name": "Tupper mediano", "servings_per_unit": 2}'),

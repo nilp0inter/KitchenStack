@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'client/**'
+      - 'apps/frostbyte/client/**'
 
 env:
   REGISTRY: ghcr.io
@@ -37,8 +37,8 @@ jobs:
       - name: Build and push client image
         uses: docker/build-push-action@v5
         with:
-          context: ./client
-          file: ./client/Dockerfile
+          context: ./apps/frostbyte/client
+          file: ./apps/frostbyte/client/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |

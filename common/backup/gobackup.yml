@@ -16,8 +16,8 @@ models:
         type: postgresql
         host: postgres
         port: 5432
-        database: frostbyte_db
-        username: frostbyte_user
+        database: kitchen_db
+        username: kitchen_user
         password: $POSTGRES_PASSWORD
     storages:
       b2:

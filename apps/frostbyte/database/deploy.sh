@@ -13,8 +13,8 @@
 set -euo pipefail
 
 CONTAINER="${CONTAINER:-frostbyte_postgres}"
-DB_USER="${DB_USER:-frostbyte_user}"
-DB_NAME="${DB_NAME:-frostbyte_db}"
+DB_USER="${DB_USER:-kitchen_user}"
+DB_NAME="${DB_NAME:-kitchen_db}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
@@ -31,6 +31,6 @@ echo "Deploying api schema..."
 docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" < "$SCRIPT_DIR/api.sql"
 
 echo "Replaying events..."
-docker exec "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT logic.replay_all_events();"
+docker exec "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT frostbyte_logic.replay_all_events();"
 
 echo "Deploy complete."
