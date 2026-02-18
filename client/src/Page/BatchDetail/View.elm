@@ -249,6 +249,7 @@ viewPortionsTable batch portions =
                         , th [ class "px-4 py-3 text-left text-sm font-semibold text-gray-600" ] [ text "Estado" ]
                         , th [ class "px-4 py-3 text-left text-sm font-semibold text-gray-600" ] [ text "Congelado" ]
                         , th [ class "px-4 py-3 text-left text-sm font-semibold text-gray-600" ] [ text "Caduca" ]
+                        , th [ class "px-4 py-3 text-left text-sm font-semibold text-gray-600" ] [ text "Impresiones" ]
                         , th [ class "px-4 py-3 text-left text-sm font-semibold text-gray-600" ] [ text "Acciones" ]
                         ]
                     ]
@@ -288,6 +289,13 @@ viewPortionRow batch index portion =
             ]
         , td [ class "px-4 py-3 text-gray-600" ] [ text portion.createdAt ]
         , td [ class "px-4 py-3 text-gray-600" ] [ text portion.expiryDate ]
+        , td [ class "px-4 py-3 text-gray-600" ]
+            [ if portion.printCount > 0 then
+                text (String.fromInt portion.printCount)
+
+              else
+                text "—"
+            ]
         , td [ class "px-4 py-3" ]
             [ if portion.status == "DISCARDED" then
                 text ""

@@ -18,6 +18,7 @@ module Api exposing
     , fetchRecipes
     , printLabel
     , printLabelPng
+    , recordPortionPrinted
     , returnPortionToFreezer
     , saveContainerType
     , saveIngredient
@@ -288,5 +289,14 @@ printLabelPng pngBase64 labelType toMsg =
     Http.post
         { url = "/api/printer/print"
         , body = Http.jsonBody (encodePrintPngRequest pngBase64 labelType)
+        , expect = Http.expectWhatever toMsg
+        }
+
+
+recordPortionPrinted : String -> (Result Http.Error () -> msg) -> Cmd msg
+recordPortionPrinted portionId toMsg =
+    Http.post
+        { url = "/api/db/rpc/record_portion_printed"
+        , body = Http.jsonBody (encodeRecordPortionPrintedRequest portionId)
         , expect = Http.expectWhatever toMsg
         }

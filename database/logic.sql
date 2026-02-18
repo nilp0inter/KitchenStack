@@ -78,7 +78,8 @@ CREATE TABLE logic.portion (
     expiry_date DATE NOT NULL,
     status TEXT NOT NULL DEFAULT 'FROZEN' CHECK (status IN ('FROZEN', 'CONSUMED', 'DISCARDED')),
     consumed_at TIMESTAMPTZ NULL,
-    discarded_at TIMESTAMPTZ NULL
+    discarded_at TIMESTAMPTZ NULL,
+    print_count INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_portion_status ON logic.portion(status);
@@ -518,6 +519,15 @@ BEGIN
 END;
 $$;
 
+CREATE FUNCTION logic.apply_portion_printed(p JSONB)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE logic.portion
+    SET print_count = print_count + 1
+    WHERE id = (p->>'portion_id')::UUID;
+END;
+$$;
+
 -- Recipe handlers
 CREATE FUNCTION logic.apply_recipe_saved(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
@@ -630,6 +640,8 @@ BEGIN
             PERFORM logic.apply_portion_returned(p_payload);
         WHEN 'portion_discarded' THEN
             PERFORM logic.apply_portion_discarded(p_payload, p_created_at);
+        WHEN 'portion_printed' THEN
+            PERFORM logic.apply_portion_printed(p_payload);
         -- Recipes
         WHEN 'recipe_saved' THEN
             PERFORM logic.apply_recipe_saved(p_payload);

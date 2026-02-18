@@ -49,7 +49,8 @@ type Msg
     | SubmitBatchWithPrint
     | GotUuidsForBatch (List UUID)
     | BatchCreated (Result Http.Error CreateBatchResponse)
-    | PrintResult (Result Http.Error ())
+    | PrintResult String (Result Http.Error ())
+    | RecordPrintedResult (Result Http.Error ())
     | HideSuggestions
     | HideRecipeSuggestions
     | IngredientKeyDown String

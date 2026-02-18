@@ -22,6 +22,7 @@ viewEmpty =
     div [ class "card text-center py-12" ]
         [ span [ class "text-6xl" ] [ text "❄️" ]
         , p [ class "mt-4 text-gray-600 text-lg" ] [ text "El congelador está vacío" ]
+        , a [ href "/new", class "btn-primary inline-block mt-4" ] [ text "Crear nuevo lote" ]
         ]
 
 

@@ -70,7 +70,8 @@ type Msg
     | SubmitUpdateAndPrint
     | GotUuidsForUpdate (List UUID)
     | BatchUpdated (Result Http.Error UpdateBatchResponse)
-    | PrintResult (Result Http.Error ())
+    | PrintResult String (Result Http.Error ())
+    | RecordPrintedResult (Result Http.Error ())
     | HideSuggestions
     | IngredientKeyDown String
     | DetailsEditorMsg MarkdownEditor.Msg

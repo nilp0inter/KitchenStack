@@ -406,7 +406,7 @@ update msg model =
                     , ShowNotification { id = 0, message = "Error al crear lote. Verifica que los ingredientes tienen días de caducidad o especifica una fecha manual.", notificationType = Error }
                     )
 
-        PrintResult result ->
+        PrintResult portionId result ->
             let
                 updateProgress progress =
                     case result of
@@ -449,15 +449,26 @@ update msg model =
 
                     else
                         newProgress
+
+                recordCmd =
+                    case result of
+                        Ok _ ->
+                            Api.recordPortionPrinted portionId RecordPrintedResult
+
+                        Err _ ->
+                            Cmd.none
             in
             ( { model | printingProgress = finalProgress }
-            , Cmd.none
+            , recordCmd
             , if allDone then
                 RefreshBatches
 
               else
                 outMsg
             )
+
+        RecordPrintedResult _ ->
+            ( model, Cmd.none, NoOp )
 
         SelectPreset presetName ->
             let
@@ -501,7 +512,7 @@ update msg model =
                                     Nothing
                     in
                     ( { model | pendingPngRequests = remainingRequests }
-                    , Api.printLabelPng base64Data labelType PrintResult
+                    , Api.printLabelPng base64Data labelType (PrintResult result.requestId)
                     , case nextRequest of
                         Just req ->
                             RequestSvgToPng req

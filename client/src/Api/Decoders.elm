@@ -101,6 +101,7 @@ portionInBatchDecoder =
         |> andMap (Decode.field "expiry_date" Decode.string)
         |> andMap (Decode.field "consumed_at" (Decode.nullable Decode.string))
         |> andMap (Decode.field "discarded_at" (Decode.nullable Decode.string))
+        |> andMap (Decode.field "print_count" Decode.int)
 
 
 recipeDecoder : Decoder Recipe

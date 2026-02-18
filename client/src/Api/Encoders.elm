@@ -9,6 +9,7 @@ module Api.Encoders exposing
     , encodePrintPngRequest
     , encodePrintRequest
     , encodeRecipeRequest
+    , encodeRecordPortionPrintedRequest
     , encodeReturnPortionRequest
     , encodeUpdateBatchRequest
     , encodeUpdateContainerType
@@ -301,6 +302,12 @@ encodePrintPngRequest pngBase64 labelType =
 
 encodeDiscardPortionRequest : String -> Encode.Value
 encodeDiscardPortionRequest portionId =
+    Encode.object
+        [ ( "p_portion_id", Encode.string portionId ) ]
+
+
+encodeRecordPortionPrintedRequest : String -> Encode.Value
+encodeRecordPortionPrintedRequest portionId =
     Encode.object
         [ ( "p_portion_id", Encode.string portionId ) ]
 

@@ -179,6 +179,7 @@ type alias PortionInBatch =
     , expiryDate : String
     , consumedAt : Maybe String
     , discardedAt : Maybe String
+    , printCount : Int
     }
 
 

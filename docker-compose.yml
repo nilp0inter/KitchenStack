@@ -26,6 +26,7 @@ services:
         condition: service_healthy
     environment:
       PGUSER: frostbyte_user
+      PGPASSWORD: frostbyte_password
       PGDATABASE: frostbyte_db
       PGHOST: postgres
     volumes:

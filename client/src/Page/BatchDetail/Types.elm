@@ -35,7 +35,8 @@ type Msg
     | GotBatchPortions (Result Http.Error (List PortionInBatch))
     | ReprintPortion PortionInBatch
     | ReprintAllFrozen
-    | PrintResult (Result Http.Error ())
+    | PrintResult String (Result Http.Error ())
+    | RecordPrintedResult (Result Http.Error ())
     | OpenPreviewModal PortionPrintData
     | ClosePreviewModal
     | ReturnToFreezer String

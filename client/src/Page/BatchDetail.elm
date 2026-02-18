@@ -241,7 +241,7 @@ update msg model =
                 ( Nothing, _ ) ->
                     ( model, Cmd.none, NoOp )
 
-        PrintResult result ->
+        PrintResult portionId result ->
             let
                 updateProgress progress =
                     case result of
@@ -284,8 +284,29 @@ update msg model =
 
                     else
                         newProgress
+
+                ( recordCmd, updatedPortions ) =
+                    case result of
+                        Ok _ ->
+                            ( Api.recordPortionPrinted portionId RecordPrintedResult
+                            , List.map
+                                (\p ->
+                                    if p.portionId == portionId then
+                                        { p | printCount = p.printCount + 1 }
+
+                                    else
+                                        p
+                                )
+                                model.portions
+                            )
+
+                        Err _ ->
+                            ( Cmd.none, model.portions )
             in
-            ( { model | printingProgress = finalProgress }, Cmd.none, outMsg )
+            ( { model | printingProgress = finalProgress, portions = updatedPortions }, recordCmd, outMsg )
+
+        RecordPrintedResult _ ->
+            ( model, Cmd.none, NoOp )
 
         SelectPreset presetName ->
             let
@@ -329,7 +350,7 @@ update msg model =
                                     Nothing
                     in
                     ( { model | pendingPngRequests = remainingRequests }
-                    , Api.printLabelPng base64Data labelType PrintResult
+                    , Api.printLabelPng base64Data labelType (PrintResult result.requestId)
                     , case nextRequest of
                         Just req ->
                             RequestSvgToPng req

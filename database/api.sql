@@ -19,7 +19,7 @@ CREATE VIEW api.label_preset AS
 SELECT * FROM logic.label_preset;
 
 CREATE VIEW api.portion AS
-SELECT id, batch_id, created_at, expiry_date, status, consumed_at, discarded_at
+SELECT id, batch_id, created_at, expiry_date, status, consumed_at, discarded_at, print_count
 FROM logic.portion;
 
 CREATE VIEW api.event AS
@@ -511,6 +511,17 @@ CREATE FUNCTION api.discard_portion(
 BEGIN
     INSERT INTO data.event (type, payload)
     VALUES ('portion_discarded', jsonb_build_object(
+        'portion_id', p_portion_id
+    ));
+END;
+$$;
+
+CREATE FUNCTION api.record_portion_printed(
+    p_portion_id UUID
+) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    INSERT INTO data.event (type, payload)
+    VALUES ('portion_printed', jsonb_build_object(
         'portion_id', p_portion_id
     ));
 END;
