@@ -215,7 +215,7 @@ database/
 ├── api.sql                     # API schema (views, RPC functions) — idempotent
 ├── seed.sql                    # Seed data as events
 ├── deploy.sh                   # Redeploy logic+api on running database
-└── migrate-from-json.sh        # Convert old JSON backup to events
+└── migrate-from-json.py        # Convert old JSON backup to events
 ```
 
 ### Deploying Schema Changes
@@ -640,7 +640,7 @@ The restore script POSTs only the `event` table — projections rebuild automati
 To convert a JSON backup from the old schema (direct table inserts) to events:
 
 ```bash
-./database/migrate-from-json.sh /path/to/old/backup/data/json > events.sql
+./database/migrate-from-json.py /path/to/old/backup/data/json > events.sql
 docker exec -i frostbyte_postgres psql -U frostbyte_user -d frostbyte_db < events.sql
 ```
 

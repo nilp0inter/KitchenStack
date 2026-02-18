@@ -4,7 +4,7 @@ Converts a JSON backup from the old (pre-event-sourcing) schema into
 INSERT INTO data.event statements.
 
 Usage:
-    ./migrate-from-json.sh /path/to/backup/data/json > events.sql
+    ./migrate-from-json.py /path/to/backup/data/json > events.sql
     # Then load:
     docker exec -i frostbyte_postgres psql -U frostbyte_user -d frostbyte_db < events.sql
 """
