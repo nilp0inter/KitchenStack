@@ -136,6 +136,8 @@ type alias BatchForm =
 type alias CreateBatchResponse =
     { batchId : String
     , portionIds : List String
+    , expiryDate : String
+    , bestBeforeDate : Maybe String
     }
 
 

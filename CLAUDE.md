@@ -115,13 +115,27 @@ If you encounter dependency errors after manual elm.json edits:
 
 ## Architecture Overview
 
-FrostByte is an **append-only** home freezer management system. Each physical food portion has its own UUID and printed QR label. Portions transition between states (FROZEN → CONSUMED) but are never deleted.
+FrostByte is an **append-only** home freezer management system with **CQRS + Event Sourcing**. Each physical food portion has its own UUID and printed QR label. All writes go through an append-only event table; projection tables are rebuilt from events.
+
+### Three-Schema Architecture
+
+```
+data   — Persistent storage: event store + projection tables
+logic  — Business logic: event handlers, replay, helper functions
+api    — External interface: read views + RPC write functions (exposed via PostgREST)
+```
+
+- `data` schema is created once via migration and never dropped
+- `logic` and `api` schemas are idempotent (DROP + CREATE) and can be redeployed without data loss
+- All writes INSERT into `data.event`; a trigger calls `logic.apply_event()` to update projections
+- `logic.replay_all_events()` truncates all projections and rebuilds from the event store
 
 ### Data Flow
 
-1. **Batch Creation**: User creates a batch via Elm UI → `POST /api/db/rpc/create_batch` → PostgreSQL function creates batch + N portions → Returns `{batch_id, portion_ids[]}` → Client renders SVG labels → converts to PNG via JS ports → sends to printer service
-2. **QR Scan Consumption**: User scans QR code → `/item/{portion_uuid}` route → Fetches from `portion_detail` view → User confirms → `PATCH /api/db/portion` sets status=CONSUMED
+1. **Batch Creation**: User creates a batch via Elm UI → `POST /api/db/rpc/create_batch` → API function computes expiry dates server-side, INSERTs event → trigger creates batch + N portions → Returns `{batch_id, portion_ids[], expiry_date, best_before_date}` → Client renders SVG labels → converts to PNG via JS ports → sends to printer service
+2. **QR Scan Consumption**: User scans QR code → `/item/{portion_uuid}` route → Fetches from `portion_detail` view → User confirms → `POST /api/db/rpc/consume_portion` → INSERTs event → trigger updates portion status
 3. **Inventory**: Fetches `batch_summary` view (batches grouped with frozen/consumed counts)
+4. **All CRUD**: Every write operation (ingredient/container/preset/recipe/batch/portion) goes through a typed RPC function that INSERTs an event
 
 ### Label Rendering Architecture
 
@@ -169,14 +183,52 @@ Text Measure Request → JS Canvas measureText() → Computed Data (font size, w
 
 ### Key Database Objects
 
-- **`image` table**: Stores images as BYTEA with helper functions `store_image_base64()` and `get_image_base64()`
-- **`create_batch` function**: RPC endpoint that atomically creates a batch with N portions, auto-calculates expiry from ingredient.expire_days, optionally stores image
-- **`save_recipe` function**: RPC endpoint that atomically creates/updates a recipe with ingredients, auto-creates unknown ingredients, optionally stores image
-- **`batch_summary` view**: Aggregates portions by batch for dashboard display, includes image
-- **`portion_detail` view**: Joins portion with batch info for QR scan page
-- **`freezer_history` view**: Running totals of frozen portions over time for chart
-- **`recipe_summary` view**: Recipes with aggregated ingredient names for listing, includes image
-- **`label_preset` table**: Named label configurations with dimensions, font sizes, and styling
+**Data schema (persistent):**
+- **`data.event`**: Append-only event store (id BIGSERIAL, type TEXT, payload JSONB, created_at TIMESTAMPTZ)
+- **`data.image`**: Stores images as BYTEA
+- **`data.ingredient`**, **`data.container_type`**, **`data.label_preset`**: Reference data
+- **`data.batch`**, **`data.batch_ingredient`**, **`data.portion`**: Core domain
+- **`data.recipe`**, **`data.recipe_ingredient`**: Recipe templates
+
+**Logic schema (idempotent):**
+- **`logic.apply_event()`**: CASE dispatcher to 14 individual handler functions
+- **`logic.compute_expiry_date()`** / **`logic.compute_best_before_date()`**: Server-side date computation from ingredient data
+- **`logic.store_image_base64()`** / **`logic.get_image_base64()`**: Image helpers
+- **`logic.replay_all_events()`**: Truncates projections and rebuilds from events
+
+**API schema (idempotent):**
+- **`api.batch_summary`**: Aggregates portions by batch for dashboard display, includes image
+- **`api.portion_detail`**: Joins portion with batch info for QR scan page
+- **`api.freezer_history`**: Running totals of frozen portions over time for chart
+- **`api.recipe_summary`**: Recipes with aggregated ingredient names for listing, includes image
+- **`api.create_batch()`**: Computes expiry server-side, INSERTs event, returns computed dates
+- **`api.consume_portion()`** / **`api.return_portion()`**: Portion state changes via events
+- **`api.create_ingredient()`** / **`api.update_ingredient()`** / **`api.delete_ingredient()`**: Ingredient CRUD via events
+- Similar CRUD RPCs for container_type, label_preset, recipe
+
+### Database File Structure
+
+```
+database/
+├── migrations/001-initial.sql  # Data schema (tables, indexes, extensions)
+├── logic.sql                   # Logic schema (event handlers, replay) — idempotent
+├── api.sql                     # API schema (views, RPC functions) — idempotent
+├── seed.sql                    # Seed data as events
+├── deploy.sh                   # Redeploy logic+api on running database
+└── migrate-from-json.sh        # Convert old JSON backup to events
+```
+
+### Deploying Schema Changes
+
+To update logic or API functions on a running database without data loss:
+
+```bash
+./database/deploy.sh
+# Equivalent to:
+# psql < logic.sql   (DROP + CREATE logic schema)
+# psql < api.sql     (DROP + CREATE api schema)
+# SELECT logic.replay_all_events();  (rebuild projections)
+```
 
 ### Elm Client Structure
 
@@ -190,7 +242,7 @@ client/src/
 ├── Api.elm               # HTTP functions (parameterized msg constructors)
 ├── Api/
 │   ├── Decoders.elm      # JSON decoders (uses andMap helper for >8 fields)
-│   └── Encoders.elm      # JSON encoders for POST/PATCH bodies
+│   └── Encoders.elm      # JSON encoders for RPC bodies (all writes use POST)
 ├── Components.elm        # Shared UI (header, notification, modal, loading)
 ├── Label.elm             # SVG label rendering with QR codes
 ├── Ports.elm             # Port definitions for SVG→PNG conversion
@@ -250,23 +302,33 @@ Python FastAPI service that receives pre-rendered PNG labels and prints them via
 
 ## API Reference
 
+All writes go through RPC functions (POST). Reads use PostgREST views (GET).
+
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/api/db/rpc/create_batch` | POST | Create batch with N portions |
+| `/api/db/rpc/create_batch` | POST | Create batch with N portions (server computes expiry) |
+| `/api/db/rpc/consume_portion` | POST | Mark portion as consumed |
+| `/api/db/rpc/return_portion` | POST | Return consumed portion to freezer |
 | `/api/db/rpc/save_recipe` | POST | Create or update recipe with ingredients |
+| `/api/db/rpc/delete_recipe` | POST | Delete recipe |
+| `/api/db/rpc/create_ingredient` | POST | Create ingredient |
+| `/api/db/rpc/update_ingredient` | POST | Update ingredient (supports rename) |
+| `/api/db/rpc/delete_ingredient` | POST | Delete ingredient |
+| `/api/db/rpc/create_container_type` | POST | Create container type |
+| `/api/db/rpc/update_container_type` | POST | Update container type (supports rename) |
+| `/api/db/rpc/delete_container_type` | POST | Delete container type |
+| `/api/db/rpc/create_label_preset` | POST | Create label preset |
+| `/api/db/rpc/update_label_preset` | POST | Update label preset (supports rename) |
+| `/api/db/rpc/delete_label_preset` | POST | Delete label preset |
 | `/api/db/batch_summary?frozen_count=gt.0` | GET | Inventory data |
 | `/api/db/portion_detail?portion_id=eq.{uuid}` | GET | QR scan page data |
-| `/api/db/portion?id=eq.{uuid}` | PATCH | Consume portion (set status, consumed_at) |
 | `/api/db/portion?batch_id=eq.{uuid}` | GET | Get portions for a batch |
 | `/api/db/freezer_history` | GET | Chart data |
-| `/api/db/ingredient` | GET/POST | List or create ingredients |
-| `/api/db/ingredient?name=eq.{name}` | PATCH/DELETE | Update or delete ingredient |
+| `/api/db/ingredient` | GET | List ingredients |
 | `/api/db/recipe_summary` | GET | List recipes with ingredients |
-| `/api/db/recipe?name=eq.{name}` | DELETE | Delete recipe |
-| `/api/db/container_type` | GET/POST | List or create container types |
-| `/api/db/container_type?name=eq.{name}` | PATCH/DELETE | Update or delete container type |
-| `/api/db/label_preset` | GET/POST | List or create label presets |
-| `/api/db/label_preset?name=eq.{name}` | PATCH/DELETE | Update or delete label preset |
+| `/api/db/container_type` | GET | List container types |
+| `/api/db/label_preset` | GET | List label presets |
+| `/api/db/event` | GET | Event store (for backup) |
 | `/api/printer/print` | POST | Print PNG label (body: `{image_data: "base64..."}`) |
 | `/api/printer/health` | GET | Printer service health check |
 
@@ -337,20 +399,20 @@ Images use a normalized design with a separate `image` table:
 
 ```sql
 -- Image storage table
-CREATE TABLE image (
+CREATE TABLE data.image (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     image_data BYTEA NOT NULL,  -- Binary storage
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Helper functions for base64 transport
-CREATE FUNCTION store_image_base64(base64_data TEXT) RETURNS UUID  -- Store and get UUID
-CREATE FUNCTION get_image_base64(image_id UUID) RETURNS TEXT       -- Retrieve as base64
+-- Helper functions in logic schema for base64 transport
+CREATE FUNCTION logic.store_image_base64(base64_data TEXT) RETURNS UUID  -- Store and get UUID
+CREATE FUNCTION logic.get_image_base64(image_id UUID) RETURNS TEXT       -- Retrieve as base64
 ```
 
 Foreign keys link images to recipes and batches:
-- `recipe.image_id` → `image(id)` (nullable, ON DELETE SET NULL)
-- `batch.image_id` → `image(id)` (nullable, ON DELETE SET NULL)
+- `data.recipe.image_id` → `data.image(id)` (nullable, ON DELETE SET NULL)
+- `data.batch.image_id` → `data.image(id)` (nullable, ON DELETE SET NULL)
 
 ### Image Flow
 
@@ -382,9 +444,10 @@ When creating a batch from a recipe:
 
 To add images to a new entity:
 
-1. **Database**: Add `image_id UUID NULL REFERENCES image(id) ON DELETE SET NULL` to table
-2. **RPC function**: Add `p_image_data TEXT DEFAULT NULL` parameter, call `store_image_base64()` if provided
-3. **View**: LEFT JOIN with `image` table, include `encode(i.image_data, 'base64') AS image`
+1. **Database**: Add `image_id UUID NULL REFERENCES data.image(id) ON DELETE SET NULL` to table in `data` schema
+2. **Event handler**: In `logic.sql`, call `logic.store_image_base64()` if `p->>'image_data'` is present
+3. **API RPC**: Add `p_image_data TEXT DEFAULT NULL` parameter, include in event payload
+4. **View**: LEFT JOIN with `data.image` table, include `encode(i.image_data, 'base64') AS image`
 4. **Elm Types**: Add `image : Maybe String` to both the entity type and form type
 5. **Decoders**: Add `|> andMap (Decode.field "image" (Decode.nullable Decode.string))`
 6. **Encoders**: Add image field encoding with `p_image_data` key
@@ -433,6 +496,10 @@ Both modes use named volume `client_node_modules` for faster dependency handling
 - `gateway/Caddyfile` - Production Caddyfile (serves static files)
 - `gateway/Caddyfile.dev` - Dev Caddyfile (proxies to Vite)
 - `.github/workflows/build-client.yml` - CI pipeline
+- `database/migrations/001-initial.sql` - Data schema (tables, indexes)
+- `database/logic.sql` - Logic schema (event handlers, replay)
+- `database/api.sql` - API schema (views, RPC functions)
+- `database/deploy.sh` - Redeploy logic+api on running database
 
 ### RemoteData Pattern for Loading State
 
@@ -533,14 +600,16 @@ In addition to PostgreSQL dumps, GoBackup also exports all tables as JSON files 
 
 **How it works:**
 - `backup/json-backup.sh` runs as a `before_script` in GoBackup
-- Fetches all 9 tables via `curl` to PostgREST API
+- Fetches `event` table first (primary backup — all state can be rebuilt from events)
+- Also fetches all 9 projection tables as supplementary backups
 - Saves JSON files to `/data/json/` volume
 - JSON files are archived alongside the SQL dump
 
-**Tables backed up (in dependency order):**
-1. `label_preset`, `image`, `ingredient`, `container_type` (no dependencies)
-2. `batch`, `recipe` (depend on level 1)
-3. `portion`, `batch_ingredient`, `recipe_ingredient` (depend on level 2)
+**Tables backed up:**
+1. `event` (primary — authoritative source of truth)
+2. `label_preset`, `image`, `ingredient`, `container_type` (supplementary)
+3. `batch`, `recipe` (supplementary)
+4. `portion`, `batch_ingredient`, `recipe_ingredient` (supplementary)
 
 **Key files:**
 - `backup/json-backup.sh` - Backup script (runs inside gobackup container)
@@ -564,4 +633,15 @@ API_URL=http://10.40.8.32/api/db ./backup/json-restore.sh /path/to/backup/data/j
 API_URL=http://localhost/api/db ./backup/json-restore.sh /path/to/backup/data/json
 ```
 
-The restore script POSTs each table in dependency order with `Prefer: resolution=ignore-duplicates` header for idempotency.
+The restore script POSTs only the `event` table — projections rebuild automatically via the trigger on INSERT. Uses `Prefer: resolution=ignore-duplicates` for idempotency.
+
+### Migrating from Old (Pre-Event-Sourcing) Backup
+
+To convert a JSON backup from the old schema (direct table inserts) to events:
+
+```bash
+./database/migrate-from-json.sh /path/to/old/backup/data/json > events.sql
+docker exec -i frostbyte_postgres psql -U frostbyte_user -d frostbyte_db < events.sql
+```
+
+This converts each old row into the corresponding event type (e.g., ingredient rows → `ingredient_created` events, consumed portions → `portion_consumed` events).

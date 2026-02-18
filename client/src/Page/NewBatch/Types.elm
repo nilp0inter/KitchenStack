@@ -33,8 +33,6 @@ type alias Model =
     , pendingMeasurements : List String
     , computedLabelData : Dict String Data.Label.ComputedLabelData
     , detailsEditor : MarkdownEditor.Model
-    , pendingExpiryDate : String
-    , pendingBestBeforeDate : Maybe String
     }
 
 

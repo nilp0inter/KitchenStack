@@ -9,21 +9,17 @@ if [ ! -d "$BACKUP_DIR" ]; then
   exit 1
 fi
 
-# Restore in dependency order
-TABLES="label_preset image ingredient container_type batch recipe portion batch_ingredient recipe_ingredient"
+# Restore events only — projections rebuild via trigger on INSERT
+FILE="$BACKUP_DIR/event.json"
+if [ ! -f "$FILE" ]; then
+  echo "Error: $FILE not found"
+  exit 1
+fi
 
-for table in $TABLES; do
-  FILE="$BACKUP_DIR/$table.json"
-  if [ ! -f "$FILE" ]; then
-    echo "Warning: $FILE not found, skipping"
-    continue
-  fi
-
-  echo "Restoring $table..."
-  curl -sf -X POST "$API_URL/$table" \
-    -H "Content-Type: application/json" \
-    -H "Prefer: resolution=ignore-duplicates" \
-    -d @"$FILE"
-done
+echo "Restoring events..."
+curl -sf -X POST "$API_URL/event" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: resolution=ignore-duplicates" \
+  -d @"$FILE"
 
 echo "JSON restore complete"

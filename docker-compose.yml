@@ -8,8 +8,10 @@ services:
       POSTGRES_PASSWORD: frostbyte_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      - ./database/migrations/001-initial.sql:/docker-entrypoint-initdb.d/01-migration.sql:ro
+      - ./database/logic.sql:/docker-entrypoint-initdb.d/02-logic.sql:ro
+      - ./database/api.sql:/docker-entrypoint-initdb.d/03-api.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/04-seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U frostbyte_user -d frostbyte_db"]
       interval: 5s
@@ -23,7 +25,7 @@ services:
     container_name: frostbyte_postgrest
     environment:
       PGRST_DB_URI: postgres://frostbyte_user:frostbyte_password@postgres:5432/frostbyte_db
-      PGRST_DB_SCHEMA: public
+      PGRST_DB_SCHEMA: api
       PGRST_DB_ANON_ROLE: frostbyte_user
       PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost/api/db
     depends_on:

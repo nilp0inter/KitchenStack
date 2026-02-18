@@ -10,7 +10,6 @@ module Page.NewBatch exposing
 import Api
 import Components.MarkdownEditor as MarkdownEditor
 import Data.Batch
-import Data.Expiry
 import Data.Label
 import Data.LabelPreset
 import Dict exposing (Dict)
@@ -65,8 +64,6 @@ init currentDate appHost ingredients containerTypes recipes labelPresets =
       , pendingMeasurements = []
       , computedLabelData = Dict.empty
       , detailsEditor = MarkdownEditor.init ""
-      , pendingExpiryDate = ""
-      , pendingBestBeforeDate = Nothing
       }
     , Cmd.none
     )
@@ -280,19 +277,9 @@ update msg model =
                     let
                         labelPresetName =
                             Maybe.map .name model.selectedPreset
-
-                        -- Compute dates client-side
-                        expiryDate =
-                            Data.Expiry.computeExpiryDate model.form.createdAt model.form.expiryDate model.form.selectedIngredients model.ingredients
-
-                        bestBeforeDate =
-                            Data.Expiry.computeBestBeforeDate model.form.createdAt model.form.selectedIngredients model.ingredients
                     in
-                    ( { model
-                        | pendingExpiryDate = expiryDate
-                        , pendingBestBeforeDate = bestBeforeDate
-                      }
-                    , Api.createBatch model.form batchUuid portionUuids labelPresetName expiryDate bestBeforeDate BatchCreated
+                    ( model
+                    , Api.createBatch model.form batchUuid portionUuids labelPresetName BatchCreated
                     , NoOp
                     )
 
@@ -327,8 +314,8 @@ update msg model =
                                         , name = model.form.name
                                         , ingredients = ingredientsText
                                         , containerId = model.form.containerId
-                                        , expiryDate = model.pendingExpiryDate
-                                        , bestBeforeDate = model.pendingBestBeforeDate
+                                        , expiryDate = response.expiryDate
+                                        , bestBeforeDate = response.bestBeforeDate
                                         }
                                     )
                                     response.portionIds
@@ -367,8 +354,6 @@ update msg model =
                             , pendingMeasurements = List.map .portionId printData
                             , computedLabelData = Dict.empty
                             , detailsEditor = MarkdownEditor.init ""
-                            , pendingExpiryDate = ""
-                            , pendingBestBeforeDate = Nothing
                           }
                         , Cmd.none
                         , case firstMeasureRequest of
@@ -387,10 +372,10 @@ update msg model =
                                 { batchId = response.batchId
                                 , name = model.form.name
                                 , containerId = model.form.containerId
-                                , bestBeforeDate = model.pendingBestBeforeDate
+                                , bestBeforeDate = response.bestBeforeDate
                                 , labelPreset = Maybe.map .name model.selectedPreset
                                 , batchCreatedAt = currentDate
-                                , expiryDate = model.pendingExpiryDate
+                                , expiryDate = response.expiryDate
                                 , frozenCount = List.length response.portionIds
                                 , consumedCount = 0
                                 , totalCount = List.length response.portionIds
@@ -409,8 +394,6 @@ update msg model =
                             , loading = False
                             , expiryRequired = False
                             , detailsEditor = MarkdownEditor.init ""
-                            , pendingExpiryDate = ""
-                            , pendingBestBeforeDate = Nothing
                           }
                         , Cmd.none
                         , BatchCreatedLocally newBatch response.batchId

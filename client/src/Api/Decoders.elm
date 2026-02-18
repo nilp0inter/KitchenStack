@@ -72,9 +72,11 @@ portionDetailDecoder =
 createBatchResponseDecoder : Decoder CreateBatchResponse
 createBatchResponseDecoder =
     Decode.index 0
-        (Decode.map2 CreateBatchResponse
-            (Decode.field "batch_id" Decode.string)
-            (Decode.field "portion_ids" (Decode.list Decode.string))
+        (Decode.succeed CreateBatchResponse
+            |> andMap (Decode.field "batch_id" Decode.string)
+            |> andMap (Decode.field "portion_ids" (Decode.list Decode.string))
+            |> andMap (Decode.field "expiry_date" Decode.string)
+            |> andMap (Decode.field "best_before_date" (Decode.nullable Decode.string))
         )
 
 

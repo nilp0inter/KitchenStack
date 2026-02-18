@@ -6,7 +6,11 @@ OUTPUT_DIR="/data/json"
 
 mkdir -p "$OUTPUT_DIR"
 
-TABLES="label_preset image ingredient container_type batch recipe portion batch_ingredient recipe_ingredient"
+# Event store (primary backup — all state can be rebuilt from events)
+TABLES="event"
+
+# Projection tables (supplementary — for quick inspection and partial restores)
+TABLES="$TABLES label_preset image ingredient container_type batch recipe portion batch_ingredient recipe_ingredient"
 
 for table in $TABLES; do
   echo "Backing up $table..."

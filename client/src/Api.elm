@@ -28,7 +28,6 @@ import Http
 import Json.Decode as Decode
 import Types exposing (..)
 import UUID exposing (UUID)
-import Url
 
 
 fetchIngredients : (Result Http.Error (List Ingredient) -> msg) -> Cmd msg
@@ -79,11 +78,11 @@ fetchBatchPortions batchId toMsg =
         }
 
 
-createBatch : BatchForm -> UUID -> List UUID -> Maybe String -> String -> Maybe String -> (Result Http.Error CreateBatchResponse -> msg) -> Cmd msg
-createBatch form batchUuid portionUuids maybeLabelPreset expiryDate maybeBestBeforeDate toMsg =
+createBatch : BatchForm -> UUID -> List UUID -> Maybe String -> (Result Http.Error CreateBatchResponse -> msg) -> Cmd msg
+createBatch form batchUuid portionUuids maybeLabelPreset toMsg =
     Http.post
         { url = "/api/db/rpc/create_batch"
-        , body = Http.jsonBody (encodeBatchRequest form batchUuid portionUuids maybeLabelPreset expiryDate maybeBestBeforeDate)
+        , body = Http.jsonBody (encodeBatchRequest form batchUuid portionUuids maybeLabelPreset)
         , expect = Http.expectJson toMsg createBatchResponseDecoder
         }
 
@@ -99,97 +98,73 @@ printLabel data toMsg =
 
 consumePortion : String -> (Result Http.Error () -> msg) -> Cmd msg
 consumePortion portionId toMsg =
-    Http.request
-        { method = "PATCH"
-        , headers = []
-        , url = "/api/db/portion?id=eq." ++ portionId
-        , body = Http.jsonBody encodeConsumeRequest
+    Http.post
+        { url = "/api/db/rpc/consume_portion"
+        , body = Http.jsonBody (encodeConsumePortionRequest portionId)
         , expect = Http.expectWhatever toMsg
-        , timeout = Nothing
-        , tracker = Nothing
         }
 
 
 returnPortionToFreezer : String -> (Result Http.Error () -> msg) -> Cmd msg
 returnPortionToFreezer portionId toMsg =
-    Http.request
-        { method = "PATCH"
-        , headers = []
-        , url = "/api/db/portion?id=eq." ++ portionId
-        , body = Http.jsonBody encodeReturnToFreezerRequest
+    Http.post
+        { url = "/api/db/rpc/return_portion"
+        , body = Http.jsonBody (encodeReturnPortionRequest portionId)
         , expect = Http.expectWhatever toMsg
-        , timeout = Nothing
-        , tracker = Nothing
         }
 
 
 saveContainerType : ContainerTypeForm -> (Result Http.Error () -> msg) -> Cmd msg
 saveContainerType form toMsg =
     let
-        ( method, url ) =
+        ( url, body ) =
             case form.editing of
-                Just originalName ->
-                    ( "PATCH", "/api/db/container_type?name=eq." ++ Url.percentEncode originalName )
+                Just _ ->
+                    ( "/api/db/rpc/update_container_type", Http.jsonBody (encodeUpdateContainerType form) )
 
                 Nothing ->
-                    ( "POST", "/api/db/container_type" )
+                    ( "/api/db/rpc/create_container_type", Http.jsonBody (encodeCreateContainerType form) )
     in
-    Http.request
-        { method = method
-        , headers = []
-        , url = url
-        , body = Http.jsonBody (encodeContainerType form)
+    Http.post
+        { url = url
+        , body = body
         , expect = Http.expectWhatever toMsg
-        , timeout = Nothing
-        , tracker = Nothing
         }
 
 
 deleteContainerType : String -> (Result Http.Error () -> msg) -> Cmd msg
 deleteContainerType name toMsg =
-    Http.request
-        { method = "DELETE"
-        , headers = []
-        , url = "/api/db/container_type?name=eq." ++ Url.percentEncode name
-        , body = Http.emptyBody
+    Http.post
+        { url = "/api/db/rpc/delete_container_type"
+        , body = Http.jsonBody (encodeDeleteRequest name)
         , expect = Http.expectWhatever toMsg
-        , timeout = Nothing
-        , tracker = Nothing
         }
 
 
 saveIngredient : IngredientForm -> (Result Http.Error () -> msg) -> Cmd msg
 saveIngredient form toMsg =
     let
-        ( method, url ) =
+        ( url, body ) =
             case form.editing of
-                Just originalName ->
-                    ( "PATCH", "/api/db/ingredient?name=eq." ++ Url.percentEncode originalName )
+                Just _ ->
+                    ( "/api/db/rpc/update_ingredient", Http.jsonBody (encodeUpdateIngredient form) )
 
                 Nothing ->
-                    ( "POST", "/api/db/ingredient" )
+                    ( "/api/db/rpc/create_ingredient", Http.jsonBody (encodeCreateIngredient form) )
     in
-    Http.request
-        { method = method
-        , headers = []
-        , url = url
-        , body = Http.jsonBody (encodeIngredient form)
+    Http.post
+        { url = url
+        , body = body
         , expect = Http.expectWhatever toMsg
-        , timeout = Nothing
-        , tracker = Nothing
         }
 
 
 deleteIngredient : String -> (Result Http.Error () -> msg) -> Cmd msg
 deleteIngredient name toMsg =
-    Http.request
-        { method = "DELETE"
-        , headers = []
-        , url = "/api/db/ingredient?name=eq." ++ Url.percentEncode name
-        , body = Http.emptyBody
+    Http.post
+        { url = "/api/db/rpc/delete_ingredient"
+        , body = Http.jsonBody (encodeDeleteRequest name)
         , expect = Http.expectWhatever toMsg
-        , timeout = Nothing
-        , tracker = Nothing
         }
 
 
@@ -212,14 +187,10 @@ saveRecipe form toMsg =
 
 deleteRecipe : String -> (Result Http.Error () -> msg) -> Cmd msg
 deleteRecipe name toMsg =
-    Http.request
-        { method = "DELETE"
-        , headers = []
-        , url = "/api/db/recipe?name=eq." ++ Url.percentEncode name
-        , body = Http.emptyBody
+    Http.post
+        { url = "/api/db/rpc/delete_recipe"
+        , body = Http.jsonBody (encodeDeleteRequest name)
         , expect = Http.expectWhatever toMsg
-        , timeout = Nothing
-        , tracker = Nothing
         }
 
 
@@ -234,35 +205,27 @@ fetchLabelPresets toMsg =
 saveLabelPreset : LabelPresetForm -> (Result Http.Error () -> msg) -> Cmd msg
 saveLabelPreset form toMsg =
     let
-        ( method, url ) =
+        ( url, body ) =
             case form.editing of
-                Just originalName ->
-                    ( "PATCH", "/api/db/label_preset?name=eq." ++ Url.percentEncode originalName )
+                Just _ ->
+                    ( "/api/db/rpc/update_label_preset", Http.jsonBody (encodeUpdateLabelPreset form) )
 
                 Nothing ->
-                    ( "POST", "/api/db/label_preset" )
+                    ( "/api/db/rpc/create_label_preset", Http.jsonBody (encodeCreateLabelPreset form) )
     in
-    Http.request
-        { method = method
-        , headers = []
-        , url = url
-        , body = Http.jsonBody (encodeLabelPreset form)
+    Http.post
+        { url = url
+        , body = body
         , expect = Http.expectWhatever toMsg
-        , timeout = Nothing
-        , tracker = Nothing
         }
 
 
 deleteLabelPreset : String -> (Result Http.Error () -> msg) -> Cmd msg
 deleteLabelPreset name toMsg =
-    Http.request
-        { method = "DELETE"
-        , headers = []
-        , url = "/api/db/label_preset?name=eq." ++ Url.percentEncode name
-        , body = Http.emptyBody
+    Http.post
+        { url = "/api/db/rpc/delete_label_preset"
+        , body = Http.jsonBody (encodeDeleteRequest name)
         , expect = Http.expectWhatever toMsg
-        , timeout = Nothing
-        , tracker = Nothing
         }
 
 
