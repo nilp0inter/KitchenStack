@@ -1,6 +1,7 @@
 module Types exposing
     ( BatchDetailData
     , BatchForm
+    , BatchIngredient
     , BatchSummary
     , ContainerType
     , ContainerTypeForm
@@ -21,6 +22,7 @@ module Types exposing
     , RecipeForm
     , RemoteData(..)
     , SelectedIngredient
+    , UpdateBatchResponse
     , ViewMode(..)
     )
 
@@ -60,9 +62,10 @@ type alias BatchSummary =
     , bestBeforeDate : Maybe String
     , labelPreset : Maybe String
     , batchCreatedAt : String
-    , expiryDate : String
+    , expiryDate : Maybe String
     , frozenCount : Int
     , consumedCount : Int
+    , discardedCount : Int
     , totalCount : Int
     , ingredients : String
     , details : Maybe String
@@ -175,6 +178,7 @@ type alias PortionInBatch =
     , createdAt : String
     , expiryDate : String
     , consumedAt : Maybe String
+    , discardedAt : Maybe String
     }
 
 
@@ -243,6 +247,19 @@ type alias LabelPreset =
     , titleMinFontSize : Int
     , ingredientsMaxChars : Int
     , rotate : Bool
+    }
+
+
+type alias UpdateBatchResponse =
+    { newPortionIds : List String
+    , newExpiryDate : Maybe String
+    , bestBeforeDate : Maybe String
+    }
+
+
+type alias BatchIngredient =
+    { batchId : String
+    , ingredientName : String
     }
 
 

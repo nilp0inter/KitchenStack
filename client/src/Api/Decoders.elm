@@ -1,5 +1,6 @@
 module Api.Decoders exposing
-    ( batchSummaryDecoder
+    ( batchIngredientDecoder
+    , batchSummaryDecoder
     , containerTypeDecoder
     , createBatchResponseDecoder
     , historyPointDecoder
@@ -8,6 +9,7 @@ module Api.Decoders exposing
     , portionDetailDecoder
     , portionInBatchDecoder
     , recipeDecoder
+    , updateBatchResponseDecoder
     )
 
 import Json.Decode as Decode exposing (Decoder)
@@ -38,9 +40,10 @@ batchSummaryDecoder =
         |> andMap (Decode.field "best_before_date" (Decode.nullable Decode.string))
         |> andMap (Decode.field "label_preset" (Decode.nullable Decode.string))
         |> andMap (Decode.field "batch_created_at" Decode.string)
-        |> andMap (Decode.field "expiry_date" Decode.string)
+        |> andMap (Decode.field "expiry_date" (Decode.nullable Decode.string))
         |> andMap (Decode.field "frozen_count" Decode.int)
         |> andMap (Decode.field "consumed_count" Decode.int)
+        |> andMap (Decode.field "discarded_count" Decode.int)
         |> andMap (Decode.field "total_count" Decode.int)
         |> andMap (Decode.field "ingredients" Decode.string)
         |> andMap (Decode.field "details" (Decode.nullable Decode.string))
@@ -91,12 +94,13 @@ historyPointDecoder =
 
 portionInBatchDecoder : Decoder PortionInBatch
 portionInBatchDecoder =
-    Decode.map5 PortionInBatch
-        (Decode.field "id" Decode.string)
-        (Decode.field "status" Decode.string)
-        (Decode.field "created_at" Decode.string)
-        (Decode.field "expiry_date" Decode.string)
-        (Decode.field "consumed_at" (Decode.nullable Decode.string))
+    Decode.succeed PortionInBatch
+        |> andMap (Decode.field "id" Decode.string)
+        |> andMap (Decode.field "status" Decode.string)
+        |> andMap (Decode.field "created_at" Decode.string)
+        |> andMap (Decode.field "expiry_date" Decode.string)
+        |> andMap (Decode.field "consumed_at" (Decode.nullable Decode.string))
+        |> andMap (Decode.field "discarded_at" (Decode.nullable Decode.string))
 
 
 recipeDecoder : Decoder Recipe
@@ -109,6 +113,23 @@ recipeDecoder =
         |> andMap (Decode.field "ingredients" Decode.string)
         |> andMap (Decode.field "details" (Decode.nullable Decode.string))
         |> andMap (Decode.field "image" (Decode.nullable Decode.string))
+
+
+updateBatchResponseDecoder : Decoder UpdateBatchResponse
+updateBatchResponseDecoder =
+    Decode.index 0
+        (Decode.succeed UpdateBatchResponse
+            |> andMap (Decode.field "new_portion_ids" (Decode.list Decode.string))
+            |> andMap (Decode.field "new_expiry_date" (Decode.nullable Decode.string))
+            |> andMap (Decode.field "best_before_date" (Decode.nullable Decode.string))
+        )
+
+
+batchIngredientDecoder : Decoder BatchIngredient
+batchIngredientDecoder =
+    Decode.map2 BatchIngredient
+        (Decode.field "batch_id" Decode.string)
+        (Decode.field "ingredient_name" Decode.string)
 
 
 labelPresetDecoder : Decoder LabelPreset

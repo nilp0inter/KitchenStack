@@ -102,8 +102,13 @@ viewBatchHeader model batch frozenCount =
 
                   else
                     text ""
-                , p [ class "text-gray-500 mt-2" ]
-                    [ text ("Caduca: " ++ batch.expiryDate) ]
+                , case batch.expiryDate of
+                    Just expiryDate ->
+                        p [ class "text-gray-500 mt-2" ]
+                            [ text ("Caduca: " ++ expiryDate) ]
+
+                    Nothing ->
+                        text ""
                 , case batch.bestBeforeDate of
                     Just bbDate ->
                         p [ class "text-gray-500 text-sm" ]
@@ -115,6 +120,11 @@ viewBatchHeader model batch frozenCount =
                 ]
             , div [ class "flex flex-col items-end space-y-2" ]
                 [ viewPresetSelector model
+                , a
+                    [ href ("/batch/" ++ batch.batchId ++ "/edit")
+                    , class "bg-amber-500 hover:bg-amber-600 text-white font-medium px-4 py-2 rounded-lg transition-colors text-center"
+                    ]
+                    [ text "Editar" ]
                 , if frozenCount > 0 then
                     button
                         [ onClick ReprintAllFrozen
@@ -268,6 +278,10 @@ viewPortionRow batch index portion =
                 span [ class "inline-block bg-frost-100 text-frost-700 px-2 py-1 rounded text-sm" ]
                     [ text "Congelada" ]
 
+              else if portion.status == "DISCARDED" then
+                span [ class "inline-block bg-gray-100 text-gray-500 px-2 py-1 rounded text-sm" ]
+                    [ text "Descartada" ]
+
               else
                 span [ class "inline-block bg-green-100 text-green-700 px-2 py-1 rounded text-sm" ]
                     [ text "Consumida" ]
@@ -275,7 +289,10 @@ viewPortionRow batch index portion =
         , td [ class "px-4 py-3 text-gray-600" ] [ text portion.createdAt ]
         , td [ class "px-4 py-3 text-gray-600" ] [ text portion.expiryDate ]
         , td [ class "px-4 py-3" ]
-            [ if portion.status == "FROZEN" then
+            [ if portion.status == "DISCARDED" then
+                text ""
+
+              else if portion.status == "FROZEN" then
                 div [ class "flex space-x-2" ]
                     [ a
                         [ href ("/item/" ++ portion.portionId)
@@ -295,14 +312,28 @@ viewPortionRow batch index portion =
                         , title "Reimprimir"
                         ]
                         [ text "🖨️" ]
+                    , button
+                        [ onClick (DiscardPortion portion.portionId)
+                        , class "text-2xl hover:scale-110 transition-transform"
+                        , title "Descartar"
+                        ]
+                        [ text "🗑️" ]
                     ]
 
               else
-                button
-                    [ onClick (ReturnToFreezer portion.portionId)
-                    , class "text-2xl hover:scale-110 transition-transform"
-                    , title "Devolver al congelador"
+                div [ class "flex space-x-2" ]
+                    [ button
+                        [ onClick (ReturnToFreezer portion.portionId)
+                        , class "text-2xl hover:scale-110 transition-transform"
+                        , title "Devolver al congelador"
+                        ]
+                        [ text "🔄" ]
+                    , button
+                        [ onClick (DiscardPortion portion.portionId)
+                        , class "text-2xl hover:scale-110 transition-transform"
+                        , title "Descartar"
+                        ]
+                        [ text "🗑️" ]
                     ]
-                    [ text "🔄" ]
             ]
         ]

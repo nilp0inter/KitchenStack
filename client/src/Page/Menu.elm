@@ -75,7 +75,7 @@ groupBatches batches =
                 List.foldl (\b acc -> acc + b.frozenCount) 0 batchList
             , nearestExpiry =
                 batchList
-                    |> List.map .expiryDate
+                    |> List.filterMap .expiryDate
                     |> List.sort
                     |> List.head
                     |> Maybe.withDefault ""

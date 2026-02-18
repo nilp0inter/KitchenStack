@@ -14,6 +14,7 @@ type Route
     | NewBatch
     | ItemDetail String
     | BatchDetail String
+    | EditBatch String
     | History
     | ContainerTypes
     | Ingredients
@@ -34,6 +35,7 @@ routeParser =
         , Parser.map Inventory (Parser.s "inventory")
         , Parser.map NewBatch (Parser.s "new")
         , Parser.map ItemDetail (Parser.s "item" </> Parser.string)
+        , Parser.map EditBatch (Parser.s "batch" </> Parser.string </> Parser.s "edit")
         , Parser.map BatchDetail (Parser.s "batch" </> Parser.string)
         , Parser.map History (Parser.s "history")
         , Parser.map ContainerTypes (Parser.s "containers")

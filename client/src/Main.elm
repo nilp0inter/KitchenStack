@@ -11,6 +11,8 @@ import Process
 import Task
 import Page.BatchDetail as BatchDetail
 import Page.BatchDetail.Types as BatchDetailTypes
+import Page.EditBatch as EditBatch
+import Page.EditBatch.Types as EditBatchTypes
 import Page.ContainerTypes as ContainerTypes
 import Page.ContainerTypes.Types as ContainerTypesTypes
 import Page.Inventory as Inventory
@@ -82,6 +84,7 @@ type Page
     | NewBatchPage NewBatch.Model
     | ItemDetailPage ItemDetail.Model
     | BatchDetailPage BatchDetail.Model
+    | EditBatchPage EditBatch.Model
     | HistoryPage History.Model
     | ContainerTypesPage ContainerTypes.Model
     | IngredientsPage Ingredients.Model
@@ -202,6 +205,15 @@ initPage route model =
             , Cmd.map BatchDetailMsg pageCmd
             )
 
+        EditBatch batchId ->
+            let
+                ( pageModel, pageCmd ) =
+                    EditBatch.init batchId model.appHost model.currentDate ingredients containerTypes labelPresets
+            in
+            ( { model | page = EditBatchPage pageModel }
+            , Cmd.map EditBatchMsg pageCmd
+            )
+
         History ->
             let
                 ( pageModel, pageCmd ) =
@@ -277,6 +289,7 @@ type Msg
     | NewBatchMsg NewBatch.Msg
     | ItemDetailMsg ItemDetail.Msg
     | BatchDetailMsg BatchDetail.Msg
+    | EditBatchMsg EditBatch.Msg
     | HistoryMsg History.Msg
     | ContainerTypesMsg ContainerTypes.Msg
     | IngredientsMsg Ingredients.Msg
@@ -509,6 +522,24 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
+        EditBatchMsg subMsg ->
+            case model.page of
+                EditBatchPage pageModel ->
+                    let
+                        ( newPageModel, pageCmd, outMsg ) =
+                            EditBatch.update subMsg pageModel
+
+                        newModel =
+                            { model
+                                | page = EditBatchPage newPageModel
+                                , printingProgress = newPageModel.printingProgress
+                            }
+                    in
+                    handleEditBatchOutMsg outMsg newModel pageCmd
+
+                _ ->
+                    ( model, Cmd.none )
+
         HistoryMsg subMsg ->
             case model.page of
                 HistoryPage pageModel ->
@@ -593,6 +624,9 @@ update msg model =
                 BatchDetailPage _ ->
                     update (BatchDetailMsg (BatchDetailTypes.GotPngResult pngResult)) model
 
+                EditBatchPage _ ->
+                    update (EditBatchMsg (EditBatchTypes.GotPngResult pngResult)) model
+
                 LabelDesignerPage _ ->
                     update (LabelDesignerMsg (LabelDesignerTypes.GotPngResult pngResult)) model
 
@@ -607,6 +641,9 @@ update msg model =
 
                 BatchDetailPage _ ->
                     update (BatchDetailMsg (BatchDetailTypes.GotTextMeasureResult measureResult)) model
+
+                EditBatchPage _ ->
+                    update (EditBatchMsg (EditBatchTypes.GotTextMeasureResult measureResult)) model
 
                 LabelDesignerPage _ ->
                     update (LabelDesignerMsg (LabelDesignerTypes.GotTextMeasureResult measureResult)) model
@@ -631,6 +668,9 @@ update msg model =
 
                 NewBatchPage _ ->
                     update (NewBatchMsg (NewBatchTypes.GotImageResult fileResult)) model
+
+                EditBatchPage _ ->
+                    update (EditBatchMsg (EditBatchTypes.GotImageResult fileResult)) model
 
                 _ ->
                     ( model, Cmd.none )
@@ -777,6 +817,13 @@ dispatchIngredientsToPage ingredients model =
             in
             ( { model | page = RecipesPage newPageModel }, Cmd.map RecipesMsg pageCmd )
 
+        EditBatchPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    EditBatch.update (EditBatchTypes.ReceivedIngredients ingredients) pageModel
+            in
+            ( { model | page = EditBatchPage newPageModel }, Cmd.map EditBatchMsg pageCmd )
+
         _ ->
             ( model, Cmd.none )
 
@@ -813,6 +860,13 @@ dispatchContainerTypesToPage containerTypes model =
                     Recipes.update (RecipesTypes.ReceivedContainerTypes containerTypes) pageModel
             in
             ( { model | page = RecipesPage newPageModel }, Cmd.map RecipesMsg pageCmd )
+
+        EditBatchPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    EditBatch.update (EditBatchTypes.ReceivedContainerTypes containerTypes) pageModel
+            in
+            ( { model | page = EditBatchPage newPageModel }, Cmd.map EditBatchMsg pageCmd )
 
         _ ->
             ( model, Cmd.none )
@@ -873,6 +927,13 @@ dispatchPresetsToPage labelPresets model =
                     LabelDesigner.update (LabelDesignerTypes.ReceivedLabelPresets labelPresets) pageModel
             in
             ( { model | page = LabelDesignerPage newPageModel }, Cmd.map LabelDesignerMsg pageCmd )
+
+        EditBatchPage pageModel ->
+            let
+                ( newPageModel, pageCmd, _ ) =
+                    EditBatch.update (EditBatchTypes.ReceivedLabelPresets labelPresets) pageModel
+            in
+            ( { model | page = EditBatchPage newPageModel }, Cmd.map EditBatchMsg pageCmd )
 
         _ ->
             ( model, Cmd.none )
@@ -1092,6 +1153,77 @@ handleBatchDetailOutMsg outMsg model pageCmd =
             , Cmd.batch
                 [ Cmd.map BatchDetailMsg pageCmd
                 , Ports.requestTextMeasure request
+                ]
+            )
+
+
+handleEditBatchOutMsg : EditBatch.OutMsg -> Model -> Cmd EditBatch.Msg -> ( Model, Cmd Msg )
+handleEditBatchOutMsg outMsg model pageCmd =
+    case outMsg of
+        EditBatchTypes.NoOp ->
+            ( model, Cmd.map EditBatchMsg pageCmd )
+
+        EditBatchTypes.ShowNotification notification ->
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification notification.message notification.notificationType model
+            in
+            ( newModel
+            , Cmd.batch [ Cmd.map EditBatchMsg pageCmd, dismissCmd ]
+            )
+
+        EditBatchTypes.NavigateToBatch batchId ->
+            ( model
+            , Cmd.batch
+                [ Cmd.map EditBatchMsg pageCmd
+                , Nav.pushUrl model.key ("/batch/" ++ batchId)
+                ]
+            )
+
+        EditBatchTypes.RefreshBatchesWithNotification notification ->
+            let
+                ( newModel, dismissCmd ) =
+                    setNotification notification.message notification.notificationType model
+
+                batchId =
+                    case model.page of
+                        EditBatchPage pageModel ->
+                            pageModel.batchId
+
+                        _ ->
+                            ""
+            in
+            ( newModel
+            , Cmd.batch
+                [ Cmd.map EditBatchMsg pageCmd
+                , Api.fetchBatches GotBatches
+                , Api.fetchIngredients GotIngredients
+                , dismissCmd
+                , Nav.pushUrl model.key ("/batch/" ++ batchId)
+                ]
+            )
+
+        EditBatchTypes.RequestSvgToPng request ->
+            ( model
+            , Cmd.batch
+                [ Cmd.map EditBatchMsg pageCmd
+                , Ports.requestSvgToPng request
+                ]
+            )
+
+        EditBatchTypes.RequestTextMeasure request ->
+            ( model
+            , Cmd.batch
+                [ Cmd.map EditBatchMsg pageCmd
+                , Ports.requestTextMeasure request
+                ]
+            )
+
+        EditBatchTypes.RequestFileSelect request ->
+            ( model
+            , Cmd.batch
+                [ Cmd.map EditBatchMsg pageCmd
+                , Ports.requestFileSelect request
                 ]
             )
 
@@ -1357,6 +1489,9 @@ viewPage model =
 
         BatchDetailPage pageModel ->
             Html.map BatchDetailMsg (BatchDetail.view pageModel)
+
+        EditBatchPage pageModel ->
+            Html.map EditBatchMsg (EditBatch.view pageModel)
 
         HistoryPage pageModel ->
             Html.map HistoryMsg (History.view pageModel)

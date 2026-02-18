@@ -40,6 +40,8 @@ type Msg
     | ClosePreviewModal
     | ReturnToFreezer String
     | ReturnToFreezerResult (Result Http.Error ())
+    | DiscardPortion String
+    | DiscardPortionResult (Result Http.Error ())
     | SelectPreset String
     | GotPngResult Ports.PngResult
     | GotTextMeasureResult Ports.TextMeasureResult

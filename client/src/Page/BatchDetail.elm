@@ -66,8 +66,13 @@ init batchId appHost batches labelPresets =
       , pendingMeasurements = []
       , computedLabelData = Dict.empty
       }
-      -- Only fetch portions - batch data comes from Main.elm shared state
-    , Api.fetchBatchPortions batchId GotBatchPortions
+    , Cmd.batch
+        [ Api.fetchBatchPortions batchId GotBatchPortions
+        , if maybeBatch == Nothing then
+            Api.fetchBatchById batchId GotBatches
+          else
+            Cmd.none
+        ]
     )
 
 
@@ -571,6 +576,29 @@ update msg model =
                     ( model
                     , Cmd.none
                     , ShowNotification { id = 0, message = "Error al devolver porción al congelador", notificationType = Error }
+                    )
+
+        DiscardPortion portionId ->
+            ( model
+            , Api.discardPortion portionId DiscardPortionResult
+            , NoOp
+            )
+
+        DiscardPortionResult result ->
+            case result of
+                Ok _ ->
+                    ( model
+                    , Cmd.batch
+                        [ Api.fetchBatchPortions model.batchId GotBatchPortions
+                        , Api.fetchBatches GotBatches
+                        ]
+                    , ShowNotification { id = 0, message = "Porción descartada", notificationType = Success }
+                    )
+
+                Err _ ->
+                    ( model
+                    , Cmd.none
+                    , ShowNotification { id = 0, message = "Error al descartar porción", notificationType = Error }
                     )
 
         ReceivedBatches batches ->

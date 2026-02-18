@@ -98,7 +98,7 @@ viewBatchesTable model =
                                 , td [ class "px-4 py-3 text-gray-600" ]
                                     [ text (String.fromFloat (totalServings batch)) ]
                                 , td [ class "px-4 py-3" ]
-                                    [ span [ class "text-gray-900 font-medium" ] [ text batch.expiryDate ]
+                                    [ span [ class "text-gray-900 font-medium" ] [ text (Maybe.withDefault "-" batch.expiryDate) ]
                                     ]
                                 ]
                         )

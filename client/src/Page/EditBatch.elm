@@ -1,4 +1,4 @@
-module Page.NewBatch exposing
+module Page.EditBatch exposing
     ( Model
     , Msg
     , OutMsg
@@ -9,84 +9,180 @@ module Page.NewBatch exposing
 
 import Api
 import Components.MarkdownEditor as MarkdownEditor
-import Data.Batch
 import Data.Label
 import Data.LabelPreset
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Http
 import Label
-import Page.NewBatch.Types as NB exposing (..)
-import Page.NewBatch.View as View
+import Page.EditBatch.Types as EB exposing (..)
+import Page.EditBatch.View as View
 import Ports
 import Random
 import Types exposing (..)
 import UUID exposing (UUID)
 
 
-type alias Model = NB.Model
-type alias Msg = NB.Msg
-type alias OutMsg = NB.OutMsg
+type alias Model = EB.Model
+type alias Msg = EB.Msg
+type alias OutMsg = EB.OutMsg
 
 
-init : String -> String -> List Ingredient -> List ContainerType -> List Recipe -> List LabelPreset -> ( Model, Cmd Msg )
-init currentDate appHost ingredients containerTypes recipes labelPresets =
+init : String -> String -> String -> List Ingredient -> List ContainerType -> List LabelPreset -> ( Model, Cmd Msg )
+init batchId appHost currentDate ingredients containerTypes labelPresets =
     let
-        form =
-            Data.Batch.empty currentDate
-
-        formWithDefaults =
-            { form
-                | containerId =
-                    List.head containerTypes
-                        |> Maybe.map .name
-                        |> Maybe.withDefault ""
-            }
-
         defaultPreset =
             List.head labelPresets
     in
-    ( { form = formWithDefaults
+    ( { batchId = batchId
+      , batch = Nothing
+      , portions = []
       , ingredients = ingredients
       , containerTypes = containerTypes
-      , recipes = recipes
       , labelPresets = labelPresets
       , selectedPreset = defaultPreset
       , appHost = appHost
-      , loading = False
-      , printWithSave = True
-      , printingProgress = Nothing
-      , showSuggestions = False
-      , showRecipeSuggestions = False
+      , currentDate = currentDate
+      , loading = True
+      , saving = False
+      , form =
+            { name = ""
+            , selectedIngredients = []
+            , ingredientInput = ""
+            , containerId = ""
+            , bestBeforeDate = ""
+            , details = ""
+            , image = Nothing
+            }
+      , discardPortionIds = []
+      , newPortionQuantity = "0"
+      , newPortionsExpiryDate = ""
       , expiryRequired = False
+      , showSuggestions = False
+      , imageChanged = False
+      , detailsEditor = MarkdownEditor.init ""
+      , printingProgress = Nothing
       , pendingPrintData = []
       , pendingPngRequests = []
       , pendingMeasurements = []
       , computedLabelData = Dict.empty
-      , detailsEditor = MarkdownEditor.init ""
       }
-    , Cmd.none
+    , Cmd.batch
+        [ Api.fetchBatchById batchId GotBatch
+        , Api.fetchBatchPortions batchId GotBatchPortions
+        , Api.fetchBatchIngredients batchId GotBatchIngredients
+        ]
     )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg, OutMsg )
 update msg model =
     case msg of
+        GotBatch result ->
+            case result of
+                Ok batches ->
+                    case List.head batches of
+                        Just batch ->
+                            let
+                                -- Find the label preset for this batch
+                                batchPreset =
+                                    batch.labelPreset
+                                        |> Maybe.andThen
+                                            (\name ->
+                                                List.filter (\p -> p.name == name) model.labelPresets
+                                                    |> List.head
+                                            )
+
+                                selectedPreset =
+                                    case batchPreset of
+                                        Just preset ->
+                                            Just preset
+
+                                        Nothing ->
+                                            model.selectedPreset
+
+                                form =
+                                    model.form
+                            in
+                            ( { model
+                                | batch = Just batch
+                                , loading = False
+                                , selectedPreset = selectedPreset
+                                , form =
+                                    { form
+                                        | name = batch.name
+                                        , containerId = batch.containerId
+                                        , bestBeforeDate = Maybe.withDefault "" batch.bestBeforeDate
+                                        , details = Maybe.withDefault "" batch.details
+                                        , image = batch.image
+                                    }
+                                , detailsEditor = MarkdownEditor.init (Maybe.withDefault "" batch.details)
+                              }
+                            , Cmd.none
+                            , NoOp
+                            )
+
+                        Nothing ->
+                            ( { model | loading = False }, Cmd.none, NoOp )
+
+                Err _ ->
+                    ( { model | loading = False }
+                    , Cmd.none
+                    , ShowNotification { id = 0, message = "Error al cargar el lote", notificationType = Error }
+                    )
+
+        GotBatchPortions result ->
+            case result of
+                Ok portions ->
+                    ( { model | portions = portions }, Cmd.none, NoOp )
+
+                Err _ ->
+                    ( model, Cmd.none, ShowNotification { id = 0, message = "Error al cargar porciones", notificationType = Error } )
+
+        GotBatchIngredients result ->
+            case result of
+                Ok batchIngredients ->
+                    let
+                        selectedIngredients =
+                            List.map
+                                (\bi ->
+                                    { name = bi.ingredientName
+                                    , isNew = not (List.any (\i -> String.toLower i.name == String.toLower bi.ingredientName) model.ingredients)
+                                    }
+                                )
+                                batchIngredients
+
+                        hasExpiryInfo =
+                            List.any
+                                (\sel ->
+                                    List.any
+                                        (\ing ->
+                                            String.toLower ing.name == String.toLower sel.name && ing.expireDays /= Nothing
+                                        )
+                                        model.ingredients
+                                )
+                                selectedIngredients
+
+                        form =
+                            model.form
+                    in
+                    ( { model
+                        | form = { form | selectedIngredients = selectedIngredients }
+                        , expiryRequired = not hasExpiryInfo && not (List.isEmpty selectedIngredients)
+                      }
+                    , Cmd.none
+                    , NoOp
+                    )
+
+                Err _ ->
+                    ( model, Cmd.none, ShowNotification { id = 0, message = "Error al cargar ingredientes del lote", notificationType = Error } )
+
         FormNameChanged name ->
             let
                 form =
                     model.form
-
-                shouldShowRecipeSuggestions =
-                    String.length name >= 2
             in
-            ( { model
-                | form = { form | name = name }
-                , showRecipeSuggestions = shouldShowRecipeSuggestions
-              }
-            , Cmd.none
-            , NoOp
-            )
+            ( { model | form = { form | name = name } }, Cmd.none, NoOp )
 
         FormIngredientInputChanged input ->
             let
@@ -130,7 +226,6 @@ update msg model =
                     else
                         form.selectedIngredients
 
-                -- Check if any selected ingredient has expire_days
                 hasExpiryInfo =
                     List.any
                         (\sel ->
@@ -163,7 +258,6 @@ update msg model =
                 newSelectedIngredients =
                     List.filter (\i -> i.name /= ingredientName) form.selectedIngredients
 
-                -- Check if any remaining ingredient has expire_days
                 hasExpiryInfo =
                     List.any
                         (\sel ->
@@ -190,123 +284,97 @@ update msg model =
             in
             ( { model | form = { form | containerId = containerId } }, Cmd.none, NoOp )
 
-        FormQuantityChanged quantity ->
+        FormBestBeforeDateChanged date ->
             let
                 form =
                     model.form
             in
-            ( { model | form = { form | quantity = quantity } }, Cmd.none, NoOp )
+            ( { model | form = { form | bestBeforeDate = date } }, Cmd.none, NoOp )
 
-        FormCreatedAtChanged createdAt ->
+        NewPortionQuantityChanged qty ->
+            ( { model | newPortionQuantity = qty }, Cmd.none, NoOp )
+
+        NewPortionsExpiryDateChanged date ->
+            ( { model | newPortionsExpiryDate = date }, Cmd.none, NoOp )
+
+        ToggleDiscardPortion portionId ->
             let
+                newDiscardIds =
+                    if List.member portionId model.discardPortionIds then
+                        List.filter (\id -> id /= portionId) model.discardPortionIds
+
+                    else
+                        portionId :: model.discardPortionIds
+            in
+            ( { model | discardPortionIds = newDiscardIds }, Cmd.none, NoOp )
+
+        SelectPreset presetName ->
+            let
+                maybePreset =
+                    List.filter (\p -> p.name == presetName) model.labelPresets
+                        |> List.head
+            in
+            ( { model | selectedPreset = maybePreset }, Cmd.none, NoOp )
+
+        SubmitUpdate ->
+            submitBatch False model
+
+        SubmitUpdateAndPrint ->
+            submitBatch True model
+
+        GotUuidsForUpdate uuids ->
+            let
+                newPortionIds =
+                    List.map UUID.toString uuids
+
                 form =
                     model.form
-            in
-            ( { model | form = { form | createdAt = createdAt } }, Cmd.none, NoOp )
 
-        FormExpiryDateChanged expiryDate ->
-            let
-                form =
-                    model.form
-            in
-            ( { model | form = { form | expiryDate = expiryDate } }, Cmd.none, NoOp )
+                ingredientNames =
+                    List.map .name form.selectedIngredients
 
-        DetailsEditorMsg subMsg ->
-            ( { model | detailsEditor = MarkdownEditor.update subMsg model.detailsEditor }
-            , Cmd.none
+                details =
+                    MarkdownEditor.getText model.detailsEditor
+            in
+            ( model
+            , Api.updateBatch
+                { batchId = model.batchId
+                , name = form.name
+                , containerId = form.containerId
+                , ingredientNames = ingredientNames
+                , labelPreset = Maybe.map .name model.selectedPreset
+                , details = details
+                , image =
+                    if model.imageChanged then
+                        form.image
+
+                    else
+                        Nothing
+                , removeImage = model.imageChanged && form.image == Nothing
+                , bestBeforeDate = form.bestBeforeDate
+                , newPortionIds = newPortionIds
+                , discardPortionIds = model.discardPortionIds
+                , newPortionsCreatedAt = model.currentDate
+                , newPortionsExpiryDate = model.newPortionsExpiryDate
+                }
+                BatchUpdated
             , NoOp
             )
 
-        SubmitBatchOnly ->
-            if List.isEmpty model.form.selectedIngredients then
-                ( model, Cmd.none, ShowNotification { id = 0, message = "Debes añadir al menos un ingrediente", notificationType = Error } )
-
-            else if model.expiryRequired && model.form.expiryDate == "" then
-                ( model, Cmd.none, ShowNotification { id = 0, message = "Debes indicar fecha de caducidad (ningún ingrediente tiene días definidos)", notificationType = Error } )
-
-            else
-                let
-                    quantity =
-                        Maybe.withDefault 1 (String.toInt model.form.quantity)
-
-                    uuidCount =
-                        1 + quantity
-
-                    -- Sync details from editor to form
-                    form =
-                        model.form
-
-                    updatedForm =
-                        { form | details = MarkdownEditor.getText model.detailsEditor }
-                in
-                ( { model | loading = True, printWithSave = False, form = updatedForm }
-                , Random.generate GotUuidsForBatch (Random.list uuidCount UUID.generator)
-                , NoOp
-                )
-
-        SubmitBatchWithPrint ->
-            if List.isEmpty model.form.selectedIngredients then
-                ( model, Cmd.none, ShowNotification { id = 0, message = "Debes añadir al menos un ingrediente", notificationType = Error } )
-
-            else if model.expiryRequired && model.form.expiryDate == "" then
-                ( model, Cmd.none, ShowNotification { id = 0, message = "Debes indicar fecha de caducidad (ningún ingrediente tiene días definidos)", notificationType = Error } )
-
-            else
-                let
-                    quantity =
-                        Maybe.withDefault 1 (String.toInt model.form.quantity)
-
-                    uuidCount =
-                        1 + quantity
-
-                    -- Sync details from editor to form
-                    form =
-                        model.form
-
-                    updatedForm =
-                        { form | details = MarkdownEditor.getText model.detailsEditor }
-                in
-                ( { model | loading = True, printWithSave = True, form = updatedForm }
-                , Random.generate GotUuidsForBatch (Random.list uuidCount UUID.generator)
-                , NoOp
-                )
-
-        GotUuidsForBatch uuids ->
-            case uuids of
-                batchUuid :: portionUuids ->
-                    let
-                        labelPresetName =
-                            Maybe.map .name model.selectedPreset
-                    in
-                    ( model
-                    , Api.createBatch model.form batchUuid portionUuids labelPresetName BatchCreated
-                    , NoOp
-                    )
-
-                [] ->
-                    ( { model | loading = False }
-                    , Cmd.none
-                    , ShowNotification { id = 0, message = "Failed to generate UUIDs", notificationType = Error }
-                    )
-
-        BatchCreated result ->
+        BatchUpdated result ->
             case result of
                 Ok response ->
                     let
                         ingredientsText =
                             String.join ", " (List.map .name model.form.selectedIngredients)
 
-                        currentDate =
-                            model.form.createdAt
-
-                        details =
-                            model.form.details
+                        hasNewPortions =
+                            not (List.isEmpty response.newPortionIds)
                     in
-                    if model.printWithSave then
+                    if hasNewPortions && model.saving then
+                        -- model.saving is True when we want to print (printWithSave pattern)
+                        -- Check if we should print
                         let
-                            quantity =
-                                List.length response.portionIds
-
                             printData =
                                 List.map
                                     (\portionId ->
@@ -314,14 +382,15 @@ update msg model =
                                         , name = model.form.name
                                         , ingredients = ingredientsText
                                         , containerId = model.form.containerId
-                                        , expiryDate = response.expiryDate
+                                        , expiryDate = Maybe.withDefault "" response.newExpiryDate
                                         , bestBeforeDate = response.bestBeforeDate
                                         }
                                     )
-                                    response.portionIds
+                                    response.newPortionIds
 
-                            -- Start text measurement for the first label
-                            -- The rest will be triggered after each measurement completes
+                            quantity =
+                                List.length response.newPortionIds
+
                             firstMeasureRequest =
                                 case ( List.head printData, model.selectedPreset ) of
                                     ( Just firstData, Just preset ) ->
@@ -345,15 +414,12 @@ update msg model =
                                         Nothing
                         in
                         ( { model
-                            | form = Data.Batch.empty currentDate
-                            , loading = False
+                            | saving = False
                             , printingProgress = Just { total = quantity, completed = 0, failed = 0 }
-                            , expiryRequired = False
                             , pendingPrintData = printData
                             , pendingPngRequests = List.map .portionId printData
                             , pendingMeasurements = List.map .portionId printData
                             , computedLabelData = Dict.empty
-                            , detailsEditor = MarkdownEditor.init ""
                           }
                         , Cmd.none
                         , case firstMeasureRequest of
@@ -361,49 +427,19 @@ update msg model =
                                 RequestTextMeasure req
 
                             Nothing ->
-                                ShowNotification { id = 0, message = "No label preset selected", notificationType = Error }
+                                RefreshBatchesWithNotification { id = 0, message = "Lote actualizado", notificationType = Success }
                         )
 
                     else
-                        let
-                            -- Construct BatchSummary locally for zero-fetch navigation
-                            newBatch : BatchSummary
-                            newBatch =
-                                { batchId = response.batchId
-                                , name = model.form.name
-                                , containerId = model.form.containerId
-                                , bestBeforeDate = response.bestBeforeDate
-                                , labelPreset = Maybe.map .name model.selectedPreset
-                                , batchCreatedAt = currentDate
-                                , expiryDate = Just response.expiryDate
-                                , frozenCount = List.length response.portionIds
-                                , consumedCount = 0
-                                , discardedCount = 0
-                                , totalCount = List.length response.portionIds
-                                , ingredients = ingredientsText
-                                , details =
-                                    if String.isEmpty (String.trim details) then
-                                        Nothing
-
-                                    else
-                                        Just details
-                                , image = model.form.image
-                                }
-                        in
-                        ( { model
-                            | form = Data.Batch.empty currentDate
-                            , loading = False
-                            , expiryRequired = False
-                            , detailsEditor = MarkdownEditor.init ""
-                          }
+                        ( { model | saving = False }
                         , Cmd.none
-                        , BatchCreatedLocally newBatch response.batchId
+                        , RefreshBatchesWithNotification { id = 0, message = "Lote actualizado", notificationType = Success }
                         )
 
                 Err _ ->
-                    ( { model | loading = False }
+                    ( { model | saving = False }
                     , Cmd.none
-                    , ShowNotification { id = 0, message = "Error al crear lote. Verifica que los ingredientes tienen días de caducidad o especifica una fecha manual.", notificationType = Error }
+                    , ShowNotification { id = 0, message = "Error al actualizar el lote", notificationType = Error }
                     )
 
         PrintResult result ->
@@ -427,21 +463,21 @@ update msg model =
                         Nothing ->
                             True
 
-                outMsg =
+                printNotification =
                     if allDone then
                         case newProgress of
                             Just p ->
                                 if p.failed > 0 then
-                                    ShowNotification { id = 0, message = String.fromInt p.completed ++ " etiquetas impresas, " ++ String.fromInt p.failed ++ " fallidas", notificationType = Error }
+                                    Just { id = 0, message = String.fromInt p.completed ++ " etiquetas impresas, " ++ String.fromInt p.failed ++ " fallidas", notificationType = Error }
 
                                 else
-                                    ShowNotification { id = 0, message = String.fromInt p.completed ++ " etiquetas impresas correctamente!", notificationType = Success }
+                                    Just { id = 0, message = String.fromInt p.completed ++ " etiquetas impresas correctamente!", notificationType = Success }
 
                             Nothing ->
-                                NoOp
+                                Nothing
 
                     else
-                        NoOp
+                        Nothing
 
                 finalProgress =
                     if allDone then
@@ -453,39 +489,96 @@ update msg model =
             ( { model | printingProgress = finalProgress }
             , Cmd.none
             , if allDone then
-                RefreshBatches
+                case printNotification of
+                    Just n ->
+                        RefreshBatchesWithNotification n
+
+                    Nothing ->
+                        RefreshBatchesWithNotification { id = 0, message = "Lote actualizado", notificationType = Success }
 
               else
-                outMsg
+                NoOp
             )
 
-        SelectPreset presetName ->
+        HideSuggestions ->
+            ( { model | showSuggestions = False }, Cmd.none, NoOp )
+
+        IngredientKeyDown key ->
+            if key == "Enter" || key == "," then
+                let
+                    trimmedInput =
+                        String.trim model.form.ingredientInput
+                in
+                if trimmedInput /= "" then
+                    update (AddIngredient trimmedInput) model
+
+                else
+                    ( model, Cmd.none, NoOp )
+
+            else
+                ( model, Cmd.none, NoOp )
+
+        DetailsEditorMsg subMsg ->
+            ( { model | detailsEditor = MarkdownEditor.update subMsg model.detailsEditor }
+            , Cmd.none
+            , NoOp
+            )
+
+        SelectImage ->
+            ( model
+            , Cmd.none
+            , RequestFileSelect
+                { requestId = "batch-image"
+                , maxSizeKb = 500
+                , acceptTypes = [ "image/png", "image/jpeg", "image/webp" ]
+                }
+            )
+
+        GotImageResult result ->
+            case result.dataUrl of
+                Just base64 ->
+                    let
+                        form =
+                            model.form
+                    in
+                    ( { model | form = { form | image = Just base64 }, imageChanged = True }
+                    , Cmd.none
+                    , NoOp
+                    )
+
+                Nothing ->
+                    case result.error of
+                        Just errorMsg ->
+                            ( model
+                            , Cmd.none
+                            , ShowNotification { id = 0, message = errorMsg, notificationType = Error }
+                            )
+
+                        Nothing ->
+                            ( model, Cmd.none, NoOp )
+
+        RemoveImage ->
             let
-                maybePreset =
-                    List.filter (\p -> p.name == presetName) model.labelPresets
-                        |> List.head
+                form =
+                    model.form
             in
-            ( { model | selectedPreset = maybePreset }, Cmd.none, NoOp )
+            ( { model | form = { form | image = Nothing }, imageChanged = True }, Cmd.none, NoOp )
 
         GotPngResult result ->
             case result.dataUrl of
                 Just dataUrl ->
                     let
-                        -- Strip the data:image/png;base64, prefix
                         base64Data =
                             String.replace "data:image/png;base64," "" dataUrl
 
-                        -- Get label type from selected preset
                         labelType =
                             model.selectedPreset
                                 |> Maybe.map .labelType
                                 |> Maybe.withDefault "62"
 
-                        -- Remove this request from pending
                         remainingRequests =
                             List.filter (\id -> id /= result.requestId) model.pendingPngRequests
 
-                        -- Find next pending print data to convert
                         nextRequest =
                             case ( List.head remainingRequests, model.selectedPreset ) of
                                 ( Just nextId, Just preset ) ->
@@ -511,11 +604,7 @@ update msg model =
                     )
 
                 Nothing ->
-                    -- PNG conversion failed
                     let
-                        errorMsg =
-                            Maybe.withDefault "Unknown error" result.error
-
                         updateProgress progress =
                             { progress | failed = progress.failed + 1 }
 
@@ -540,7 +629,6 @@ update msg model =
                             else
                                 newProgress
 
-                        -- Try next conversion even if this one failed
                         nextRequest =
                             case ( List.head remainingRequests, model.selectedPreset ) of
                                 ( Just nextId, Just preset ) ->
@@ -566,7 +654,7 @@ update msg model =
 
                         Nothing ->
                             if allDone then
-                                RefreshBatches
+                                RefreshBatchesWithNotification { id = 0, message = "Lote actualizado", notificationType = Success }
 
                             else
                                 NoOp
@@ -574,7 +662,6 @@ update msg model =
 
         GotTextMeasureResult result ->
             let
-                -- Store computed data for this label
                 newComputedData =
                     Dict.insert result.requestId
                         { titleFontSize = result.titleFittedFontSize
@@ -583,16 +670,13 @@ update msg model =
                         }
                         model.computedLabelData
 
-                -- Remove from pending measurements
                 remainingMeasurements =
                     List.filter (\id -> id /= result.requestId) model.pendingMeasurements
 
-                -- Check if all measurements are done
                 allMeasured =
                     List.isEmpty remainingMeasurements
             in
             if allMeasured then
-                -- All measurements done, start SVG→PNG conversion
                 let
                     firstRequest =
                         case ( List.head model.pendingPngRequests, model.selectedPreset ) of
@@ -622,7 +706,6 @@ update msg model =
                 )
 
             else
-                -- Request next measurement
                 let
                     nextMeasureRequest =
                         case ( List.head remainingMeasurements, model.selectedPreset ) of
@@ -668,106 +751,14 @@ update msg model =
                         NoOp
                 )
 
-        HideSuggestions ->
-            ( { model | showSuggestions = False }, Cmd.none, NoOp )
-
-        HideRecipeSuggestions ->
-            ( { model | showRecipeSuggestions = False }, Cmd.none, NoOp )
-
-        SelectRecipe recipe ->
-            let
-                -- Parse ingredients from recipe.ingredients string
-                ingredientNames =
-                    String.split ", " recipe.ingredients
-                        |> List.filter (\s -> String.trim s /= "")
-
-                selectedIngredients =
-                    List.map
-                        (\name ->
-                            { name = name
-                            , isNew = not (List.any (\i -> String.toLower i.name == String.toLower name) model.ingredients)
-                            }
-                        )
-                        ingredientNames
-
-                -- Check if any ingredient has expire_days
-                hasExpiryInfo =
-                    List.any
-                        (\sel ->
-                            List.any
-                                (\ing ->
-                                    String.toLower ing.name == String.toLower sel.name && ing.expireDays /= Nothing
-                                )
-                                model.ingredients
-                        )
-                        selectedIngredients
-
-                containerId =
-                    Maybe.withDefault model.form.containerId recipe.defaultContainerId
-
-                -- Find the matching label preset from recipe's default
-                newSelectedPreset =
-                    case recipe.defaultLabelPreset of
-                        Just presetName ->
-                            case List.filter (\p -> p.name == presetName) model.labelPresets |> List.head of
-                                Just preset ->
-                                    Just preset
-
-                                Nothing ->
-                                    model.selectedPreset
-
-                        Nothing ->
-                            model.selectedPreset
-
-                form =
-                    model.form
-            in
-            ( { model
-                | form =
-                    { form
-                        | name = recipe.name
-                        , selectedIngredients = selectedIngredients
-                        , quantity = String.fromInt recipe.defaultPortions
-                        , containerId = containerId
-                        , details = Maybe.withDefault "" recipe.details
-                        , image = recipe.image
-                    }
-                , showRecipeSuggestions = False
-                , expiryRequired = not hasExpiryInfo && not (List.isEmpty selectedIngredients)
-                , selectedPreset = newSelectedPreset
-                , detailsEditor = MarkdownEditor.init (Maybe.withDefault "" recipe.details)
-              }
-            , Cmd.none
-            , NoOp
-            )
-
-        IngredientKeyDown key ->
-            if key == "Enter" || key == "," then
-                let
-                    trimmedInput =
-                        String.trim model.form.ingredientInput
-                in
-                if trimmedInput /= "" then
-                    update (AddIngredient trimmedInput) model
-
-                else
-                    ( model, Cmd.none, NoOp )
-
-            else
-                ( model, Cmd.none, NoOp )
-
         ReceivedIngredients ingredients ->
             ( { model | ingredients = ingredients }, Cmd.none, NoOp )
 
         ReceivedContainerTypes containerTypes ->
             ( { model | containerTypes = containerTypes }, Cmd.none, NoOp )
 
-        ReceivedRecipes recipes ->
-            ( { model | recipes = recipes }, Cmd.none, NoOp )
-
         ReceivedLabelPresets labelPresets ->
             let
-                -- Preserve the selected preset if it still exists
                 updatedSelectedPreset =
                     model.selectedPreset
                         |> Maybe.andThen
@@ -781,46 +772,66 @@ update msg model =
             , NoOp
             )
 
-        SelectImage ->
-            ( model
-            , Cmd.none
-            , RequestFileSelect
-                { requestId = "batch-image"
-                , maxSizeKb = 500
-                , acceptTypes = [ "image/png", "image/jpeg", "image/webp" ]
-                }
+
+submitBatch : Bool -> Model -> ( Model, Cmd Msg, OutMsg )
+submitBatch printAfterSave model =
+    if List.isEmpty model.form.selectedIngredients then
+        ( model, Cmd.none, ShowNotification { id = 0, message = "Debes añadir al menos un ingrediente", notificationType = Error } )
+
+    else
+        let
+            newQty =
+                Maybe.withDefault 0 (String.toInt model.newPortionQuantity)
+
+            needsExpiry =
+                newQty > 0 && model.expiryRequired && model.newPortionsExpiryDate == ""
+        in
+        if needsExpiry then
+            ( model, Cmd.none, ShowNotification { id = 0, message = "Debes indicar fecha de caducidad para las nuevas porciones", notificationType = Error } )
+
+        else if newQty > 0 then
+            -- Generate UUIDs for new portions
+            ( { model | saving = printAfterSave || model.saving }
+            , Random.generate GotUuidsForUpdate (Random.list newQty UUID.generator)
+            , NoOp
             )
 
-        GotImageResult result ->
-            case result.dataUrl of
-                Just base64 ->
-                    let
-                        form =
-                            model.form
-                    in
-                    ( { model | form = { form | image = Just base64 } }
-                    , Cmd.none
-                    , NoOp
-                    )
-
-                Nothing ->
-                    case result.error of
-                        Just errorMsg ->
-                            ( model
-                            , Cmd.none
-                            , ShowNotification { id = 0, message = errorMsg, notificationType = Error }
-                            )
-
-                        Nothing ->
-                            -- User cancelled, no error
-                            ( model, Cmd.none, NoOp )
-
-        RemoveImage ->
+        else
+            -- No new portions, submit directly
             let
                 form =
                     model.form
+
+                details =
+                    MarkdownEditor.getText model.detailsEditor
+
+                ingredientNames =
+                    List.map .name form.selectedIngredients
             in
-            ( { model | form = { form | image = Nothing } }, Cmd.none, NoOp )
+            ( { model | saving = True }
+            , Api.updateBatch
+                { batchId = model.batchId
+                , name = form.name
+                , containerId = form.containerId
+                , ingredientNames = ingredientNames
+                , labelPreset = Maybe.map .name model.selectedPreset
+                , details = details
+                , image =
+                    if model.imageChanged then
+                        form.image
+
+                    else
+                        Nothing
+                , removeImage = model.imageChanged && form.image == Nothing
+                , bestBeforeDate = form.bestBeforeDate
+                , newPortionIds = []
+                , discardPortionIds = model.discardPortionIds
+                , newPortionsCreatedAt = model.currentDate
+                , newPortionsExpiryDate = ""
+                }
+                BatchUpdated
+            , NoOp
+            )
 
 
 view : Model -> Html Msg

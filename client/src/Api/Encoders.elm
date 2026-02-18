@@ -5,10 +5,12 @@ module Api.Encoders exposing
     , encodeCreateIngredient
     , encodeCreateLabelPreset
     , encodeDeleteRequest
+    , encodeDiscardPortionRequest
     , encodePrintPngRequest
     , encodePrintRequest
     , encodeRecipeRequest
     , encodeReturnPortionRequest
+    , encodeUpdateBatchRequest
     , encodeUpdateContainerType
     , encodeUpdateIngredient
     , encodeUpdateLabelPreset
@@ -295,3 +297,103 @@ encodePrintPngRequest pngBase64 labelType =
         [ ( "image_data", Encode.string pngBase64 )
         , ( "label_type", Encode.string labelType )
         ]
+
+
+encodeDiscardPortionRequest : String -> Encode.Value
+encodeDiscardPortionRequest portionId =
+    Encode.object
+        [ ( "p_portion_id", Encode.string portionId ) ]
+
+
+encodeUpdateBatchRequest :
+    { batchId : String
+    , name : String
+    , containerId : String
+    , ingredientNames : List String
+    , labelPreset : Maybe String
+    , details : String
+    , image : Maybe String
+    , removeImage : Bool
+    , bestBeforeDate : String
+    , newPortionIds : List String
+    , discardPortionIds : List String
+    , newPortionsCreatedAt : String
+    , newPortionsExpiryDate : String
+    }
+    -> Encode.Value
+encodeUpdateBatchRequest params =
+    let
+        labelPresetField =
+            case params.labelPreset of
+                Just presetName ->
+                    [ ( "p_label_preset", Encode.string presetName ) ]
+
+                Nothing ->
+                    []
+
+        detailsField =
+            if String.trim params.details /= "" then
+                [ ( "p_details", Encode.string params.details ) ]
+
+            else
+                []
+
+        imageField =
+            case params.image of
+                Just imageData ->
+                    [ ( "p_image_data", Encode.string imageData ) ]
+
+                Nothing ->
+                    []
+
+        bestBeforeField =
+            if params.bestBeforeDate /= "" then
+                [ ( "p_best_before_date", Encode.string params.bestBeforeDate ) ]
+
+            else
+                []
+
+        newPortionIdsField =
+            if not (List.isEmpty params.newPortionIds) then
+                [ ( "p_new_portion_ids", Encode.list Encode.string params.newPortionIds ) ]
+
+            else
+                []
+
+        discardPortionIdsField =
+            if not (List.isEmpty params.discardPortionIds) then
+                [ ( "p_discard_portion_ids", Encode.list Encode.string params.discardPortionIds ) ]
+
+            else
+                []
+
+        newPortionsCreatedAtField =
+            if params.newPortionsCreatedAt /= "" then
+                [ ( "p_new_portions_created_at", Encode.string params.newPortionsCreatedAt ) ]
+
+            else
+                []
+
+        newPortionsExpiryField =
+            if params.newPortionsExpiryDate /= "" then
+                [ ( "p_new_portions_expiry_date", Encode.string params.newPortionsExpiryDate ) ]
+
+            else
+                []
+    in
+    Encode.object
+        ([ ( "p_batch_id", Encode.string params.batchId )
+         , ( "p_name", Encode.string params.name )
+         , ( "p_container_id", Encode.string params.containerId )
+         , ( "p_ingredient_names", Encode.list Encode.string params.ingredientNames )
+         , ( "p_remove_image", Encode.bool params.removeImage )
+         ]
+            ++ labelPresetField
+            ++ detailsField
+            ++ imageField
+            ++ bestBeforeField
+            ++ newPortionIdsField
+            ++ discardPortionIdsField
+            ++ newPortionsCreatedAtField
+            ++ newPortionsExpiryField
+        )

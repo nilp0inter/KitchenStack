@@ -5,6 +5,9 @@ module Api exposing
     , deleteIngredient
     , deleteLabelPreset
     , deleteRecipe
+    , discardPortion
+    , fetchBatchById
+    , fetchBatchIngredients
     , fetchBatchPortions
     , fetchBatches
     , fetchContainerTypes
@@ -20,6 +23,7 @@ module Api exposing
     , saveIngredient
     , saveLabelPreset
     , saveRecipe
+    , updateBatch
     )
 
 import Api.Decoders exposing (..)
@@ -226,6 +230,56 @@ deleteLabelPreset name toMsg =
         { url = "/api/db/rpc/delete_label_preset"
         , body = Http.jsonBody (encodeDeleteRequest name)
         , expect = Http.expectWhatever toMsg
+        }
+
+
+discardPortion : String -> (Result Http.Error () -> msg) -> Cmd msg
+discardPortion portionId toMsg =
+    Http.post
+        { url = "/api/db/rpc/discard_portion"
+        , body = Http.jsonBody (encodeDiscardPortionRequest portionId)
+        , expect = Http.expectWhatever toMsg
+        }
+
+
+fetchBatchById : String -> (Result Http.Error (List BatchSummary) -> msg) -> Cmd msg
+fetchBatchById batchId toMsg =
+    Http.get
+        { url = "/api/db/batch_summary?batch_id=eq." ++ batchId
+        , expect = Http.expectJson toMsg (Decode.list batchSummaryDecoder)
+        }
+
+
+fetchBatchIngredients : String -> (Result Http.Error (List BatchIngredient) -> msg) -> Cmd msg
+fetchBatchIngredients batchId toMsg =
+    Http.get
+        { url = "/api/db/batch_ingredient?batch_id=eq." ++ batchId
+        , expect = Http.expectJson toMsg (Decode.list batchIngredientDecoder)
+        }
+
+
+updateBatch :
+    { batchId : String
+    , name : String
+    , containerId : String
+    , ingredientNames : List String
+    , labelPreset : Maybe String
+    , details : String
+    , image : Maybe String
+    , removeImage : Bool
+    , bestBeforeDate : String
+    , newPortionIds : List String
+    , discardPortionIds : List String
+    , newPortionsCreatedAt : String
+    , newPortionsExpiryDate : String
+    }
+    -> (Result Http.Error UpdateBatchResponse -> msg)
+    -> Cmd msg
+updateBatch params toMsg =
+    Http.post
+        { url = "/api/db/rpc/update_batch"
+        , body = Http.jsonBody (encodeUpdateBatchRequest params)
+        , expect = Http.expectJson toMsg updateBatchResponseDecoder
         }
 
 
