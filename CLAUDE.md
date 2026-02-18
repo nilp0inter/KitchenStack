@@ -20,7 +20,7 @@ FrostByte/
 │   │       ├── logic.sql      # frostbyte_logic schema (idempotent)
 │   │       ├── api.sql        # frostbyte_api schema (idempotent)
 │   │       ├── seed.sql       # Seed data as events
-│   │       ├── migrate.sh     # Auto-migration (runs in db_migrator container)
+│   │       ├── migrate.sh     # Auto-migration (runs in frostbyte_db_migrator container)
 │   │       └── deploy.sh      # Manual redeploy from host
 │   └── labelmaker/            # Label template designer (:8080)
 │       ├── client/            # Elm SPA frontend
@@ -85,10 +85,10 @@ docker compose up --build -d
 docker compose down -v && docker compose up --build -d
 
 # Check Elm compilation status (after making client changes)
-docker compose logs client_builder
+docker compose logs frostbyte_client_builder
 
 # View logs for a specific service
-docker compose logs -f [service_name]  # postgres, postgrest, printer_service, caddy, client_builder
+docker compose logs -f [service_name]  # postgres, postgrest, printer_service, caddy, frostbyte_client_builder
 
 # Stop all services
 docker compose down
@@ -97,7 +97,7 @@ docker compose down
 **Testing changes (rebuild mode):**
 1. Make changes to Elm files in `apps/frostbyte/client/src/`
 2. Run `docker compose up --build -d` to rebuild
-3. Check `docker compose logs client_builder` for compilation errors
+3. Check `docker compose logs frostbyte_client_builder` for compilation errors
 4. If successful, test at http://localhost/
 
 ### Development Mode with Hot Reloading
@@ -107,28 +107,28 @@ docker compose down
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
 # Watch Vite dev server logs
-docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f client_dev
+docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f frostbyte_client_dev
 
 # Stop dev mode
 docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 ```
 
 **How it works:**
-- `client_dev` service runs Vite dev server on port 5173
+- `frostbyte_client_dev` service runs Vite dev server on port 5173
 - Caddy proxies non-API requests to Vite (instead of serving static files)
 - Source code is mounted, so edits trigger automatic browser refresh
 - API routing (`/api/db/*`, `/api/printer/*`) works identically to production
 
 **Request flow (dev mode):**
 ```
-Browser :80   → Caddy → client_dev:5173 (FrostByte Vite HMR)
+Browser :80   → Caddy → frostbyte_client_dev:5173 (FrostByte Vite HMR)
 Browser :8080 → Caddy → labelmaker_client_dev:5173 (LabelMaker Vite HMR)
 Browser :80/:8080 → Caddy → postgrest:3000 (/api/db/*)
 Browser :80/:8080 → Caddy → printer_service:8000 (/api/printer/*)
 ```
 
 **Key files:**
-- `docker-compose.dev.yml` - Dev overlay (adds `client_dev` service, swaps Caddyfile)
+- `docker-compose.dev.yml` - Dev overlay (adds `frostbyte_client_dev` service, swaps Caddyfile)
 - `common/gateway/Caddyfile.dev` - Dev Caddyfile (proxies to Vite instead of static files)
 
 **Available routes to test:**
@@ -154,7 +154,7 @@ Browser :80/:8080 → Caddy → printer_service:8000 (/api/printer/*)
 ┌──────────────────────────────────────────────────────────────────────────┐
 │ Caddy                                                                     │
 │   :80  (FrostByte)                                                        │
-│     /          → Elm SPA (static files from client_dist volume)           │
+│     /          → Elm SPA (static files from frostbyte_client_dist volume)  │
 │     /api/db/*  → PostgREST (:3000) [Accept-Profile: frostbyte_api]        │
 │     /api/printer/* → Printer Service (:8000)                              │
 │   :8080 (LabelMaker)                                                      │
@@ -162,13 +162,13 @@ Browser :80/:8080 → Caddy → printer_service:8000 (/api/printer/*)
 │     /api/db/*  → PostgREST (:3000) [Accept-Profile: labelmaker_api]       │
 │     /api/printer/* → Printer Service (:8000)                              │
 └──────────────────────────────────────────────────────────────────────────┘
-│ db_migrator (one-shot) → FrostByte migrations, then exits                 │
+│ frostbyte_db_migrator (one-shot) → FrostByte migrations, then exits        │
 │ labelmaker_db_migrator (one-shot) → LabelMaker migrations, then exits     │
 │ GoBackup (:2703) → Web UI for backup management                           │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Startup order:** `postgres` (healthy) → `db_migrator` + `labelmaker_db_migrator` (run + exit) → `postgrest` → `caddy`
+**Startup order:** `postgres` (healthy) → `frostbyte_db_migrator` + `labelmaker_db_migrator` (run + exit) → `postgrest` → `caddy`
 
 ### Printer Service
 
@@ -203,7 +203,7 @@ Two modes available:
 - Instant browser refresh on file changes (no rebuild needed)
 - Best for active development
 
-Both modes use named volume `client_node_modules` for faster dependency handling.
+Both modes use named volumes (`frostbyte_client_node_modules`, `labelmaker_client_node_modules`) for faster dependency handling.
 
 ### Production Workflow (Raspberry Pi)
 - Pi pulls pre-built image from `ghcr.io/nilp0inter/frostbyte-client:latest`
@@ -253,18 +253,18 @@ Note: Process substitution (`<(sops -d ...)`) doesn't work reliably with docker 
 
 ### Adding New Secrets
 1. Edit secrets: `sops .env.prod`
-2. Add new variable: `FROSTBYTE_NEW_SECRET=value`
-3. Update `docker-compose.secrets.yml` to use `${FROSTBYTE_NEW_SECRET}`
+2. Add new variable: `KITCHEN_NEW_SECRET=value`
+3. Update `docker-compose.secrets.yml` to use `${KITCHEN_NEW_SECRET}`
 4. Commit both files
 
 ### Current Secrets
-- `FROSTBYTE_POSTGRES_PASSWORD` - PostgreSQL password
-- `FROSTBYTE_B2_BUCKET` - Backblaze B2 bucket name
-- `FROSTBYTE_B2_REGION` - B2 region (e.g., `us-west-002`)
-- `FROSTBYTE_B2_ENDPOINT` - B2 S3-compatible endpoint (e.g., `https://s3.us-west-002.backblazeb2.com`)
-- `FROSTBYTE_B2_KEY_ID` - B2 application key ID
-- `FROSTBYTE_B2_APP_KEY` - B2 application key
-- `FROSTBYTE_HEALTHCHECKS_URL` - Healthchecks.io ping URL
+- `KITCHEN_POSTGRES_PASSWORD` - PostgreSQL password
+- `KITCHEN_B2_BUCKET` - Backblaze B2 bucket name
+- `KITCHEN_B2_REGION` - B2 region (e.g., `us-west-002`)
+- `KITCHEN_B2_ENDPOINT` - B2 S3-compatible endpoint (e.g., `https://s3.us-west-002.backblazeb2.com`)
+- `KITCHEN_B2_KEY_ID` - B2 application key ID
+- `KITCHEN_B2_APP_KEY` - B2 application key
+- `KITCHEN_HEALTHCHECKS_URL` - Healthchecks.io ping URL
 
 ## Database Backups
 
@@ -285,17 +285,17 @@ Access backup status at: `http://KitchenLabelPrinter.local:2703/`
 
 ### Manual Backup
 ```bash
-docker exec frostbyte_gobackup gobackup perform frostbyte_db
+docker exec kitchen_gobackup gobackup perform kitchen_db
 ```
 
 ### CSV Event Backup
 
-In addition to PostgreSQL dumps, GoBackup also exports the event table as a CSV file via `psql COPY`. Since FrostByte uses event sourcing, all state can be rebuilt from the event table alone.
+In addition to PostgreSQL dumps, GoBackup exports event tables from all apps as CSV files via `psql COPY`. Since all apps use event sourcing, state can be rebuilt from the event tables alone.
 
 **How it works:**
 - `common/backup/event-backup.sh` runs as a `before_script` in GoBackup
-- Uses `psql` with `COPY TO STDOUT` to dump the `frostbyte_data.event` table as CSV
-- Saves to `/data/json/events.csv` (reuses existing archive path)
+- Loops over all apps (frostbyte, labelmaker), dumping each `<app>_data.event` table as CSV
+- Saves to `/data/json/frostbyte_events.csv` and `/data/json/labelmaker_events.csv`
 - CSV is portable — no schema/role names embedded in the data
 
 **Key files:**
@@ -309,14 +309,13 @@ To restore data from a CSV event backup (e.g., after wiping the database):
 
 ```bash
 # 1. Download and extract the backup archive from B2
-# 2. Locate events.csv in data/json/
+# 2. Locate frostbyte_events.csv and/or labelmaker_events.csv in data/json/
 
-# 3. Restore to the Pi (from dev machine)
-CONTAINER=frostbyte_postgres DB_USER=kitchen_user DB_NAME=kitchen_db \
-  ./common/backup/event-restore.sh /path/to/backup/data/json/events.csv
+# 3. Restore FrostByte events
+./common/backup/event-restore.sh frostbyte /path/to/backup/data/json/frostbyte_events.csv
 
-# Or restore to local dev environment (uses defaults)
-./common/backup/event-restore.sh /path/to/backup/data/json/events.csv
+# 4. Restore LabelMaker events
+./common/backup/event-restore.sh labelmaker /path/to/backup/data/json/labelmaker_events.csv
 ```
 
 The restore script uses `docker exec` so it must run on the same machine as the containers. For remote restore, SCP the CSV to the Pi first, then run the script there.
@@ -325,7 +324,7 @@ The restore script uses `docker exec` so it must run on the same machine as the 
 
 ```bash
 ./apps/frostbyte/database/migrate-from-json.py /path/to/old/backup/data/json > events.sql
-docker exec -i frostbyte_postgres psql -U kitchen_user -d kitchen_db < events.sql
+docker exec -i kitchen_postgres psql -U kitchen_user -d kitchen_db < events.sql
 ```
 
 ## Language Notes

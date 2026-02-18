@@ -47,7 +47,7 @@ Schema changes are **auto-applied on every `docker compose up`** by the `labelma
 ./apps/labelmaker/database/deploy.sh
 ```
 
-**Note:** After manual `deploy.sh`, restart PostgREST to refresh its schema cache: `docker restart frostbyte_postgrest`
+**Note:** After manual `deploy.sh`, restart PostgREST to refresh its schema cache: `docker restart kitchen_postgrest`
 
 ## Elm Client Structure
 

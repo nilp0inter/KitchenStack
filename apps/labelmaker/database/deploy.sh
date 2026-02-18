@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-CONTAINER="${CONTAINER:-frostbyte_postgres}"
+CONTAINER="${CONTAINER:-kitchen_postgres}"
 DB_USER="${DB_USER:-kitchen_user}"
 DB_NAME="${DB_NAME:-kitchen_db}"
 

@@ -5,24 +5,22 @@
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: frostbyte_postgres
+    container_name: kitchen_postgres
     environment:
       POSTGRES_DB: kitchen_db
       POSTGRES_USER: kitchen_user
       POSTGRES_PASSWORD: kitchen_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./apps/frostbyte/database:/database:ro
-      - ./apps/frostbyte/database/init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U kitchen_user -d kitchen_db"]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
-      - frostbyte_network
+      - kitchen_network
 
-  db_migrator:
+  frostbyte_db_migrator:
     image: postgres:15-alpine
     container_name: frostbyte_db_migrator
     depends_on:
@@ -37,7 +35,7 @@ services:
       - ./apps/frostbyte/database:/database:ro
     entrypoint: ["/database/migrate.sh"]
     networks:
-      - frostbyte_network
+      - kitchen_network
     restart: "no"
 
   labelmaker_db_migrator:
@@ -55,12 +53,12 @@ services:
       - ./apps/labelmaker/database:/database:ro
     entrypoint: ["/database/migrate.sh"]
     networks:
-      - frostbyte_network
+      - kitchen_network
     restart: "no"
 
   postgrest:
     image: postgrest/postgrest:v12.0.2
-    container_name: frostbyte_postgrest
+    container_name: kitchen_postgrest
     environment:
       PGRST_DB_URI: postgres://kitchen_user:kitchen_password@postgres:5432/kitchen_db
       PGRST_DB_SCHEMA: frostbyte_api,labelmaker_api
@@ -69,18 +67,18 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      db_migrator:
+      frostbyte_db_migrator:
         condition: service_completed_successfully
       labelmaker_db_migrator:
         condition: service_completed_successfully
     networks:
-      - frostbyte_network
+      - kitchen_network
 
   printer_service:
     build:
       context: ./common/printer_service
       dockerfile: Dockerfile
-    container_name: frostbyte_printer
+    container_name: kitchen_printer
     environment:
       DRY_RUN: "true"
       APP_HOST: localhost
@@ -89,13 +87,13 @@ services:
     volumes:
       - ./labels_output:/app/labels_output
     networks:
-      - frostbyte_network
+      - kitchen_network
 
 # =============================================================================
 # FrostByte App Services
 # =============================================================================
 
-  client_builder:
+  frostbyte_client_builder:
     build:
       context: ./apps/frostbyte/client
       target: builder
@@ -104,10 +102,10 @@ services:
     command: npm run build
     volumes:
       - ./apps/frostbyte/client:/app
-      - client_dist:/app/dist
-      - client_node_modules:/app/node_modules
+      - frostbyte_client_dist:/app/dist
+      - frostbyte_client_node_modules:/app/node_modules
     networks:
-      - frostbyte_network
+      - kitchen_network
 
 # =============================================================================
 # LabelMaker App Services
@@ -125,18 +123,18 @@ services:
       - labelmaker_client_dist:/app/dist
       - labelmaker_client_node_modules:/app/node_modules
     networks:
-      - frostbyte_network
+      - kitchen_network
 
   caddy:
     image: caddy:2-alpine
-    container_name: frostbyte_caddy
+    container_name: kitchen_caddy
     ports:
       - "80:80"
       - "443:443"
       - "8080:8080"
     volumes:
       - ./common/gateway/Caddyfile:/etc/caddy/Caddyfile:ro
-      - client_dist:/srv/client:ro
+      - frostbyte_client_dist:/srv/client:ro
       - labelmaker_client_dist:/srv/labelmaker:ro
       - caddy_data:/data
       - caddy_config:/config
@@ -145,17 +143,17 @@ services:
         condition: service_started
       printer_service:
         condition: service_started
-      client_builder:
+      frostbyte_client_builder:
         condition: service_completed_successfully
       labelmaker_client_builder:
         condition: service_completed_successfully
     networks:
-      - frostbyte_network
+      - kitchen_network
 
   gobackup:
     build:
       context: ./common/backup
-    container_name: frostbyte_gobackup
+    container_name: kitchen_gobackup
     ports:
       - "2703:2703"
     environment:
@@ -163,7 +161,6 @@ services:
       PGUSER: kitchen_user
       PGPASSWORD: kitchen_password
       PGDATABASE: kitchen_db
-      EVENT_TABLE: frostbyte_data.event
     volumes:
       - ./common/backup/gobackup.yml:/etc/gobackup/gobackup.yml:ro
       - gobackup_json:/data/json
@@ -171,12 +168,12 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - frostbyte_network
+      - kitchen_network
 
 volumes:
   postgres_data:
-  client_dist:
-  client_node_modules:
+  frostbyte_client_dist:
+  frostbyte_client_node_modules:
   labelmaker_client_dist:
   labelmaker_client_node_modules:
   caddy_data:
@@ -184,5 +181,5 @@ volumes:
   gobackup_json:
 
 networks:
-  frostbyte_network:
+  kitchen_network:
     driver: bridge

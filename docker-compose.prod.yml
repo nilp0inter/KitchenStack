@@ -2,7 +2,7 @@
 # Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 services:
   printer_service:
-    image: ghcr.io/nilp0inter/frostbyte-printer:latest
+    image: ghcr.io/nilp0inter/kitchen-printer:latest
     build: !reset null
     device_cgroup_rules:
       - 'c 189:* rwm'
@@ -14,11 +14,11 @@ services:
       - /dev/bus/usb:/dev/bus/usb
       - /run/udev:/run/udev:ro
 
-  client_builder:
+  frostbyte_client_builder:
     image: ghcr.io/nilp0inter/frostbyte-client:latest
     command: ["sh", "-c", "cp -r /dist/* /output/"]
     volumes:
-      - client_dist:/output
+      - frostbyte_client_dist:/output
 
   labelmaker_client_builder:
     image: ghcr.io/nilp0inter/labelmaker-client:latest

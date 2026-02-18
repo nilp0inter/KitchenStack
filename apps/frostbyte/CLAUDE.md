@@ -60,7 +60,7 @@ apps/frostbyte/database/
 
 ### Deploying Schema Changes
 
-Schema changes are **auto-applied on every `docker compose up`** by the `db_migrator` one-shot container. It runs migrations, redeploys logic/api schemas, and replays events before PostgREST starts. No manual intervention needed after updates.
+Schema changes are **auto-applied on every `docker compose up`** by the `frostbyte_db_migrator` one-shot container. It runs migrations, redeploys logic/api schemas, and replays events before PostgREST starts. No manual intervention needed after updates.
 
 For manual redeploy from the host (without restarting containers):
 
@@ -73,7 +73,7 @@ For manual redeploy from the host (without restarting containers):
 # SELECT frostbyte_logic.replay_all_events();  (rebuild projections)
 ```
 
-**Note:** After manual `deploy.sh`, restart PostgREST to refresh its schema cache: `docker restart frostbyte_postgrest`
+**Note:** After manual `deploy.sh`, restart PostgREST to refresh its schema cache: `docker restart kitchen_postgrest`
 
 ## Elm Client Structure
 

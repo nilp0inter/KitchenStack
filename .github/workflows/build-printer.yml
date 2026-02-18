@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/frostbyte-printer
+  IMAGE_NAME: ${{ github.repository_owner }}/kitchen-printer
 
 jobs:
   build:

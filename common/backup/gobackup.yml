@@ -3,8 +3,8 @@ web:
   port: 2703
 
 models:
-  frostbyte_db:
-    description: "FrostByte PostgreSQL daily backup"
+  kitchen_db:
+    description: "Kitchen DB daily backup (FrostByte + LabelMaker)"
     schedule:
       cron: "0 3 * * *"
     before_script: /app/event-backup.sh
@@ -25,7 +25,7 @@ models:
         bucket: $B2_BUCKET
         region: $B2_REGION
         endpoint: $B2_ENDPOINT
-        path: frostbyte
+        path: kitchen
         access_key_id: $B2_KEY_ID
         secret_access_key: $B2_APP_KEY
         storage_class: STANDARD

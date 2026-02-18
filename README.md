@@ -1,24 +1,15 @@
-# FrostByte
+# Kitchen Management Stack
 
-A home freezer management system for organizing frozen food portions, generating QR code labels, and managing inventory. Part of the Kitchen Management Stack monorepo.
+A monorepo of kitchen management apps sharing a common infrastructure (PostgreSQL, PostgREST, Caddy, label printer).
 
-## Features
+## Apps
 
-- Track frozen food items with expiry dates
-- Automatic expiry date calculation based on food category
-- Generate and print QR code labels for Brother QL printers
-- PWA support for mobile access
-- Spanish language interface
+- **FrostByte** (`:80`) — Home freezer management: track frozen food portions, generate QR code labels, manage inventory with automatic expiry dates
+- **LabelMaker** (`:8080`) — Label template designer & library
 
 ## Architecture
 
-FrostByte uses a microservices architecture with CQRS + Event Sourcing:
-
-- **PostgreSQL**: Data persistence (shared `kitchen_db` instance)
-- **PostgREST**: Automatic REST API from database schema
-- **Printer Service**: Python FastAPI for label printing
-- **Caddy**: Reverse proxy and static file server
-- **Elm PWA**: Single-page application frontend
+All apps use CQRS + Event Sourcing with a shared PostgreSQL instance (`kitchen_db`). Each app has isolated schemas (`<app>_data`, `<app>_logic`, `<app>_api`). PostgREST exposes the API schemas, and Caddy pins each app to its own schema via port-based routing.
 
 ## Quick Start
 
@@ -32,8 +23,9 @@ FrostByte uses a microservices architecture with CQRS + Event Sourcing:
 # Start all services
 docker compose up --build -d
 
-# Access the application
-open http://localhost
+# Access apps
+open http://localhost       # FrostByte
+open http://localhost:8080  # LabelMaker
 ```
 
 ### Development
@@ -53,55 +45,45 @@ FrostByte/
 │   │   ├── Caddyfile              # Production config
 │   │   └── Caddyfile.dev          # Dev config (Vite proxy)
 │   ├── printer_service/           # Python FastAPI label printer
-│   │   ├── app/main.py
-│   │   ├── requirements.txt
-│   │   └── Dockerfile
 │   └── backup/                    # GoBackup config + scripts
-│       ├── gobackup.yml
-│       ├── json-backup.sh
-│       ├── json-restore.sh
-│       └── Dockerfile
 ├── apps/
-│   └── frostbyte/                 # Freezer management app
-│       ├── client/                # Elm PWA frontend
-│       │   ├── src/
-│       │   │   ├── Main.elm
-│       │   │   ├── main.js
-│       │   │   └── main.css
-│       │   ├── public/
-│       │   │   └── manifest.json
-│       │   ├── elm.json
-│       │   ├── package.json
-│       │   ├── vite.config.js
-│       │   └── tailwind.config.js
-│       ├── database/
-│       │   ├── migrations/        # Persistent schema migrations
-│       │   ├── logic.sql          # Business logic (idempotent)
-│       │   ├── api.sql            # API views + RPCs (idempotent)
-│       │   └── seed.sql           # Initial data
+│   ├── frostbyte/                 # Freezer management app (:80)
+│   │   ├── client/                # Elm PWA frontend
+│   │   ├── database/              # SQL schemas, migrations, seed data
+│   │   └── CLAUDE.md              # App-specific docs
+│   └── labelmaker/                # Label template designer (:8080)
+│       ├── client/                # Elm SPA frontend
+│       ├── database/              # SQL schemas, migrations, seed data
 │       └── CLAUDE.md              # App-specific docs
-├── docker-compose.yml
-├── docker-compose.dev.yml
-├── docker-compose.prod.yml
-├── docker-compose.secrets.yml
+├── docker-compose.yml             # Base config
+├── docker-compose.dev.yml         # Dev overlay (Vite HMR)
+├── docker-compose.prod.yml        # Prod overrides (pre-built images)
+├── docker-compose.secrets.yml     # SOPS secrets mapping
 ├── CLAUDE.md                      # Monorepo-level docs
 └── README.md
 ```
+
+## Shared Services
+
+| Service | Container | Purpose |
+|---------|-----------|---------|
+| PostgreSQL | `kitchen_postgres` | Shared database (`kitchen_db`) |
+| PostgREST | `kitchen_postgrest` | REST API from database schemas |
+| Caddy | `kitchen_caddy` | Reverse proxy, static files |
+| Printer | `kitchen_printer` | Brother QL label printing |
+| GoBackup | `kitchen_gobackup` | Automated backups to B2 |
 
 ## API Endpoints
 
 ### PostgREST (via `/api/db/`)
 
-- `GET /api/db/ingredient` - List all ingredients
-- `GET /api/db/container_type` - List all container types
-- `GET /api/db/batch_summary` - List inventory items
-- `POST /api/db/rpc/create_batch` - Create new batch
-- `POST /api/db/rpc/consume_portion` - Consume a portion
+- FrostByte: batch management, ingredient/recipe CRUD, portion tracking
+- LabelMaker: label template management
 
 ### Printer Service (via `/api/printer/`)
 
-- `GET /api/printer/health` - Health check
-- `POST /api/printer/print` - Print a label
+- `GET /api/printer/health` — Health check
+- `POST /api/printer/print` — Print a label (base64 PNG)
 
 ## License
 

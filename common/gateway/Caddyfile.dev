@@ -12,7 +12,7 @@
         not path /api/*
     }
     handle @notApi {
-        reverse_proxy client_dev:5173
+        reverse_proxy frostbyte_client_dev:5173
     }
 
     # Proxy PostgREST API requests (pinned to frostbyte_api schema)

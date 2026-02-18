@@ -1,5 +1,5 @@
 services:
-  client_dev:
+  frostbyte_client_dev:
     build:
       context: ./apps/frostbyte/client
       target: builder
@@ -8,9 +8,9 @@ services:
     command: npm run dev -- --host 0.0.0.0
     volumes:
       - ./apps/frostbyte/client:/app
-      - client_node_modules:/app/node_modules
+      - frostbyte_client_node_modules:/app/node_modules
     networks:
-      - frostbyte_network
+      - kitchen_network
 
   labelmaker_client_dev:
     build:
@@ -23,7 +23,7 @@ services:
       - ./apps/labelmaker/client:/app
       - labelmaker_client_node_modules:/app/node_modules
     networks:
-      - frostbyte_network
+      - kitchen_network
 
   caddy:
     volumes:
@@ -33,7 +33,7 @@ services:
         condition: service_started
       printer_service:
         condition: service_started
-      client_dev:
+      frostbyte_client_dev:
         condition: service_started
       labelmaker_client_dev:
         condition: service_started

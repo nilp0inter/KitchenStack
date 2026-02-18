@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONTAINER="${CONTAINER:-frostbyte_postgres}"
+APP="${1:?Usage: $0 <app> <path/to/events.csv>  (app = frostbyte | labelmaker)}"
+CSV_FILE="${2:?Usage: $0 <app> <path/to/events.csv>}"
+
+case "$APP" in
+  frostbyte|labelmaker) ;;
+  *) echo "Error: unknown app '$APP'"; exit 1 ;;
+esac
+
+CONTAINER="${CONTAINER:-kitchen_postgres}"
 DB_USER="${DB_USER:-kitchen_user}"
 DB_NAME="${DB_NAME:-kitchen_db}"
-EVENT_TABLE="${EVENT_TABLE:-frostbyte_data.event}"
-LOGIC_SCHEMA="${LOGIC_SCHEMA:-frostbyte_logic}"
-
-CSV_FILE="${1:?Usage: $0 <path/to/events.csv>}"
+EVENT_TABLE="${APP}_data.event"
+LOGIC_SCHEMA="${APP}_logic"
 
 if [ ! -f "$CSV_FILE" ]; then
   echo "Error: CSV file '$CSV_FILE' not found"
@@ -16,7 +22,7 @@ fi
 
 SEQ_NAME="${EVENT_TABLE}_id_seq"
 
-echo "Restoring events from $CSV_FILE into $EVENT_TABLE..."
+echo "Restoring $APP events from $CSV_FILE into $EVENT_TABLE..."
 
 # Disable trigger, truncate, load CSV, reset sequence, enable trigger
 {
@@ -31,8 +37,8 @@ echo "Restoring events from $CSV_FILE into $EVENT_TABLE..."
   echo "COMMIT;"
 } | docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1
 
-echo "Replaying events to rebuild projections..."
+echo "Replaying $APP events to rebuild projections..."
 docker exec "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" \
   -c "SELECT ${LOGIC_SCHEMA}.replay_all_events();"
 
-echo "Restore complete."
+echo "$APP restore complete."
