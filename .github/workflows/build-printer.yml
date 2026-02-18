@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'common/printer_service/**'
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
