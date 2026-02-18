@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 set -e
 
 EVENT_TABLE="${EVENT_TABLE:-data.event}"
