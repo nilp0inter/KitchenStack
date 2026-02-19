@@ -4,7 +4,7 @@ web:
 
 models:
   kitchen_db:
-    description: "Kitchen DB daily backup (FrostByte + LabelMaker)"
+    description: "Kitchen DB daily backup (frostbyte + labelmaker)"
     schedule:
       cron: "0 3 * * *"
     before_script: /app/event-backup.sh

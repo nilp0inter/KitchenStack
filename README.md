@@ -39,7 +39,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ## Project Structure
 
 ```
-FrostByte/
+KitchenStack/
 ├── common/                        # Shared infrastructure
 │   ├── gateway/                   # Caddy reverse proxy
 │   │   ├── Caddyfile              # Production config

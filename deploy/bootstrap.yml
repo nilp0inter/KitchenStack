@@ -59,7 +59,7 @@
 
     - name: Clone repository
       ansible.builtin.git:
-        repo: https://github.com/nilp0inter/FrostByte.git
+        repo: https://github.com/nilp0inter/KitchenStack.git
         dest: "{{ repo_path }}"
         version: main
         update: false

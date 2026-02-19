@@ -1,4 +1,4 @@
-"""FrostByte Printer Service - Direct PNG printing to Brother QL printers.
+"""Kitchen Printer Service - Direct PNG printing to Brother QL printers.
 
 Labels are now rendered client-side in Elm. This service receives pre-rendered
 PNG images and sends them directly to the printer.
@@ -14,7 +14,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-app = FastAPI(title="FrostByte Printer Service", version="2.0.0")
+app = FastAPI(title="Kitchen Printer Service", version="2.0.0")
 
 # Configuration from environment variables
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
@@ -148,7 +148,7 @@ async def print_label(request: PrintRequest):
 async def root():
     """Root endpoint with service info."""
     return {
-        "service": "FrostByte Printer Service",
+        "service": "Kitchen Printer Service",
         "version": "2.0.0",
         "dry_run": DRY_RUN,
         "printer_model": PRINTER_MODEL,

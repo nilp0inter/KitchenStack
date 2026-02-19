@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is the **Kitchen Management Stack** monorepo. Each app has its own database schemas within a shared PostgreSQL instance (`kitchen_db`).
 
 ```
-FrostByte/
+KitchenStack/
 ├── common/                    # Shared infrastructure
 │   ├── gateway/               # Caddy reverse proxy (Caddyfile, Caddyfile.dev)
 │   ├── printer_service/       # Python FastAPI label printing service
@@ -76,7 +76,7 @@ Runs on a Raspberry Pi Zero 2W (aarch64):
 - **Hostname**: `KitchenLabelPrinter.local`
 - **IP**: `10.40.8.32`
 - **User**: `nil`
-- **Repo path**: `~/FrostByte`
+- **Repo path**: `~/KitchenStack`
 - **OS**: Debian 13 (trixie)
 - **Systemd service**: `kitchen.service` (starts on boot, templated from `deploy/templates/kitchen.service.j2`)
 
@@ -92,7 +92,8 @@ task deploy
 task bootstrap
 
 # Restore event data from CSV backup (after bootstrap)
-task restore BACKUP=/path/to/extracted/backup/data/json
+task restore FROSTBYTE_CSV=/path/to/frostbyte_events.csv
+task restore FROSTBYTE_CSV=/path/to/frostbyte.csv LABELMAKER_CSV=/path/to/labelmaker.csv
 
 # Test SSH connectivity
 cd deploy && ansible all -m ping
@@ -101,7 +102,7 @@ cd deploy && ansible all -m ping
 **How it works:**
 - `task deploy` — runs `git pull`, `docker compose pull`, restarts `kitchen.service` on the Pi
 - `task bootstrap` — installs packages, deploys age key (from SOPS-encrypted `deploy/secrets/age-key.sops`), clones repo, installs systemd service, starts stack
-- `task restore` — copies CSV event files to Pi, runs `event-restore.sh` for each app
+- `task restore FROSTBYTE_CSV=... [LABELMAKER_CSV=...]` — copies CSV event files to Pi, runs `event-restore.sh` for each app
 
 **One-time setup (age key):**
 ```bash
@@ -294,7 +295,7 @@ task deploy
 
 The systemd service (`kitchen.service`) handles SOPS decryption and docker compose orchestration automatically. For manual deployment (if needed):
 ```bash
-cd ~/FrostByte
+cd ~/KitchenStack
 sops -d .env.prod > /tmp/.env.decrypted && \
   docker compose --env-file /tmp/.env.decrypted \
     -f docker-compose.yml \

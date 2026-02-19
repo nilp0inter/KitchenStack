@@ -3,4 +3,4 @@ all:
     pi:
       ansible_host: KitchenLabelPrinter.local
       ansible_user: nil
-      repo_path: /home/nil/FrostByte
+      repo_path: /home/nil/KitchenStack
