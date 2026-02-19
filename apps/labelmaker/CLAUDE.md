@@ -100,7 +100,7 @@ SPA using `Browser.application` with multi-page routing and event-sourced persis
 apps/labelmaker/client/src/
 ├── Main.elm              # Entry point, routing, port subscriptions, OutMsg handling
 ├── Route.elm             # Route type: TemplateList | TemplateEditor | LabelList | LabelEditor | LabelSetList | LabelSetEditor | NotFound
-├── Types.elm             # Shared types (RemoteData, Notification)
+├── Types.elm             # Shared types (RemoteData, Notification, Committable)
 ├── Ports.elm             # Port module: text measurement + SVG-to-PNG conversion
 ├── Api.elm               # HTTP functions (templates, labels, labelsets, printing)
 ├── Api/
@@ -116,7 +116,7 @@ apps/labelmaker/client/src/
     ├── Templates/
     │   ├── Types.elm     # Model (RemoteData list), Msg, OutMsg (NavigateTo)
     │   └── View.elm      # Card grid with create/delete buttons
-    ├── Home.elm          # Facade: template editor page (init takes templateId, withEvent persistence)
+    ├── Home.elm          # Facade: template editor page (init takes templateId, deferred persistence)
     ├── Home/
     │   ├── Types.elm     # Editor model (templateId, templateName, label settings, content tree), msgs, OutMsg
     │   └── View.elm      # Two-column layout: SVG preview + editor controls, back link, name input
@@ -155,17 +155,36 @@ apps/labelmaker/client/src/
 
 **Served on:** Port `:8080` via Caddy
 
-### Persistence Pattern (withEvent)
+### Persistence Pattern (Deferred with Committable)
 
-Every state-modifying handler in `Page/Home.elm` pipes through `withEvent` which batches an HTTP POST to `/api/db/event` alongside the normal Cmd:
+All editor pages use **deferred persistence** to avoid emitting an event on every keystroke. The shared `Committable` type in `Types.elm` tracks dirty state:
 
 ```elm
-withEvent : String -> Encode.Value -> ( Model, Cmd Msg, OutMsg ) -> ( Model, Cmd Msg, OutMsg )
+type Committable a = Dirty a | Clean a
+
+getValue : Committable a -> a
 ```
 
-- All payloads include `template_id` to scope events to the current template
-- Content changes (`AddObject`, `RemoveObject`, `UpdateObjectProperty`) use `withContentEvent` which sends the full object tree
-- Ephemeral state (`SelectObject`, `GotTextMeasureResult`, `EventEmitted`) is NOT persisted
+**How it works:**
+- Text/number `onInput` handlers set the model field to `Dirty newValue` (updates preview instantly, no HTTP POST)
+- `onBlur` handlers (Commit* msgs) pattern-match: only emit the event if the value is `Dirty`, then set it to `Clean`
+- Discrete actions (dropdown selects, button clicks like Add/Remove) set `Clean` and persist immediately via `withEvent`/`withContentEvent`
+
+**Template editor (Home.elm):**
+- Wrapped fields: `templateName`, `labelHeight`, `padding`, `content`, `sampleValues`
+- Deferred: `TemplateNameChanged`, `HeightChanged`, `PaddingChanged`, `UpdateObjectProperty` (except `SetShapeType`), `UpdateSampleValue`
+- Immediate: `LabelTypeChanged`, `AddObject`, `RemoveObject`, `SetShapeType`
+
+**Label editor (Label.elm):**
+- Wrapped field: `values : Dict String (Committable String)`
+- Deferred: `UpdateValue` + `CommitValues` on blur
+
+**LabelSet editor (LabelSet.elm):**
+- Wrapped fields: `labelsetName : Committable String`, `rows : Committable (List (Dict String String))`
+- Deferred: `UpdateName`/`CommitName`, `UpdateCell`/`CommitRows`
+- Immediate: `AddRow`, `DeleteRow`
+
+Content changes use `withContentEvent` which sends the full object tree. Ephemeral state (`SelectObject`, `GotTextMeasureResult`, `EventEmitted`) is NOT persisted.
 
 ### Template Editor Init Flow
 
@@ -211,17 +230,17 @@ The editor page (`/template/<uuid>`) is a live label canvas editor with composab
 ### Model
 
 - `templateId` — UUID of the template being edited
-- `templateName` — Editable template name (persisted via `template_name_set` event)
+- `templateName : Committable String` — Editable template name (deferred persistence via `CommitTemplateName`)
 - `labelTypeId` — Selected Brother QL label type (default: `"62"` = 62mm endless)
-- `labelWidth`, `labelHeight` — Label dimensions in pixels (from `Data.LabelTypes`)
+- `labelWidth`, `labelHeight : Committable Int` — Label dimensions in pixels (from `Data.LabelTypes`)
 - `cornerRadius` — For round labels (width/2), 0 otherwise
 - `rotate` — `True` for die-cut rectangular labels (display swapped for landscape)
-- `content : List LabelObject` — Object tree (default: one `VariableObj "nombre"`)
+- `content : Committable (List LabelObject)` — Object tree (default: one `VariableObj "nombre"`)
 - `selectedObjectId : Maybe ObjectId` — Currently selected object for property editing
-- `sampleValues : Dict String String` — Variable name to sample value mapping for preview
+- `sampleValues : Dict String (Committable String)` — Variable name to sample value mapping for preview
 - `computedTexts : Dict ObjectId ComputedText` — Per-object auto-fit results (fittedFontSize + lines)
 - `nextId : Int` — Auto-incrementing ID counter for new objects
-- `padding : Int` — Inner padding in pixels (default: 20)
+- `padding : Committable Int` — Inner padding in pixels (default: 20)
 
 ### Text Fitting Flow
 
@@ -261,14 +280,19 @@ The editor page (`/template/<uuid>`) is a live label canvas editor with composab
 ### Messages
 
 - `SelectObject (Maybe ObjectId)` — Select/deselect an object (ephemeral)
-- `AddObject LabelObject` — Add object to root or inside selected container → `template_content_set`
-- `RemoveObject ObjectId` — Remove object from tree → `template_content_set`
-- `UpdateObjectProperty ObjectId PropertyChange` — Apply a property change → `template_content_set`
-- `UpdateSampleValue String String` — Set sample value for a variable name → `template_sample_value_set`
-- `LabelTypeChanged` → `template_label_type_set`
-- `HeightChanged` → `template_height_set`
-- `PaddingChanged` → `template_padding_set`
-- `TemplateNameChanged` → `template_name_set`
+- `AddObject LabelObject` — Add object to root or inside selected container → immediate `template_content_set`
+- `RemoveObject ObjectId` — Remove object from tree → immediate `template_content_set`
+- `UpdateObjectProperty ObjectId PropertyChange` — Apply a property change → deferred (except `SetShapeType` which is immediate)
+- `UpdateSampleValue String String` — Set sample value for a variable (deferred)
+- `LabelTypeChanged` → immediate `template_label_type_set`
+- `HeightChanged` → deferred, updates model only
+- `PaddingChanged` → deferred, updates model only
+- `TemplateNameChanged` → deferred, updates model only
+- `CommitTemplateName` — On blur: persists `template_name_set` if dirty
+- `CommitHeight` — On blur: persists `template_height_set` if dirty
+- `CommitPadding` — On blur: persists `template_padding_set` if dirty
+- `CommitContent` — On blur: persists `template_content_set` if dirty
+- `CommitSampleValue String` — On blur: persists `template_sample_value_set` if dirty
 - `GotTextMeasureResult` — Receive measurement result from JS (ephemeral)
 - `GotTemplateDetail` — Receive template state from API on init
 - `EventEmitted` — No-op acknowledgement of event POST
@@ -301,10 +325,9 @@ The label editor page (`/label/<uuid>`) displays a label instance with its templ
 
 ### Value Editing
 
-Each variable in the template has a text input. On change:
-1. Update `values` dict in model
-2. Emit `label_values_set` event (persists immediately)
-3. Trigger text remeasurement for updated preview
+Each variable in the template has a text input. Uses deferred persistence:
+1. `onInput` → `UpdateValue`: sets `Dirty val` in `values` dict, triggers text remeasurement for updated preview
+2. `onBlur` → `CommitValues`: if any value is `Dirty`, emits `label_values_set` event with all values, sets all to `Clean`
 
 ## LabelSet Editor Page
 
@@ -323,7 +346,9 @@ The labelset editor page (`/set/<uuid>`) displays a spreadsheet of rows where ea
 - Selected row highlighted with `bg-label-50`
 - Delete button per row (hidden if only 1 row)
 - "Agregar fila" button below table adds a row with empty values
-- Cell edits emit `labelset_rows_set` with the full rows array (full-replacement pattern)
+- Cell edits are deferred: `onInput` → `Dirty`, `onBlur` → `CommitRows` emits `labelset_rows_set` if dirty
+- `AddRow`/`DeleteRow` persist immediately (set `Clean`)
+- Labelset name editing is also deferred: `UpdateName` → `Dirty`, `CommitName` on blur
 
 ### Print Flow (Single Row)
 

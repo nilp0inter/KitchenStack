@@ -1,8 +1,10 @@
 module Types exposing
-    ( Flags
+    ( Committable(..)
+    , Flags
     , Notification
     , NotificationType(..)
     , RemoteData(..)
+    , getValue
     )
 
 
@@ -31,3 +33,18 @@ type alias Notification =
     , message : String
     , notificationType : NotificationType
     }
+
+
+type Committable a
+    = Dirty a
+    | Clean a
+
+
+getValue : Committable a -> a
+getValue c =
+    case c of
+        Dirty a ->
+            a
+
+        Clean a ->
+            a

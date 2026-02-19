@@ -5,8 +5,9 @@ import Data.LabelTypes exposing (LabelTypeSpec, isEndlessLabel, labelTypes)
 import Dict
 import Html exposing (..)
 import Html.Attributes exposing (class, classList, for, href, id, max, min, placeholder, selected, step, style, type_, value)
-import Html.Events exposing (onClick, onInput)
+import Html.Events exposing (onBlur, onClick, onInput)
 import Page.Home.Types exposing (ComputedText, Model, Msg(..), PropertyChange(..))
+import Types exposing (getValue)
 import Svg exposing (svg)
 import Svg.Attributes as SA
 import Svg.Events as SE
@@ -24,8 +25,9 @@ view model =
             , input
                 [ type_ "text"
                 , class "text-xl font-bold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-label-500 focus:outline-none px-1 py-0.5"
-                , value model.templateName
+                , value (getValue model.templateName)
                 , onInput TemplateNameChanged
+                , onBlur CommitTemplateName
                 ]
                 []
             ]
@@ -39,9 +41,12 @@ view model =
 viewPreview : Model -> Html Msg
 viewPreview model =
     let
+        labelH =
+            getValue model.labelHeight
+
         displayWidth =
             if model.rotate then
-                model.labelHeight
+                labelH
 
             else
                 model.labelWidth
@@ -51,7 +56,7 @@ viewPreview model =
                 model.labelWidth
 
             else
-                model.labelHeight
+                labelH
 
         scaleFactor =
             Basics.min 1.0 (500.0 / toFloat displayWidth)
@@ -85,7 +90,7 @@ viewPreview model =
                     ]
                     []
                  ]
-                    ++ renderObjects model (toFloat displayWidth) (toFloat displayHeight) model.content
+                    ++ renderObjects model (toFloat displayWidth) (toFloat displayHeight) (getValue model.content)
                 )
             ]
         , p [ class "text-sm text-gray-500 text-center mt-2" ]
@@ -158,6 +163,7 @@ renderObject model parentW parentH obj =
             let
                 sampleText =
                     Dict.get r.name model.sampleValues
+                        |> Maybe.map getValue
                         |> Maybe.withDefault ("{{" ++ r.name ++ "}}")
             in
             renderTextSvg model parentW parentH r.id sampleText r.properties isSelected
@@ -372,8 +378,9 @@ viewDimensions model =
             , input
                 [ type_ "number"
                 , class "w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                , value (String.fromInt model.labelHeight)
+                , value (String.fromInt (getValue model.labelHeight))
                 , onInput HeightChanged
+                , onBlur CommitHeight
                 , Html.Attributes.disabled (not (isEndlessLabel model.labelTypeId))
                 ]
                 []
@@ -388,10 +395,11 @@ viewPaddingInput model =
         , input
             [ type_ "number"
             , class "w-full border border-gray-300 rounded px-2 py-1 text-sm"
-            , value (String.fromInt model.padding)
+            , value (String.fromInt (getValue model.padding))
             , Html.Attributes.min "0"
             , Html.Attributes.max "100"
             , onInput PaddingChanged
+            , onBlur CommitPadding
             ]
             []
         ]
@@ -403,13 +411,17 @@ viewPaddingInput model =
 
 viewObjectTree : Model -> Html Msg
 viewObjectTree model =
+    let
+        content =
+            getValue model.content
+    in
     div [ class "bg-white rounded-lg p-4 shadow-sm" ]
         [ h3 [ class "text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2" ] [ text "Objetos" ]
-        , if List.isEmpty model.content then
+        , if List.isEmpty content then
             p [ class "text-sm text-gray-400 italic" ] [ text "Sin objetos" ]
 
           else
-            div [ class "space-y-1" ] (List.map (viewTreeItem model 0) model.content)
+            div [ class "space-y-1" ] (List.map (viewTreeItem model 0) content)
         ]
 
 
@@ -548,7 +560,7 @@ viewPropertyEditor model =
                 ]
 
         Just selId ->
-            case LO.findObject selId model.content of
+            case LO.findObject selId (getValue model.content) of
                 Nothing ->
                     text ""
 
@@ -565,30 +577,31 @@ viewPropertiesFor model objId obj =
         Container r ->
             div [ class "space-y-2" ]
                 [ propRow "X"
-                    (propNumberInput (String.fromFloat r.x) (\v -> UpdateObjectProperty objId (SetContainerX v)))
+                    (propNumberInput (String.fromFloat r.x) (\v -> UpdateObjectProperty objId (SetContainerX v)) CommitContent)
                     "Y"
-                    (propNumberInput (String.fromFloat r.y) (\v -> UpdateObjectProperty objId (SetContainerY v)))
+                    (propNumberInput (String.fromFloat r.y) (\v -> UpdateObjectProperty objId (SetContainerY v)) CommitContent)
                 , propRow "Ancho"
-                    (propNumberInput (String.fromFloat r.width) (\v -> UpdateObjectProperty objId (SetContainerWidth v)))
+                    (propNumberInput (String.fromFloat r.width) (\v -> UpdateObjectProperty objId (SetContainerWidth v)) CommitContent)
                     "Alto"
-                    (propNumberInput (String.fromFloat r.height) (\v -> UpdateObjectProperty objId (SetContainerHeight v)))
+                    (propNumberInput (String.fromFloat r.height) (\v -> UpdateObjectProperty objId (SetContainerHeight v)) CommitContent)
                 ]
 
         TextObj r ->
             div [ class "space-y-2" ]
                 [ propField "Contenido"
-                    (propTextInput r.content (\v -> UpdateObjectProperty objId (SetTextContent v)))
+                    (propTextInput r.content (\v -> UpdateObjectProperty objId (SetTextContent v)) CommitContent)
                 , viewTextPropertiesInputs objId r.properties
                 ]
 
         VariableObj r ->
             div [ class "space-y-2" ]
                 [ propField "Variable"
-                    (propTextInput r.name (\v -> UpdateObjectProperty objId (SetVariableName v)))
+                    (propTextInput r.name (\v -> UpdateObjectProperty objId (SetVariableName v)) CommitContent)
                 , propField "Valor de ejemplo"
                     (propTextInput
-                        (Dict.get r.name model.sampleValues |> Maybe.withDefault "")
+                        (Dict.get r.name model.sampleValues |> Maybe.map getValue |> Maybe.withDefault "")
                         (\v -> UpdateSampleValue r.name v)
+                        (CommitSampleValue r.name)
                     )
                 , viewTextPropertiesInputs objId r.properties
                 ]
@@ -615,7 +628,7 @@ viewPropertiesFor model objId obj =
         ImageObj r ->
             div [ class "space-y-2" ]
                 [ propField "URL"
-                    (propTextInput r.url (\v -> UpdateObjectProperty objId (SetImageUrl v)))
+                    (propTextInput r.url (\v -> UpdateObjectProperty objId (SetImageUrl v)) CommitContent)
                 ]
 
 
@@ -623,9 +636,9 @@ viewTextPropertiesInputs : ObjectId -> LO.TextProperties -> Html Msg
 viewTextPropertiesInputs objId props =
     div [ class "space-y-2" ]
         [ propField "Fuente"
-            (propTextInput props.fontFamily (\v -> UpdateObjectProperty objId (SetFontFamily v)))
+            (propTextInput props.fontFamily (\v -> UpdateObjectProperty objId (SetFontFamily v)) CommitContent)
         , propField "Tama\u{00F1}o m\u{00E1}x."
-            (propNumberInput (String.fromFloat props.fontSize) (\v -> UpdateObjectProperty objId (SetFontSize v)))
+            (propNumberInput (String.fromFloat props.fontSize) (\v -> UpdateObjectProperty objId (SetFontSize v)) CommitContent)
         , viewColorInputs objId props.color
         ]
 
@@ -635,15 +648,15 @@ viewColorInputs objId color =
     div []
         [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Color (RGB)" ]
         , div [ class "flex gap-2" ]
-            [ colorInput "R" (String.fromInt color.r) (\v -> UpdateObjectProperty objId (SetColorR v))
-            , colorInput "G" (String.fromInt color.g) (\v -> UpdateObjectProperty objId (SetColorG v))
-            , colorInput "B" (String.fromInt color.b) (\v -> UpdateObjectProperty objId (SetColorB v))
+            [ colorInput "R" (String.fromInt color.r) (\v -> UpdateObjectProperty objId (SetColorR v)) CommitContent
+            , colorInput "G" (String.fromInt color.g) (\v -> UpdateObjectProperty objId (SetColorG v)) CommitContent
+            , colorInput "B" (String.fromInt color.b) (\v -> UpdateObjectProperty objId (SetColorB v)) CommitContent
             ]
         ]
 
 
-colorInput : String -> String -> (String -> Msg) -> Html Msg
-colorInput lbl val toMsg =
+colorInput : String -> String -> (String -> Msg) -> Msg -> Html Msg
+colorInput lbl val toMsg blurMsg =
     div [ class "flex-1" ]
         [ label [ class "block text-xs text-gray-400" ] [ text lbl ]
         , input
@@ -653,6 +666,7 @@ colorInput lbl val toMsg =
             , Html.Attributes.min "0"
             , Html.Attributes.max "255"
             , onInput toMsg
+            , onBlur blurMsg
             ]
             []
         ]
@@ -678,24 +692,26 @@ propRow lbl1 ctrl1 lbl2 ctrl2 =
         ]
 
 
-propTextInput : String -> (String -> Msg) -> Html Msg
-propTextInput val toMsg =
+propTextInput : String -> (String -> Msg) -> Msg -> Html Msg
+propTextInput val toMsg blurMsg =
     input
         [ type_ "text"
         , class "w-full border border-gray-300 rounded px-2 py-1 text-sm"
         , value val
         , onInput toMsg
+        , onBlur blurMsg
         ]
         []
 
 
-propNumberInput : String -> (String -> Msg) -> Html Msg
-propNumberInput val toMsg =
+propNumberInput : String -> (String -> Msg) -> Msg -> Html Msg
+propNumberInput val toMsg blurMsg =
     input
         [ type_ "number"
         , class "w-full border border-gray-300 rounded px-2 py-1 text-sm"
         , value val
         , onInput toMsg
+        , onBlur blurMsg
         ]
         []
 

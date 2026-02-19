@@ -8,7 +8,7 @@ import Json.Encode as Encode
 import Page.Label.Types as Types
 import Page.Label.View as View
 import Ports
-import Types exposing (NotificationType(..))
+import Types exposing (Committable(..), NotificationType(..), getValue)
 
 
 type alias Model =
@@ -47,7 +47,7 @@ update msg model =
                         , rotate = detail.rotate
                         , padding = detail.padding
                         , content = detail.content
-                        , values = detail.values
+                        , values = Dict.map (\_ v -> Clean v) detail.values
                         , variableNames = LO.allVariableNames detail.content
                         , computedTexts = Dict.empty
                     }
@@ -64,20 +64,47 @@ update msg model =
             let
                 newModel =
                     { model
-                        | values = Dict.insert varName val model.values
+                        | values = Dict.insert varName (Dirty val) model.values
                         , computedTexts = Dict.empty
                     }
             in
-            ( newModel
-            , Api.emitEvent "label_values_set"
-                (Encode.object
-                    [ ( "label_id", Encode.string model.labelId )
-                    , ( "values", Encode.dict identity Encode.string newModel.values )
-                    ]
+            ( newModel, Cmd.none, Types.requestAllMeasurements newModel )
+
+        Types.CommitValues ->
+            let
+                hasDirty =
+                    Dict.values model.values
+                        |> List.any
+                            (\v ->
+                                case v of
+                                    Dirty _ ->
+                                        True
+
+                                    Clean _ ->
+                                        False
+                            )
+            in
+            if hasDirty then
+                let
+                    cleanValues =
+                        Dict.map (\_ v -> Clean (getValue v)) model.values
+
+                    plainValues =
+                        Dict.map (\_ v -> getValue v) model.values
+                in
+                ( { model | values = cleanValues }
+                , Api.emitEvent "label_values_set"
+                    (Encode.object
+                        [ ( "label_id", Encode.string model.labelId )
+                        , ( "values", Encode.dict identity Encode.string plainValues )
+                        ]
+                    )
+                    Types.EventEmitted
+                , Types.NoOutMsg
                 )
-                Types.EventEmitted
-            , Types.requestAllMeasurements newModel
-            )
+
+            else
+                ( model, Cmd.none, Types.NoOutMsg )
 
         Types.GotTextMeasureResult result ->
             ( { model

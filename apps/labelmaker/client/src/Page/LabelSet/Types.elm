@@ -15,7 +15,7 @@ import Data.LabelObject as LO exposing (LabelObject(..), ObjectId)
 import Dict exposing (Dict)
 import Http
 import Ports
-import Types exposing (NotificationType)
+import Types exposing (Committable(..), NotificationType, getValue)
 
 
 type alias ComputedText =
@@ -41,8 +41,8 @@ type alias Model =
     , rotate : Bool
     , padding : Int
     , content : List LabelObject
-    , labelsetName : String
-    , rows : List (Dict String String)
+    , labelsetName : Committable String
+    , rows : Committable (List (Dict String String))
     , variableNames : List String
     , selectedRowIndex : Int
     , computedTexts : Dict ObjectId ComputedText
@@ -57,9 +57,11 @@ type Msg
     = GotLabelSetDetail (Result Http.Error (Maybe LabelSetDetail))
     | SelectRow Int
     | UpdateCell Int String String
+    | CommitRows
     | AddRow
     | DeleteRow Int
     | UpdateName String
+    | CommitName
     | GotTextMeasureResult Ports.TextMeasureResult
     | RequestPrint
     | RequestPrintAll
@@ -87,8 +89,8 @@ initialModel labelsetId =
     , rotate = False
     , padding = 20
     , content = []
-    , labelsetName = ""
-    , rows = []
+    , labelsetName = Clean ""
+    , rows = Clean []
     , variableNames = []
     , selectedRowIndex = 0
     , computedTexts = Dict.empty
@@ -101,7 +103,7 @@ initialModel labelsetId =
 
 selectedRowValues : Model -> Dict String String
 selectedRowValues model =
-    List.drop model.selectedRowIndex model.rows
+    List.drop model.selectedRowIndex (getValue model.rows)
         |> List.head
         |> Maybe.withDefault Dict.empty
 

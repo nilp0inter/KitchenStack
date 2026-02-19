@@ -8,6 +8,7 @@ import Dict
 import Html exposing (Html)
 import Json.Encode as Encode
 import Page.Home.Types as Types exposing (PropertyChange(..))
+import Types exposing (Committable(..), getValue)
 import Page.Home.View as View
 import Ports
 
@@ -60,12 +61,14 @@ update msg model =
                                 | labelTypeId = spec.id
                                 , labelWidth = spec.width
                                 , labelHeight =
-                                    case spec.height of
-                                        Just h ->
-                                            h
+                                    Clean
+                                        (case spec.height of
+                                            Just h ->
+                                                h
 
-                                        Nothing ->
-                                            silverRatioHeight spec.width
+                                            Nothing ->
+                                                silverRatioHeight spec.width
+                                        )
                                 , cornerRadius =
                                     if spec.isRound then
                                         spec.width // 2
@@ -85,7 +88,7 @@ update msg model =
                         [ ( "template_id", Encode.string model.templateId )
                         , ( "label_type_id", Encode.string newModel.labelTypeId )
                         , ( "label_width", Encode.int newModel.labelWidth )
-                        , ( "label_height", Encode.int newModel.labelHeight )
+                        , ( "label_height", Encode.int (getValue newModel.labelHeight) )
                         , ( "corner_radius", Encode.int newModel.cornerRadius )
                         , ( "rotate", Encode.bool newModel.rotate )
                         ]
@@ -96,15 +99,9 @@ update msg model =
                 Just h ->
                     let
                         newModel =
-                            { model | labelHeight = h, computedTexts = Dict.empty }
+                            { model | labelHeight = Dirty h, computedTexts = Dict.empty }
                     in
                     ( newModel, Cmd.none, Types.requestAllMeasurements newModel )
-                        |> withEvent "template_height_set"
-                            (Encode.object
-                                [ ( "template_id", Encode.string model.templateId )
-                                , ( "label_height", Encode.int h )
-                                ]
-                            )
 
                 Nothing ->
                     ( model, Cmd.none, Types.NoOutMsg )
@@ -114,15 +111,9 @@ update msg model =
                 Just p ->
                     let
                         newModel =
-                            { model | padding = p, computedTexts = Dict.empty }
+                            { model | padding = Dirty p, computedTexts = Dict.empty }
                     in
                     ( newModel, Cmd.none, Types.requestAllMeasurements newModel )
-                        |> withEvent "template_padding_set"
-                            (Encode.object
-                                [ ( "template_id", Encode.string model.templateId )
-                                , ( "padding", Encode.int p )
-                                ]
-                            )
 
                 Nothing ->
                     ( model, Cmd.none, Types.NoOutMsg )
@@ -135,7 +126,7 @@ update msg model =
                 parentId =
                     case model.selectedObjectId of
                         Just selId ->
-                            case LO.findObject selId model.content of
+                            case LO.findObject selId (getValue model.content) of
                                 Just (Container _) ->
                                     Just selId
 
@@ -145,9 +136,12 @@ update msg model =
                         Nothing ->
                             Nothing
 
+                newContent =
+                    LO.addObjectTo parentId newObj (getValue model.content)
+
                 newModel =
                     { model
-                        | content = LO.addObjectTo parentId newObj model.content
+                        | content = Clean newContent
                         , nextId = model.nextId + 1
                         , computedTexts = Dict.empty
                     }
@@ -157,9 +151,12 @@ update msg model =
 
         Types.RemoveObject targetId ->
             let
+                newContent =
+                    LO.removeObjectFromTree targetId (getValue model.content)
+
                 newModel =
                     { model
-                        | content = LO.removeObjectFromTree targetId model.content
+                        | content = Clean newContent
                         , selectedObjectId =
                             if model.selectedObjectId == Just targetId then
                                 Nothing
@@ -175,7 +172,7 @@ update msg model =
         Types.UpdateObjectProperty targetId change ->
             let
                 newContent =
-                    LO.updateObjectInTree targetId (applyPropertyChange change) model.content
+                    LO.updateObjectInTree targetId (applyPropertyChange change) (getValue model.content)
 
                 needsRemeasure =
                     case change of
@@ -206,9 +203,24 @@ update msg model =
                         _ ->
                             False
 
+                isImmediate =
+                    case change of
+                        SetShapeType _ ->
+                            True
+
+                        _ ->
+                            False
+
+                wrappedContent =
+                    if isImmediate then
+                        Clean newContent
+
+                    else
+                        Dirty newContent
+
                 newModel =
                     { model
-                        | content = newContent
+                        | content = wrappedContent
                         , computedTexts =
                             if needsRemeasure then
                                 Dict.empty
@@ -216,44 +228,32 @@ update msg model =
                             else
                                 model.computedTexts
                     }
-            in
-            (if needsRemeasure then
-                ( newModel, Cmd.none, Types.requestAllMeasurements newModel )
 
-             else
-                ( newModel, Cmd.none, Types.NoOutMsg )
-            )
-                |> withContentEvent newModel
+                result =
+                    if needsRemeasure then
+                        ( newModel, Cmd.none, Types.requestAllMeasurements newModel )
+
+                    else
+                        ( newModel, Cmd.none, Types.NoOutMsg )
+            in
+            if isImmediate then
+                result |> withContentEvent newModel
+
+            else
+                result
 
         Types.UpdateSampleValue varName val ->
             let
                 newModel =
                     { model
-                        | sampleValues = Dict.insert varName val model.sampleValues
+                        | sampleValues = Dict.insert varName (Dirty val) model.sampleValues
                         , computedTexts = Dict.empty
                     }
             in
             ( newModel, Cmd.none, Types.requestAllMeasurements newModel )
-                |> withEvent "template_sample_value_set"
-                    (Encode.object
-                        [ ( "template_id", Encode.string model.templateId )
-                        , ( "variable_name", Encode.string varName )
-                        , ( "value", Encode.string val )
-                        ]
-                    )
 
         Types.TemplateNameChanged name ->
-            let
-                newModel =
-                    { model | templateName = name }
-            in
-            ( newModel, Cmd.none, Types.NoOutMsg )
-                |> withEvent "template_name_set"
-                    (Encode.object
-                        [ ( "template_id", Encode.string model.templateId )
-                        , ( "name", Encode.string name )
-                        ]
-                    )
+            ( { model | templateName = Dirty name }, Cmd.none, Types.NoOutMsg )
 
         Types.GotTextMeasureResult result ->
             ( { model
@@ -267,6 +267,88 @@ update msg model =
             , Cmd.none
             , Types.NoOutMsg
             )
+
+        Types.CommitTemplateName ->
+            case model.templateName of
+                Dirty name ->
+                    ( { model | templateName = Clean name }
+                    , Api.emitEvent "template_name_set"
+                        (Encode.object
+                            [ ( "template_id", Encode.string model.templateId )
+                            , ( "name", Encode.string name )
+                            ]
+                        )
+                        Types.EventEmitted
+                    , Types.NoOutMsg
+                    )
+
+                Clean _ ->
+                    ( model, Cmd.none, Types.NoOutMsg )
+
+        Types.CommitHeight ->
+            case model.labelHeight of
+                Dirty h ->
+                    ( { model | labelHeight = Clean h }
+                    , Api.emitEvent "template_height_set"
+                        (Encode.object
+                            [ ( "template_id", Encode.string model.templateId )
+                            , ( "label_height", Encode.int h )
+                            ]
+                        )
+                        Types.EventEmitted
+                    , Types.NoOutMsg
+                    )
+
+                Clean _ ->
+                    ( model, Cmd.none, Types.NoOutMsg )
+
+        Types.CommitPadding ->
+            case model.padding of
+                Dirty p ->
+                    ( { model | padding = Clean p }
+                    , Api.emitEvent "template_padding_set"
+                        (Encode.object
+                            [ ( "template_id", Encode.string model.templateId )
+                            , ( "padding", Encode.int p )
+                            ]
+                        )
+                        Types.EventEmitted
+                    , Types.NoOutMsg
+                    )
+
+                Clean _ ->
+                    ( model, Cmd.none, Types.NoOutMsg )
+
+        Types.CommitContent ->
+            case model.content of
+                Dirty content ->
+                    let
+                        newModel =
+                            { model | content = Clean content }
+                    in
+                    ( newModel, Cmd.none, Types.NoOutMsg )
+                        |> withContentEvent newModel
+
+                Clean _ ->
+                    ( model, Cmd.none, Types.NoOutMsg )
+
+        Types.CommitSampleValue varName ->
+            case Dict.get varName model.sampleValues of
+                Just (Dirty val) ->
+                    ( { model | sampleValues = Dict.insert varName (Clean val) model.sampleValues }
+                    , Api.emitEvent "template_sample_value_set"
+                        (Encode.object
+                            [ ( "template_id", Encode.string model.templateId )
+                            , ( "variable_name", Encode.string varName )
+                            , ( "value", Encode.string val )
+                            ]
+                        )
+                        Types.EventEmitted
+                    , Types.NoOutMsg
+                    )
+
+                _ ->
+                    ( model, Cmd.none, Types.NoOutMsg )
 
         Types.EventEmitted _ ->
             ( model, Cmd.none, Types.NoOutMsg )
@@ -285,7 +367,7 @@ withContentEvent newModel tuple =
     withEvent "template_content_set"
         (Encode.object
             [ ( "template_id", Encode.string newModel.templateId )
-            , ( "content", Encoders.encodeLabelObjectList newModel.content )
+            , ( "content", Encoders.encodeLabelObjectList (getValue newModel.content) )
             , ( "next_id", Encode.int newModel.nextId )
             ]
         )

@@ -4,10 +4,11 @@ import Data.LabelObject as LO exposing (LabelObject(..), ObjectId, ShapeType(..)
 import Dict
 import Html exposing (..)
 import Html.Attributes exposing (class, disabled, href, id, type_, value)
-import Html.Events exposing (onClick, onInput)
+import Html.Events exposing (onBlur, onClick, onInput)
 import Page.LabelSet.Types exposing (ComputedText, Model, Msg(..), selectedRowValues)
 import Svg exposing (svg)
 import Svg.Attributes as SA
+import Types exposing (getValue)
 
 
 view : Model -> Html Msg
@@ -32,8 +33,9 @@ viewHeader model =
         , input
             [ type_ "text"
             , class "text-xl font-bold text-gray-800 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-label-500 focus:outline-none px-1"
-            , value model.labelsetName
+            , value (getValue model.labelsetName)
             , onInput UpdateName
+            , onBlur CommitName
             ]
             []
         , span [ class "text-sm text-gray-400" ] [ text model.templateName ]
@@ -271,6 +273,10 @@ viewControls model =
 
 viewSpreadsheet : Model -> Html Msg
 viewSpreadsheet model =
+    let
+        currentRows =
+            getValue model.rows
+    in
     div [ class "bg-white rounded-lg p-4 shadow-sm overflow-x-auto" ]
         [ h3 [ class "text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3" ] [ text "Datos" ]
         , if List.isEmpty model.variableNames then
@@ -291,7 +297,7 @@ viewSpreadsheet model =
                             )
                         ]
                     , tbody []
-                        (List.indexedMap (viewRow model) model.rows)
+                        (List.indexedMap (viewRow model) currentRows)
                     ]
                 , button
                     [ class "mt-3 px-3 py-1 text-sm text-label-600 hover:text-label-800 hover:bg-label-50 rounded transition-colors"
@@ -314,6 +320,9 @@ viewRow model rowIndex rowValues =
 
             else
                 "hover:bg-gray-50"
+
+        rowCount =
+            List.length (getValue model.rows)
     in
     tr [ class rowClass ]
         (td
@@ -329,13 +338,14 @@ viewRow model rowIndex rowValues =
                             , class "w-full px-1 py-1 text-sm border-none focus:outline-none focus:ring-1 focus:ring-label-500 bg-transparent"
                             , value (Dict.get varName rowValues |> Maybe.withDefault "")
                             , onInput (UpdateCell rowIndex varName)
+                            , onBlur CommitRows
                             ]
                             []
                         ]
                 )
                 model.variableNames
             ++ [ td [ class "border border-gray-200 px-2 py-1 text-center" ]
-                    [ if List.length model.rows > 1 then
+                    [ if rowCount > 1 then
                         button
                             [ class "text-red-400 hover:text-red-600 text-xs"
                             , onClick (DeleteRow rowIndex)
@@ -353,7 +363,7 @@ viewPrintControls : Model -> Html Msg
 viewPrintControls model =
     let
         rowCount =
-            List.length model.rows
+            List.length (getValue model.rows)
 
         progressText =
             case model.printProgress of
@@ -367,7 +377,7 @@ viewPrintControls model =
         [ button
             [ class "w-full px-4 py-3 bg-label-600 text-white rounded-lg hover:bg-label-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             , onClick RequestPrint
-            , disabled (model.printing || model.printingAll || List.isEmpty model.rows)
+            , disabled (model.printing || model.printingAll || List.isEmpty (getValue model.rows))
             ]
             [ if model.printing && not model.printingAll then
                 span [ class "animate-spin" ] [ text "\u{23F3}" ]
@@ -385,7 +395,7 @@ viewPrintControls model =
         , button
             [ class "w-full px-4 py-3 bg-label-700 text-white rounded-lg hover:bg-label-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             , onClick RequestPrintAll
-            , disabled (model.printing || model.printingAll || List.isEmpty model.rows)
+            , disabled (model.printing || model.printingAll || List.isEmpty (getValue model.rows))
             ]
             [ if model.printingAll then
                 span [ class "animate-spin" ] [ text "\u{23F3}" ]

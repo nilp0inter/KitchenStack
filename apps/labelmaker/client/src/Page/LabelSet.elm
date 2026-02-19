@@ -8,7 +8,7 @@ import Json.Encode as Encode
 import Page.LabelSet.Types as Types
 import Page.LabelSet.View as View
 import Ports
-import Types exposing (NotificationType(..))
+import Types exposing (Committable(..), NotificationType(..), getValue)
 
 
 type alias Model =
@@ -47,8 +47,8 @@ update msg model =
                         , rotate = detail.rotate
                         , padding = detail.padding
                         , content = detail.content
-                        , labelsetName = detail.name
-                        , rows = detail.rows
+                        , labelsetName = Clean detail.name
+                        , rows = Clean detail.rows
                         , variableNames = LO.allVariableNames detail.content
                         , selectedRowIndex = 0
                         , computedTexts = Dict.empty
@@ -74,6 +74,9 @@ update msg model =
 
         Types.UpdateCell rowIndex varName val ->
             let
+                currentRows =
+                    getValue model.rows
+
                 newRows =
                     List.indexedMap
                         (\i row ->
@@ -83,10 +86,10 @@ update msg model =
                             else
                                 row
                         )
-                        model.rows
+                        currentRows
 
                 newModel =
-                    { model | rows = newRows }
+                    { model | rows = Dirty newRows }
 
                 measureOutMsg =
                     if rowIndex == model.selectedRowIndex then
@@ -102,21 +105,32 @@ update msg model =
                     else
                         newModel
             in
-            ( finalModel
-            , emitRowsSet model.labelsetId newRows
-            , measureOutMsg
-            )
+            ( finalModel, Cmd.none, measureOutMsg )
+
+        Types.CommitRows ->
+            case model.rows of
+                Dirty currentRows ->
+                    ( { model | rows = Clean currentRows }
+                    , emitRowsSet model.labelsetId currentRows
+                    , Types.NoOutMsg
+                    )
+
+                Clean _ ->
+                    ( model, Cmd.none, Types.NoOutMsg )
 
         Types.AddRow ->
             let
+                currentRows =
+                    getValue model.rows
+
                 emptyRow =
                     List.foldl (\varName dict -> Dict.insert varName "" dict) Dict.empty model.variableNames
 
                 newRows =
-                    model.rows ++ [ emptyRow ]
+                    currentRows ++ [ emptyRow ]
 
                 newModel =
-                    { model | rows = newRows }
+                    { model | rows = Clean newRows }
             in
             ( newModel
             , emitRowsSet model.labelsetId newRows
@@ -125,8 +139,11 @@ update msg model =
 
         Types.DeleteRow rowIndex ->
             let
+                currentRows =
+                    getValue model.rows
+
                 newRows =
-                    List.indexedMap Tuple.pair model.rows
+                    List.indexedMap Tuple.pair currentRows
                         |> List.filterMap
                             (\( i, row ) ->
                                 if i == rowIndex then
@@ -151,7 +168,7 @@ update msg model =
 
                 newModel =
                     { model
-                        | rows = newRows
+                        | rows = Clean newRows
                         , selectedRowIndex = newSelectedIndex
                         , computedTexts =
                             if needsRemeasure then
@@ -174,16 +191,24 @@ update msg model =
             )
 
         Types.UpdateName name ->
-            ( { model | labelsetName = name }
-            , Api.emitEvent "labelset_name_set"
-                (Encode.object
-                    [ ( "labelset_id", Encode.string model.labelsetId )
-                    , ( "name", Encode.string name )
-                    ]
-                )
-                Types.EventEmitted
-            , Types.NoOutMsg
-            )
+            ( { model | labelsetName = Dirty name }, Cmd.none, Types.NoOutMsg )
+
+        Types.CommitName ->
+            case model.labelsetName of
+                Dirty name ->
+                    ( { model | labelsetName = Clean name }
+                    , Api.emitEvent "labelset_name_set"
+                        (Encode.object
+                            [ ( "labelset_id", Encode.string model.labelsetId )
+                            , ( "name", Encode.string name )
+                            ]
+                        )
+                        Types.EventEmitted
+                    , Types.NoOutMsg
+                    )
+
+                Clean _ ->
+                    ( model, Cmd.none, Types.NoOutMsg )
 
         Types.GotTextMeasureResult result ->
             let
@@ -235,7 +260,7 @@ update msg model =
         Types.RequestPrintAll ->
             let
                 rowCount =
-                    List.length model.rows
+                    List.length (getValue model.rows)
 
                 newModel =
                     { model

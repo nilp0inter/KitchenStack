@@ -15,6 +15,7 @@ import Data.LabelTypes exposing (LabelTypeSpec, labelTypes, silverRatioHeight)
 import Dict exposing (Dict)
 import Http
 import Ports
+import Types exposing (Committable(..), getValue)
 
 
 type alias ComputedText =
@@ -25,18 +26,18 @@ type alias ComputedText =
 
 type alias Model =
     { templateId : String
-    , templateName : String
+    , templateName : Committable String
     , labelTypeId : String
     , labelWidth : Int
-    , labelHeight : Int
+    , labelHeight : Committable Int
     , cornerRadius : Int
     , rotate : Bool
-    , content : List LabelObject
+    , content : Committable (List LabelObject)
     , selectedObjectId : Maybe ObjectId
-    , sampleValues : Dict String String
+    , sampleValues : Dict String (Committable String)
     , computedTexts : Dict ObjectId ComputedText
     , nextId : Int
-    , padding : Int
+    , padding : Committable Int
     }
 
 
@@ -53,6 +54,11 @@ type Msg
     | GotTemplateDetail (Result Http.Error (Maybe TemplateDetail))
     | TemplateNameChanged String
     | EventEmitted (Result Http.Error ())
+    | CommitTemplateName
+    | CommitHeight
+    | CommitPadding
+    | CommitContent
+    | CommitSampleValue String
 
 
 type PropertyChange
@@ -93,34 +99,34 @@ initialModel templateId =
                 }
     in
     { templateId = templateId
-    , templateName = "Cargando..."
+    , templateName = Clean "Cargando..."
     , labelTypeId = "62"
     , labelWidth = defaultWidth
-    , labelHeight = defaultHeight
+    , labelHeight = Clean defaultHeight
     , cornerRadius = 0
     , rotate = False
-    , content = [ defaultVar ]
+    , content = Clean [ defaultVar ]
     , selectedObjectId = Nothing
-    , sampleValues = Dict.fromList [ ( "nombre", "Hello World!" ) ]
+    , sampleValues = Dict.fromList [ ( "nombre", Clean "Hello World!" ) ]
     , computedTexts = Dict.empty
     , nextId = 2
-    , padding = 20
+    , padding = Clean 20
     }
 
 
 applyTemplateDetail : TemplateDetail -> Model -> Model
 applyTemplateDetail detail model =
     { model
-        | templateName = detail.name
+        | templateName = Clean detail.name
         , labelTypeId = detail.labelTypeId
         , labelWidth = detail.labelWidth
-        , labelHeight = detail.labelHeight
+        , labelHeight = Clean detail.labelHeight
         , cornerRadius = detail.cornerRadius
         , rotate = detail.rotate
-        , padding = detail.padding
-        , content = detail.content
+        , padding = Clean detail.padding
+        , content = Clean detail.content
         , nextId = detail.nextId
-        , sampleValues = detail.sampleValues
+        , sampleValues = Dict.map (\_ v -> Clean v) detail.sampleValues
         , computedTexts = Dict.empty
     }
 
@@ -128,9 +134,12 @@ applyTemplateDetail detail model =
 requestAllMeasurements : Model -> OutMsg
 requestAllMeasurements model =
     let
+        labelH =
+            getValue model.labelHeight
+
         displayWidth =
             if model.rotate then
-                model.labelHeight
+                labelH
 
             else
                 model.labelWidth
@@ -140,10 +149,10 @@ requestAllMeasurements model =
                 model.labelWidth
 
             else
-                model.labelHeight
+                labelH
 
         requests =
-            collectMeasurements model (toFloat displayWidth) (toFloat displayHeight) model.content
+            collectMeasurements model (toFloat displayWidth) (toFloat displayHeight) (getValue model.content)
     in
     if List.isEmpty requests then
         NoOutMsg
@@ -159,6 +168,10 @@ collectMeasurements model parentW parentH objects =
 
 collectForObject : Model -> Float -> Float -> LabelObject -> List Ports.TextMeasureRequest
 collectForObject model parentW parentH obj =
+    let
+        pad =
+            getValue model.padding
+    in
     case obj of
         Container r ->
             collectMeasurements model r.width r.height r.content
@@ -166,7 +179,7 @@ collectForObject model parentW parentH obj =
         TextObj r ->
             let
                 maxWidth =
-                    round (parentW - toFloat (model.padding * 2))
+                    round (parentW - toFloat (pad * 2))
 
                 maxFontSize =
                     round r.properties.fontSize
@@ -180,7 +193,7 @@ collectForObject model parentW parentH obj =
               , maxFontSize = maxFontSize
               , minFontSize = minFontSize
               , maxWidth = maxWidth
-              , maxHeight = round (parentH - toFloat (model.padding * 2))
+              , maxHeight = round (parentH - toFloat (pad * 2))
               }
             ]
 
@@ -188,10 +201,11 @@ collectForObject model parentW parentH obj =
             let
                 sampleText =
                     Dict.get r.name model.sampleValues
+                        |> Maybe.map getValue
                         |> Maybe.withDefault ("{{" ++ r.name ++ "}}")
 
                 maxWidth =
-                    round (parentW - toFloat (model.padding * 2))
+                    round (parentW - toFloat (pad * 2))
 
                 maxFontSize =
                     round r.properties.fontSize
@@ -205,7 +219,7 @@ collectForObject model parentW parentH obj =
               , maxFontSize = maxFontSize
               , minFontSize = minFontSize
               , maxWidth = maxWidth
-              , maxHeight = round (parentH - toFloat (model.padding * 2))
+              , maxHeight = round (parentH - toFloat (pad * 2))
               }
             ]
 

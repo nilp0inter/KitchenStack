@@ -4,10 +4,11 @@ import Data.LabelObject as LO exposing (LabelObject(..), ObjectId, ShapeType(..)
 import Dict
 import Html exposing (..)
 import Html.Attributes exposing (class, disabled, href, id, type_, value)
-import Html.Events exposing (onInput, onClick)
+import Html.Events exposing (onBlur, onClick, onInput)
 import Page.Label.Types exposing (ComputedText, Model, Msg(..))
 import Svg exposing (svg)
 import Svg.Attributes as SA
+import Types exposing (getValue)
 
 
 view : Model -> Html Msg
@@ -123,6 +124,7 @@ renderObject model parentW parentH obj =
             let
                 displayText =
                     Dict.get r.name model.values
+                        |> Maybe.map getValue
                         |> Maybe.withDefault ("{{" ++ r.name ++ "}}")
             in
             renderTextSvg model parentW parentH r.id displayText r.properties
@@ -272,6 +274,7 @@ viewValueInput model varName =
     let
         currentVal =
             Dict.get varName model.values
+                |> Maybe.map getValue
                 |> Maybe.withDefault ""
     in
     div []
@@ -281,6 +284,7 @@ viewValueInput model varName =
             , class "w-full border border-gray-300 rounded px-2 py-1 text-sm"
             , value currentVal
             , onInput (UpdateValue varName)
+            , onBlur CommitValues
             ]
             []
         ]

@@ -13,7 +13,7 @@ import Data.LabelObject as LO exposing (LabelObject(..), ObjectId)
 import Dict exposing (Dict)
 import Http
 import Ports
-import Types exposing (NotificationType)
+import Types exposing (Committable(..), NotificationType, getValue)
 
 
 type alias ComputedText =
@@ -33,7 +33,7 @@ type alias Model =
     , rotate : Bool
     , padding : Int
     , content : List LabelObject
-    , values : Dict String String
+    , values : Dict String (Committable String)
     , variableNames : List String
     , computedTexts : Dict ObjectId ComputedText
     , printing : Bool
@@ -43,6 +43,7 @@ type alias Model =
 type Msg
     = GotLabelDetail (Result Http.Error (Maybe LabelDetail))
     | UpdateValue String String
+    | CommitValues
     | GotTextMeasureResult Ports.TextMeasureResult
     | RequestPrint
     | GotPngResult Ports.PngResult
@@ -139,6 +140,7 @@ collectForObject model parentW parentH obj =
             let
                 displayText =
                     Dict.get r.name model.values
+                        |> Maybe.map getValue
                         |> Maybe.withDefault ("{{" ++ r.name ++ "}}")
 
                 maxWidth =
