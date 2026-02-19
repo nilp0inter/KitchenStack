@@ -87,11 +87,17 @@ fetchLabelDetail labelId toMsg =
         }
 
 
-createLabel : String -> (Result Http.Error String -> msg) -> Cmd msg
-createLabel templateId toMsg =
+createLabel : String -> String -> (Result Http.Error String -> msg) -> Cmd msg
+createLabel templateId name toMsg =
     Http.post
         { url = "/api/db/rpc/create_label"
-        , body = Http.jsonBody (Encode.object [ ( "p_template_id", Encode.string templateId ) ])
+        , body =
+            Http.jsonBody
+                (Encode.object
+                    [ ( "p_template_id", Encode.string templateId )
+                    , ( "p_name", Encode.string name )
+                    ]
+                )
         , expect = Http.expectJson toMsg Decoders.createLabelResponseDecoder
         }
 

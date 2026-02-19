@@ -28,27 +28,27 @@ labelmaker_api    — External interface: read views + RPC write functions (expo
 
 **Logic schema (idempotent — `labelmaker_logic`):**
 - **`labelmaker_logic.template`**: Projection table (id UUID, name, label_type_id, label_width, label_height, corner_radius, rotate, padding, content JSONB, next_id, sample_values JSONB, created_at, deleted)
-- **`labelmaker_logic.label`**: Projection table (id UUID, template_id UUID FK, values JSONB, created_at, deleted)
+- **`labelmaker_logic.label`**: Projection table (id UUID, template_id UUID FK, name TEXT, values JSONB, created_at, deleted)
 - **`labelmaker_logic.labelset`**: Projection table (id UUID, template_id UUID FK, name TEXT, rows JSONB, created_at, deleted)
 - **8 template handler functions**: `apply_template_created`, `apply_template_deleted`, `apply_template_name_set`, `apply_template_label_type_set`, `apply_template_height_set`, `apply_template_padding_set`, `apply_template_content_set`, `apply_template_sample_value_set`
-- **3 label handler functions**: `apply_label_created`, `apply_label_deleted`, `apply_label_values_set`
+- **4 label handler functions**: `apply_label_created`, `apply_label_deleted`, `apply_label_values_set`, `apply_label_name_set`
 - **4 labelset handler functions**: `apply_labelset_created`, `apply_labelset_deleted`, `apply_labelset_name_set`, `apply_labelset_rows_set`
-- **`labelmaker_logic.apply_event()`**: CASE dispatcher to 15 handler functions
+- **`labelmaker_logic.apply_event()`**: CASE dispatcher to 16 handler functions
 - **`labelmaker_logic.replay_all_events()`**: Truncates labelset, label, and template tables and rebuilds from events
 
 **API schema (idempotent — `labelmaker_api`):**
 - **`labelmaker_api.event`**: View exposing the event store (supports INSERT for writes)
 - **`labelmaker_api.template_list`**: Summary view for list page (id, name, label_type_id, created_at; excludes deleted)
 - **`labelmaker_api.template_detail`**: Full state view for editor (all fields; excludes deleted)
-- **`labelmaker_api.label_list`**: Label summary view (id, template_id, template_name, label_type_id, values, created_at; joins template, excludes deleted)
-- **`labelmaker_api.label_detail`**: Full label+template data for rendering (includes template dimensions, content, padding, etc.)
+- **`labelmaker_api.label_list`**: Label summary view (id, template_id, template_name, label_type_id, name, values, created_at; joins template, excludes deleted)
+- **`labelmaker_api.label_detail`**: Full label+template data for rendering (includes template dimensions, content, padding, name, etc.)
 - **`labelmaker_api.create_template(p_name)`**: RPC function that generates UUID, inserts `template_created` event, returns `template_id`
-- **`labelmaker_api.create_label(p_template_id)`**: RPC function that generates UUID, copies template's sample_values as initial label values, inserts `label_created` event, returns `label_id`
+- **`labelmaker_api.create_label(p_template_id, p_name)`**: RPC function that generates UUID, copies template's sample_values as initial label values, inserts `label_created` event with name, returns `label_id`
 - **`labelmaker_api.labelset_list`**: LabelSet summary view (id, template_id, template_name, label_type_id, name, row_count, created_at; joins template, excludes deleted)
 - **`labelmaker_api.labelset_detail`**: Full labelset+template data for rendering (includes template dimensions, content, padding, rows)
 - **`labelmaker_api.create_labelset(p_template_id, p_name)`**: RPC function that generates UUID, copies template's sample_values as first row, inserts `labelset_created` event, returns `labelset_id`
 
-## Event Types (15)
+## Event Types (16)
 
 | Event | Payload |
 |---|---|
@@ -60,8 +60,9 @@ labelmaker_api    — External interface: read views + RPC write functions (expo
 | `template_padding_set` | `{ template_id, padding }` |
 | `template_content_set` | `{ template_id, content: [...full tree...], next_id }` |
 | `template_sample_value_set` | `{ template_id, variable_name, value }` |
-| `label_created` | `{ label_id, template_id, values: {...} }` |
+| `label_created` | `{ label_id, template_id, name, values: {...} }` |
 | `label_deleted` | `{ label_id }` |
+| `label_name_set` | `{ label_id, name }` |
 | `label_values_set` | `{ label_id, values: {...} }` |
 | `labelset_created` | `{ labelset_id, template_id, name, rows: [{...}] }` |
 | `labelset_deleted` | `{ labelset_id }` |
@@ -122,12 +123,12 @@ apps/labelmaker/client/src/
     │   └── View.elm      # Two-column layout: SVG preview + editor controls, back link, name input
     ├── Labels.elm        # Facade: label list page (create from template, delete, navigate)
     ├── Labels/
-    │   ├── Types.elm     # Model (labels + templates RemoteData, selectedTemplateId), Msg, OutMsg
-    │   └── View.elm      # Template picker + card grid of labels
+    │   ├── Types.elm     # Model (labels + templates RemoteData, selectedTemplateId, newName), Msg, OutMsg
+    │   └── View.elm      # Template picker + name input + card grid of labels
     ├── Label.elm         # Facade: label editor page (view/edit values, print)
     ├── Label/
-    │   ├── Types.elm     # Model (label data, values, printing state), Msg, OutMsg (print flow)
-    │   └── View.elm      # Two-column: SVG preview (read-only) + value form + print button
+    │   ├── Types.elm     # Model (label data, labelName, values, printing state), Msg, OutMsg (print flow)
+    │   └── View.elm      # Two-column: SVG preview (read-only) + editable name + value form + print button
     ├── LabelSets.elm     # Facade: labelset list page (create from template, delete, navigate)
     ├── LabelSets/
     │   ├── Types.elm     # Model (labelsets + templates RemoteData, selectedTemplateId, newName), Msg, OutMsg
@@ -176,8 +177,8 @@ getValue : Committable a -> a
 - Immediate: `LabelTypeChanged`, `AddObject`, `RemoveObject`, `SetShapeType`
 
 **Label editor (Label.elm):**
-- Wrapped field: `values : Dict String (Committable String)`
-- Deferred: `UpdateValue` + `CommitValues` on blur
+- Wrapped fields: `labelName : Committable String`, `values : Dict String (Committable String)`
+- Deferred: `UpdateName`/`CommitName`, `UpdateValue`/`CommitValues` on blur
 
 **LabelSet editor (LabelSet.elm):**
 - Wrapped fields: `labelsetName : Committable String`, `rows : Committable (List (Dict String String))`
@@ -323,6 +324,12 @@ The label editor page (`/label/<uuid>`) displays a label instance with its templ
 5. `GotPrintResult Ok` → `printing = False`, success notification
 6. `GotPrintResult Err` → `printing = False`, error notification
 
+### Name Editing
+
+Label name is editable in the header. Uses deferred persistence:
+1. `onInput` → `UpdateName`: sets `labelName = Dirty name`
+2. `onBlur` → `CommitName`: if `Dirty`, emits `label_name_set` event, sets to `Clean`
+
 ### Value Editing
 
 Each variable in the template has a text input. Uses deferred persistence:
@@ -412,7 +419,7 @@ docker run --rm -v "$(pwd)":/app -w /app node:20-alpine sh -c "npm install -g el
 | `/api/db/rpc/create_template` | POST | Create template (body: `{"p_name":"..."}`, returns `[{"template_id":"uuid"}]`) |
 | `/api/db/label_list` | GET | List all labels (summary with template info, excludes deleted) |
 | `/api/db/label_detail?id=eq.<uuid>` | GET | Full label+template data for rendering |
-| `/api/db/rpc/create_label` | POST | Create label from template (body: `{"p_template_id":"uuid"}`, returns `[{"label_id":"uuid"}]`) |
+| `/api/db/rpc/create_label` | POST | Create label from template (body: `{"p_template_id":"uuid","p_name":"..."}`, returns `[{"label_id":"uuid"}]`) |
 | `/api/db/labelset_list` | GET | List all labelsets (summary with template info, excludes deleted) |
 | `/api/db/labelset_detail?id=eq.<uuid>` | GET | Full labelset+template data for rendering |
 | `/api/db/rpc/create_labelset` | POST | Create labelset from template (body: `{"p_template_id":"uuid","p_name":"..."}`, returns `[{"labelset_id":"uuid"}]`) |

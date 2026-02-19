@@ -57,10 +57,21 @@ update msg model =
             , Types.NoOutMsg
             )
 
+        Types.UpdateNewName name ->
+            ( { model | newName = name }, Cmd.none, Types.NoOutMsg )
+
         Types.CreateLabel ->
             case model.selectedTemplateId of
                 Just templateId ->
-                    ( model, Api.createLabel templateId Types.GotCreateResult, Types.NoOutMsg )
+                    let
+                        name =
+                            String.trim model.newName
+                    in
+                    if String.isEmpty name then
+                        ( model, Cmd.none, Types.NoOutMsg )
+
+                    else
+                        ( model, Api.createLabel templateId name Types.GotCreateResult, Types.NoOutMsg )
 
                 Nothing ->
                     ( model, Cmd.none, Types.NoOutMsg )

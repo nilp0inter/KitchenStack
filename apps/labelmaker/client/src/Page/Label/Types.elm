@@ -33,6 +33,7 @@ type alias Model =
     , rotate : Bool
     , padding : Int
     , content : List LabelObject
+    , labelName : Committable String
     , values : Dict String (Committable String)
     , variableNames : List String
     , computedTexts : Dict ObjectId ComputedText
@@ -42,6 +43,8 @@ type alias Model =
 
 type Msg
     = GotLabelDetail (Result Http.Error (Maybe LabelDetail))
+    | UpdateName String
+    | CommitName
     | UpdateValue String String
     | CommitValues
     | GotTextMeasureResult Ports.TextMeasureResult
@@ -70,6 +73,7 @@ initialModel labelId =
     , rotate = False
     , padding = 20
     , content = []
+    , labelName = Clean ""
     , values = Dict.empty
     , variableNames = []
     , computedTexts = Dict.empty

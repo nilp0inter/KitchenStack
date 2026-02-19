@@ -192,6 +192,7 @@ type alias LabelSummary =
     , templateId : String
     , templateName : String
     , labelTypeId : String
+    , name : String
     , values : Dict String String
     , createdAt : String
     }
@@ -204,6 +205,7 @@ labelSummaryDecoder =
         |> andMap (Decode.field "template_id" Decode.string)
         |> andMap (Decode.field "template_name" Decode.string)
         |> andMap (Decode.field "label_type_id" Decode.string)
+        |> andMap (Decode.field "name" Decode.string)
         |> andMap (Decode.field "values" (Decode.dict Decode.string))
         |> andMap (Decode.field "created_at" Decode.string)
 
@@ -219,6 +221,7 @@ type alias LabelDetail =
     , rotate : Bool
     , padding : Int
     , content : List LabelObject
+    , name : String
     , values : Dict String String
     , createdAt : String
     }
@@ -237,6 +240,7 @@ labelDetailDecoder =
         |> andMap (Decode.field "rotate" Decode.bool)
         |> andMap (Decode.field "padding" Decode.int)
         |> andMap (Decode.field "content" (Decode.list labelObjectDecoder))
+        |> andMap (Decode.field "name" Decode.string)
         |> andMap (Decode.field "values" (Decode.dict Decode.string))
         |> andMap (Decode.field "created_at" Decode.string)
 

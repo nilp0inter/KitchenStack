@@ -108,6 +108,7 @@ $$;
 CREATE TABLE labelmaker_logic.label (
     id UUID PRIMARY KEY,
     template_id UUID NOT NULL REFERENCES labelmaker_logic.template(id),
+    name TEXT NOT NULL DEFAULT 'Sin nombre',
     values JSONB NOT NULL DEFAULT '{}'::JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted BOOLEAN NOT NULL DEFAULT FALSE
@@ -133,8 +134,8 @@ CREATE TABLE labelmaker_logic.labelset (
 CREATE FUNCTION labelmaker_logic.apply_label_created(p JSONB, p_created_at TIMESTAMPTZ)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    INSERT INTO labelmaker_logic.label (id, template_id, values, created_at)
-    VALUES ((p->>'label_id')::UUID, (p->>'template_id')::UUID, p->'values', p_created_at);
+    INSERT INTO labelmaker_logic.label (id, template_id, name, values, created_at)
+    VALUES ((p->>'label_id')::UUID, (p->>'template_id')::UUID, COALESCE(p->>'name', 'Sin nombre'), p->'values', p_created_at);
 END;
 $$;
 
@@ -150,6 +151,14 @@ CREATE FUNCTION labelmaker_logic.apply_label_values_set(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
     UPDATE labelmaker_logic.label SET values = p->'values'
+    WHERE id = (p->>'label_id')::UUID;
+END;
+$$;
+
+CREATE FUNCTION labelmaker_logic.apply_label_name_set(p JSONB)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE labelmaker_logic.label SET name = p->>'name'
     WHERE id = (p->>'label_id')::UUID;
 END;
 $$;
@@ -220,6 +229,8 @@ BEGIN
             PERFORM labelmaker_logic.apply_label_deleted(p_payload);
         WHEN 'label_values_set' THEN
             PERFORM labelmaker_logic.apply_label_values_set(p_payload);
+        WHEN 'label_name_set' THEN
+            PERFORM labelmaker_logic.apply_label_name_set(p_payload);
         WHEN 'labelset_created' THEN
             PERFORM labelmaker_logic.apply_labelset_created(p_payload, p_created_at);
         WHEN 'labelset_deleted' THEN

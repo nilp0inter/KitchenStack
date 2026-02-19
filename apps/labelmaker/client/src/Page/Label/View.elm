@@ -20,8 +20,15 @@ view model =
                 , class "text-label-600 hover:text-label-800 transition-colors"
                 ]
                 [ text "\u{2190} Etiquetas" ]
-            , span [ class "text-xl font-bold text-gray-800" ]
-                [ text model.templateName ]
+            , input
+                [ type_ "text"
+                , class "text-xl font-bold text-gray-800 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-label-500 focus:outline-none px-1"
+                , value (getValue model.labelName)
+                , onInput UpdateName
+                , onBlur CommitName
+                ]
+                []
+            , span [ class "text-sm text-gray-400" ] [ text model.templateName ]
             ]
         , div [ class "flex flex-col lg:flex-row gap-8" ]
             [ viewPreview model

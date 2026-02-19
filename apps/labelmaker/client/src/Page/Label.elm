@@ -47,6 +47,7 @@ update msg model =
                         , rotate = detail.rotate
                         , padding = detail.padding
                         , content = detail.content
+                        , labelName = Clean detail.name
                         , values = Dict.map (\_ v -> Clean v) detail.values
                         , variableNames = LO.allVariableNames detail.content
                         , computedTexts = Dict.empty
@@ -59,6 +60,26 @@ update msg model =
 
         Types.GotLabelDetail (Err _) ->
             ( model, Cmd.none, Types.NoOutMsg )
+
+        Types.UpdateName name ->
+            ( { model | labelName = Dirty name }, Cmd.none, Types.NoOutMsg )
+
+        Types.CommitName ->
+            case model.labelName of
+                Dirty name ->
+                    ( { model | labelName = Clean name }
+                    , Api.emitEvent "label_name_set"
+                        (Encode.object
+                            [ ( "label_id", Encode.string model.labelId )
+                            , ( "name", Encode.string name )
+                            ]
+                        )
+                        Types.EventEmitted
+                    , Types.NoOutMsg
+                    )
+
+                Clean _ ->
+                    ( model, Cmd.none, Types.NoOutMsg )
 
         Types.UpdateValue varName val ->
             let

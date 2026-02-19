@@ -4,7 +4,7 @@ import Api.Decoders exposing (LabelSummary, TemplateSummary)
 import Components
 import Dict
 import Html exposing (..)
-import Html.Attributes exposing (class, disabled, href, selected, value)
+import Html.Attributes exposing (class, disabled, href, placeholder, selected, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Page.Labels.Types exposing (Model, Msg(..))
 import Types exposing (RemoteData(..))
@@ -45,10 +45,18 @@ viewCreateControls model =
                                 )
                                 templates
                         )
+                    , input
+                        [ type_ "text"
+                        , class "border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-label-500 focus:border-label-500"
+                        , placeholder "Nombre de la etiqueta..."
+                        , value model.newName
+                        , onInput UpdateNewName
+                        ]
+                        []
                     , button
                         [ class "px-4 py-2 bg-label-600 text-white rounded-lg hover:bg-label-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         , onClick CreateLabel
-                        , disabled (model.selectedTemplateId == Nothing)
+                        , disabled (model.selectedTemplateId == Nothing || String.isEmpty (String.trim model.newName))
                         ]
                         [ text "+ Crear etiqueta" ]
                     ]
@@ -106,7 +114,8 @@ viewCard label =
             , class "block p-4"
             ]
             [ div []
-                [ h3 [ class "font-semibold text-gray-800 mb-1" ] [ text label.templateName ]
+                [ h3 [ class "font-semibold text-gray-800 mb-1" ] [ text label.name ]
+                , p [ class "text-sm text-gray-500 mb-1" ] [ text label.templateName ]
                 , if String.isEmpty valuesSummary then
                     text ""
 
