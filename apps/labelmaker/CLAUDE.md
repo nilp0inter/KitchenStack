@@ -4,6 +4,8 @@ LabelMaker is a **general-purpose label canvas editor** using **CQRS + Event Sou
 
 Supports **multiple label templates** — a list page to create/select/delete templates, and an editor page per template. Every modification is persisted as an event; state survives page refresh.
 
+Also supports **labels** — instances of a template with concrete key-value pairs filled in. Labels can be previewed, edited, and printed via the Brother QL printer service.
+
 ## Three-Schema Architecture
 
 ```
@@ -24,17 +26,22 @@ labelmaker_api    — External interface: read views + RPC write functions (expo
 
 **Logic schema (idempotent — `labelmaker_logic`):**
 - **`labelmaker_logic.template`**: Projection table (id UUID, name, label_type_id, label_width, label_height, corner_radius, rotate, padding, content JSONB, next_id, sample_values JSONB, created_at, deleted)
-- **8 handler functions**: `apply_template_created`, `apply_template_deleted`, `apply_template_name_set`, `apply_template_label_type_set`, `apply_template_height_set`, `apply_template_padding_set`, `apply_template_content_set`, `apply_template_sample_value_set`
-- **`labelmaker_logic.apply_event()`**: CASE dispatcher to 8 handler functions
-- **`labelmaker_logic.replay_all_events()`**: Truncates template table and rebuilds from events
+- **`labelmaker_logic.label`**: Projection table (id UUID, template_id UUID FK, values JSONB, created_at, deleted)
+- **8 template handler functions**: `apply_template_created`, `apply_template_deleted`, `apply_template_name_set`, `apply_template_label_type_set`, `apply_template_height_set`, `apply_template_padding_set`, `apply_template_content_set`, `apply_template_sample_value_set`
+- **3 label handler functions**: `apply_label_created`, `apply_label_deleted`, `apply_label_values_set`
+- **`labelmaker_logic.apply_event()`**: CASE dispatcher to 11 handler functions
+- **`labelmaker_logic.replay_all_events()`**: Truncates label and template tables and rebuilds from events
 
 **API schema (idempotent — `labelmaker_api`):**
 - **`labelmaker_api.event`**: View exposing the event store (supports INSERT for writes)
 - **`labelmaker_api.template_list`**: Summary view for list page (id, name, label_type_id, created_at; excludes deleted)
 - **`labelmaker_api.template_detail`**: Full state view for editor (all fields; excludes deleted)
+- **`labelmaker_api.label_list`**: Label summary view (id, template_id, template_name, label_type_id, values, created_at; joins template, excludes deleted)
+- **`labelmaker_api.label_detail`**: Full label+template data for rendering (includes template dimensions, content, padding, etc.)
 - **`labelmaker_api.create_template(p_name)`**: RPC function that generates UUID, inserts `template_created` event, returns `template_id`
+- **`labelmaker_api.create_label(p_template_id)`**: RPC function that generates UUID, copies template's sample_values as initial label values, inserts `label_created` event, returns `label_id`
 
-## Event Types (8)
+## Event Types (11)
 
 | Event | Payload |
 |---|---|
@@ -46,8 +53,11 @@ labelmaker_api    — External interface: read views + RPC write functions (expo
 | `template_padding_set` | `{ template_id, padding }` |
 | `template_content_set` | `{ template_id, content: [...full tree...], next_id }` |
 | `template_sample_value_set` | `{ template_id, variable_name, value }` |
+| `label_created` | `{ label_id, template_id, values: {...} }` |
+| `label_deleted` | `{ label_id }` |
+| `label_values_set` | `{ label_id, values: {...} }` |
 
-Content events store the **full object tree** (not deltas). Server generates template UUIDs via `gen_random_uuid()` in the `create_template` RPC function.
+Content events store the **full object tree** (not deltas). Server generates template and label UUIDs via `gen_random_uuid()` in the respective RPC functions.
 
 ## Database File Structure
 
@@ -78,18 +88,18 @@ SPA using `Browser.application` with multi-page routing and event-sourced persis
 ```
 apps/labelmaker/client/src/
 ├── Main.elm              # Entry point, routing, port subscriptions, OutMsg handling
-├── Route.elm             # Route type: TemplateList | TemplateEditor String | NotFound
+├── Route.elm             # Route type: TemplateList | TemplateEditor String | LabelList | LabelEditor String | NotFound
 ├── Types.elm             # Shared types (RemoteData, Notification)
-├── Ports.elm             # Port module: text measurement (requestTextMeasure/receiveTextMeasureResult)
-├── Api.elm               # HTTP functions (fetchTemplateList, fetchTemplateDetail, createTemplate, emitEvent, deleteTemplate)
+├── Ports.elm             # Port module: text measurement + SVG-to-PNG conversion
+├── Api.elm               # HTTP functions (templates, labels, printing)
 ├── Api/
-│   ├── Decoders.elm      # JSON decoders (TemplateSummary, TemplateDetail, labelObjectDecoder, etc.)
-│   └── Encoders.elm      # JSON encoders (encodeEvent, encodeLabelObject, etc.)
+│   ├── Decoders.elm      # JSON decoders (TemplateSummary, TemplateDetail, LabelSummary, LabelDetail, etc.)
+│   └── Encoders.elm      # JSON encoders (encodeEvent, encodeLabelObject, encodePrintRequest, etc.)
 ├── Components.elm        # Header, notification, loading
 ├── Data/
-│   ├── LabelObject.elm   # Label object types, tree operations, constructors
+│   ├── LabelObject.elm   # Label object types, tree operations, constructors, allVariableNames
 │   └── LabelTypes.elm    # Brother QL label specs (25 types, copied from FrostByte)
-├── main.js               # Elm init + text measurement JS handler (Canvas API)
+├── main.js               # Elm init + text measurement + SVG-to-PNG + font loading
 └── Page/
     ├── Templates.elm     # Facade: template list page (create, delete, navigate)
     ├── Templates/
@@ -99,6 +109,14 @@ apps/labelmaker/client/src/
     ├── Home/
     │   ├── Types.elm     # Editor model (templateId, templateName, label settings, content tree), msgs, OutMsg
     │   └── View.elm      # Two-column layout: SVG preview + editor controls, back link, name input
+    ├── Labels.elm        # Facade: label list page (create from template, delete, navigate)
+    ├── Labels/
+    │   ├── Types.elm     # Model (labels + templates RemoteData, selectedTemplateId), Msg, OutMsg
+    │   └── View.elm      # Template picker + card grid of labels
+    ├── Label.elm         # Facade: label editor page (view/edit values, print)
+    ├── Label/
+    │   ├── Types.elm     # Model (label data, values, printing state), Msg, OutMsg (print flow)
+    │   └── View.elm      # Two-column: SVG preview (read-only) + value form + print button
     ├── NotFound.elm      # Facade
     └── NotFound/
         └── View.elm      # 404 page
@@ -109,6 +127,8 @@ apps/labelmaker/client/src/
 **Routes:**
 - `/` — Template list (create, select, delete templates)
 - `/template/<uuid>` — Template editor (label canvas with persistence)
+- `/labels` — Label list (create from template, view, delete labels)
+- `/label/<uuid>` — Label editor (edit values, preview, print)
 
 **Styling:** Tailwind CSS with custom "label" color palette (warm brown tones)
 
@@ -239,24 +259,57 @@ When a label type is selected:
 - **Die-cut rectangular**: height from spec, cornerRadius = 0, rotate = true (landscape display)
 - **Round die-cut**: height = width, cornerRadius = width/2, rotate = false
 
+## Label Editor Page
+
+The label editor page (`/label/<uuid>`) displays a label instance with its template's design and allows editing variable values and printing.
+
+### Init Flow
+
+1. `Label.init labelId` creates model with defaults, fires `fetchLabelDetail`
+2. `GotLabelDetail (Ok (Just detail))` applies template+label data, extracts `variableNames` from content tree via `allVariableNames`, triggers text measurements
+3. Variable values are pre-filled from the template's sample_values (copied at label creation time)
+
+### Print Flow
+
+1. User clicks "Imprimir" → `RequestPrint` msg → sets `printing = True`
+2. `RequestSvgToPng` OutMsg sent to Main.elm → port command to JS
+3. JS serializes SVG → Canvas → PNG (handles `rotate` flag for printer orientation)
+4. `GotPngResult` received → strips `data:image/png;base64,` prefix → POST to `/api/printer/print`
+5. `GotPrintResult Ok` → `printing = False`, success notification
+6. `GotPrintResult Err` → `printing = False`, error notification
+
+### Value Editing
+
+Each variable in the template has a text input. On change:
+1. Update `values` dict in model
+2. Emit `label_values_set` event (persists immediately)
+3. Trigger text remeasurement for updated preview
+
 ## Working with Ports
 
 Ports are defined in `Ports.elm` and handled in `main.js`:
 
 ```elm
--- Request text measurement
+-- Text measurement
 port requestTextMeasure : TextMeasureRequest -> Cmd msg
--- Receive measurement result
 port receiveTextMeasureResult : (TextMeasureResult -> msg) -> Sub msg
+
+-- SVG to PNG conversion (for printing)
+port requestSvgToPng : SvgToPngRequest -> Cmd msg
+port receivePngResult : (PngResult -> msg) -> Sub msg
 ```
 
 **TextMeasureRequest fields:** `requestId`, `text`, `fontFamily`, `maxFontSize`, `minFontSize`, `maxWidth`, `maxHeight`
 
 **TextMeasureResult fields:** `requestId`, `fittedFontSize`, `lines` (List String)
 
-`Main.elm` subscribes to `receiveTextMeasureResult` and forwards results to the active page. The `RequestTextMeasures` OutMsg from the Home page triggers a batch of port commands (one per text/variable object).
+**SvgToPngRequest fields:** `svgId`, `requestId`, `width`, `height`, `rotate`
 
-The JS handler in `main.js` performs two-pass fitting: first shrinks font to fit `maxWidth`, then if `maxHeight > 0`, further shrinks to fit wrapped lines within the vertical constraint.
+**PngResult fields:** `requestId`, `dataUrl` (Maybe String), `error` (Maybe String)
+
+`Main.elm` subscribes to both `receiveTextMeasureResult` and `receivePngResult`, forwarding results to the active page. Text measurements are used by both the template editor and label editor. SVG-to-PNG conversion is used by the label editor for printing.
+
+The JS handler in `main.js` performs two-pass text fitting: first shrinks font to fit `maxWidth`, then if `maxHeight > 0`, further shrinks to fit wrapped lines within the vertical constraint. Font loading (Atkinson Hyperlegible) uses base64 embedding for accurate SVG-to-PNG rendering.
 
 ## Installing Elm Packages
 
@@ -280,9 +333,12 @@ docker run --rm -v "$(pwd)":/app -w /app node:20-alpine sh -c "npm install -g el
 | `/api/db/template_list` | GET | List all templates (summary, excludes deleted) |
 | `/api/db/template_detail?id=eq.<uuid>` | GET | Full template state for editor |
 | `/api/db/rpc/create_template` | POST | Create template (body: `{"p_name":"..."}`, returns `[{"template_id":"uuid"}]`) |
+| `/api/db/label_list` | GET | List all labels (summary with template info, excludes deleted) |
+| `/api/db/label_detail?id=eq.<uuid>` | GET | Full label+template data for rendering |
+| `/api/db/rpc/create_label` | POST | Create label from template (body: `{"p_template_id":"uuid"}`, returns `[{"label_id":"uuid"}]`) |
 | `/api/db/event` | POST | Insert event (body: `{"type":"...","payload":{...}}`) |
 | `/api/db/event` | GET | Event store (for backup) |
-| `/api/printer/print` | POST | Print PNG label |
+| `/api/printer/print` | POST | Print PNG label (body: `{"image_data":"base64...","label_type":"62"}`) |
 | `/api/printer/health` | GET | Printer service health check |
 
 ## Adding a New Page

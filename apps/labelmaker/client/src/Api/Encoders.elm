@@ -3,6 +3,7 @@ module Api.Encoders exposing
     , encodeEvent
     , encodeLabelObject
     , encodeLabelObjectList
+    , encodePrintRequest
     , encodeShapeProperties
     , encodeShapeType
     , encodeTextProperties
@@ -108,3 +109,11 @@ encodeShapeType st =
 
         Line ->
             Encode.string "line"
+
+
+encodePrintRequest : String -> String -> Encode.Value
+encodePrintRequest pngBase64 labelType =
+    Encode.object
+        [ ( "image_data", Encode.string pngBase64 )
+        , ( "label_type", Encode.string labelType )
+        ]

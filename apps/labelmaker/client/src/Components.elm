@@ -22,6 +22,7 @@ viewHeader currentRoute =
                     ]
                 , nav [ class "flex space-x-4 items-center" ]
                     [ navLink "/" "Plantillas" (currentRoute == TemplateList)
+                    , navLink "/labels" "Etiquetas" (currentRoute == LabelList)
                     ]
                 ]
             ]

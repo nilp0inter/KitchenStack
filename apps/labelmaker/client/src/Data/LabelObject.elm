@@ -7,6 +7,7 @@ module Data.LabelObject exposing
     , TextProperties
     , addObjectTo
     , allTextObjectIds
+    , allVariableNames
     , defaultColor
     , defaultTextProperties
     , findObject
@@ -19,6 +20,9 @@ module Data.LabelObject exposing
     , removeObjectFromTree
     , updateObjectInTree
     )
+
+
+import Set
 
 
 type alias ObjectId =
@@ -231,6 +235,29 @@ addObjectTo maybeParentId newObj objects =
                             obj
                 )
                 objects
+
+
+allVariableNames : List LabelObject -> List String
+allVariableNames objects =
+    let
+        collect objs =
+            List.concatMap
+                (\obj ->
+                    case obj of
+                        VariableObj r ->
+                            [ r.name ]
+
+                        Container r ->
+                            collect r.content
+
+                        _ ->
+                            []
+                )
+                objs
+    in
+    collect objects
+        |> Set.fromList
+        |> Set.toList
 
 
 allTextObjectIds : List LabelObject -> List ObjectId

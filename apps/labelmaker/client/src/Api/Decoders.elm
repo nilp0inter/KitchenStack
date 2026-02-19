@@ -1,9 +1,14 @@
 module Api.Decoders exposing
-    ( TemplateDetail
+    ( LabelDetail
+    , LabelSummary
+    , TemplateDetail
     , TemplateSummary
     , colorDecoder
+    , createLabelResponseDecoder
     , createTemplateResponseDecoder
+    , labelDetailDecoder
     , labelObjectDecoder
+    , labelSummaryDecoder
     , shapePropertiesDecoder
     , shapeTypeDecoder
     , templateDetailDecoder
@@ -175,3 +180,62 @@ shapeTypeDecoder =
 createTemplateResponseDecoder : Decoder String
 createTemplateResponseDecoder =
     Decode.index 0 (Decode.field "template_id" Decode.string)
+
+
+type alias LabelSummary =
+    { id : String
+    , templateId : String
+    , templateName : String
+    , labelTypeId : String
+    , values : Dict String String
+    , createdAt : String
+    }
+
+
+labelSummaryDecoder : Decoder LabelSummary
+labelSummaryDecoder =
+    Decode.succeed LabelSummary
+        |> andMap (Decode.field "id" Decode.string)
+        |> andMap (Decode.field "template_id" Decode.string)
+        |> andMap (Decode.field "template_name" Decode.string)
+        |> andMap (Decode.field "label_type_id" Decode.string)
+        |> andMap (Decode.field "values" (Decode.dict Decode.string))
+        |> andMap (Decode.field "created_at" Decode.string)
+
+
+type alias LabelDetail =
+    { id : String
+    , templateId : String
+    , templateName : String
+    , labelTypeId : String
+    , labelWidth : Int
+    , labelHeight : Int
+    , cornerRadius : Int
+    , rotate : Bool
+    , padding : Int
+    , content : List LabelObject
+    , values : Dict String String
+    , createdAt : String
+    }
+
+
+labelDetailDecoder : Decoder LabelDetail
+labelDetailDecoder =
+    Decode.succeed LabelDetail
+        |> andMap (Decode.field "id" Decode.string)
+        |> andMap (Decode.field "template_id" Decode.string)
+        |> andMap (Decode.field "template_name" Decode.string)
+        |> andMap (Decode.field "label_type_id" Decode.string)
+        |> andMap (Decode.field "label_width" Decode.int)
+        |> andMap (Decode.field "label_height" Decode.int)
+        |> andMap (Decode.field "corner_radius" Decode.int)
+        |> andMap (Decode.field "rotate" Decode.bool)
+        |> andMap (Decode.field "padding" Decode.int)
+        |> andMap (Decode.field "content" (Decode.list labelObjectDecoder))
+        |> andMap (Decode.field "values" (Decode.dict Decode.string))
+        |> andMap (Decode.field "created_at" Decode.string)
+
+
+createLabelResponseDecoder : Decoder String
+createLabelResponseDecoder =
+    Decode.index 0 (Decode.field "label_id" Decode.string)

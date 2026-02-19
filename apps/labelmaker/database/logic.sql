@@ -102,6 +102,46 @@ END;
 $$;
 
 -- =============================================================================
+-- Label Projection Table
+-- =============================================================================
+
+CREATE TABLE labelmaker_logic.label (
+    id UUID PRIMARY KEY,
+    template_id UUID NOT NULL REFERENCES labelmaker_logic.template(id),
+    values JSONB NOT NULL DEFAULT '{}'::JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+-- =============================================================================
+-- Label Event Handler Functions
+-- =============================================================================
+
+CREATE FUNCTION labelmaker_logic.apply_label_created(p JSONB, p_created_at TIMESTAMPTZ)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    INSERT INTO labelmaker_logic.label (id, template_id, values, created_at)
+    VALUES ((p->>'label_id')::UUID, (p->>'template_id')::UUID, p->'values', p_created_at);
+END;
+$$;
+
+CREATE FUNCTION labelmaker_logic.apply_label_deleted(p JSONB)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE labelmaker_logic.label SET deleted = TRUE
+    WHERE id = (p->>'label_id')::UUID;
+END;
+$$;
+
+CREATE FUNCTION labelmaker_logic.apply_label_values_set(p JSONB)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE labelmaker_logic.label SET values = p->'values'
+    WHERE id = (p->>'label_id')::UUID;
+END;
+$$;
+
+-- =============================================================================
 -- Event Dispatcher
 -- =============================================================================
 
@@ -125,6 +165,12 @@ BEGIN
             PERFORM labelmaker_logic.apply_template_content_set(p_payload);
         WHEN 'template_sample_value_set' THEN
             PERFORM labelmaker_logic.apply_template_sample_value_set(p_payload);
+        WHEN 'label_created' THEN
+            PERFORM labelmaker_logic.apply_label_created(p_payload, p_created_at);
+        WHEN 'label_deleted' THEN
+            PERFORM labelmaker_logic.apply_label_deleted(p_payload);
+        WHEN 'label_values_set' THEN
+            PERFORM labelmaker_logic.apply_label_values_set(p_payload);
         ELSE
             RAISE WARNING 'Unknown event type: %', p_type;
     END CASE;
@@ -154,7 +200,8 @@ CREATE TRIGGER event_handler
 CREATE FUNCTION labelmaker_logic.replay_all_events()
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-    TRUNCATE labelmaker_logic.template;
+    TRUNCATE labelmaker_logic.label CASCADE;
+    TRUNCATE labelmaker_logic.template CASCADE;
 
     PERFORM labelmaker_logic.apply_event(e.type, e.payload, e.created_at)
     FROM labelmaker_data.event e ORDER BY e.id;

@@ -1,0 +1,167 @@
+module Page.Label.Types exposing
+    ( ComputedText
+    , Model
+    , Msg(..)
+    , OutMsg(..)
+    , collectMeasurements
+    , initialModel
+    , requestAllMeasurements
+    )
+
+import Api.Decoders exposing (LabelDetail)
+import Data.LabelObject as LO exposing (LabelObject(..), ObjectId)
+import Dict exposing (Dict)
+import Http
+import Ports
+import Types exposing (NotificationType)
+
+
+type alias ComputedText =
+    { fittedFontSize : Int
+    , lines : List String
+    }
+
+
+type alias Model =
+    { labelId : String
+    , templateId : String
+    , templateName : String
+    , labelTypeId : String
+    , labelWidth : Int
+    , labelHeight : Int
+    , cornerRadius : Int
+    , rotate : Bool
+    , padding : Int
+    , content : List LabelObject
+    , values : Dict String String
+    , variableNames : List String
+    , computedTexts : Dict ObjectId ComputedText
+    , printing : Bool
+    }
+
+
+type Msg
+    = GotLabelDetail (Result Http.Error (Maybe LabelDetail))
+    | UpdateValue String String
+    | GotTextMeasureResult Ports.TextMeasureResult
+    | RequestPrint
+    | GotPngResult Ports.PngResult
+    | GotPrintResult (Result Http.Error ())
+    | EventEmitted (Result Http.Error ())
+
+
+type OutMsg
+    = NoOutMsg
+    | RequestTextMeasures (List Ports.TextMeasureRequest)
+    | RequestSvgToPng Ports.SvgToPngRequest
+    | ShowNotification String NotificationType
+
+
+initialModel : String -> Model
+initialModel labelId =
+    { labelId = labelId
+    , templateId = ""
+    , templateName = "Cargando..."
+    , labelTypeId = "62"
+    , labelWidth = 696
+    , labelHeight = 1680
+    , cornerRadius = 0
+    , rotate = False
+    , padding = 20
+    , content = []
+    , values = Dict.empty
+    , variableNames = []
+    , computedTexts = Dict.empty
+    , printing = False
+    }
+
+
+requestAllMeasurements : Model -> OutMsg
+requestAllMeasurements model =
+    let
+        displayWidth =
+            if model.rotate then
+                model.labelHeight
+
+            else
+                model.labelWidth
+
+        displayHeight =
+            if model.rotate then
+                model.labelWidth
+
+            else
+                model.labelHeight
+
+        requests =
+            collectMeasurements model (toFloat displayWidth) (toFloat displayHeight) model.content
+    in
+    if List.isEmpty requests then
+        NoOutMsg
+
+    else
+        RequestTextMeasures requests
+
+
+collectMeasurements : Model -> Float -> Float -> List LabelObject -> List Ports.TextMeasureRequest
+collectMeasurements model parentW parentH objects =
+    List.concatMap (collectForObject model parentW parentH) objects
+
+
+collectForObject : Model -> Float -> Float -> LabelObject -> List Ports.TextMeasureRequest
+collectForObject model parentW parentH obj =
+    case obj of
+        Container r ->
+            collectMeasurements model r.width r.height r.content
+
+        TextObj r ->
+            let
+                maxWidth =
+                    round (parentW - toFloat (model.padding * 2))
+
+                maxFontSize =
+                    round r.properties.fontSize
+
+                minFontSize =
+                    Basics.max 6 (maxFontSize // 3)
+            in
+            [ { requestId = r.id
+              , text = r.content
+              , fontFamily = r.properties.fontFamily
+              , maxFontSize = maxFontSize
+              , minFontSize = minFontSize
+              , maxWidth = maxWidth
+              , maxHeight = round (parentH - toFloat (model.padding * 2))
+              }
+            ]
+
+        VariableObj r ->
+            let
+                displayText =
+                    Dict.get r.name model.values
+                        |> Maybe.withDefault ("{{" ++ r.name ++ "}}")
+
+                maxWidth =
+                    round (parentW - toFloat (model.padding * 2))
+
+                maxFontSize =
+                    round r.properties.fontSize
+
+                minFontSize =
+                    Basics.max 6 (maxFontSize // 3)
+            in
+            [ { requestId = r.id
+              , text = displayText
+              , fontFamily = r.properties.fontFamily
+              , maxFontSize = maxFontSize
+              , minFontSize = minFontSize
+              , maxWidth = maxWidth
+              , maxHeight = round (parentH - toFloat (model.padding * 2))
+              }
+            ]
+
+        ImageObj _ ->
+            []
+
+        ShapeObj _ ->
+            []

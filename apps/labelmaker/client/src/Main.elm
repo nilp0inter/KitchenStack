@@ -7,6 +7,10 @@ import Html exposing (..)
 import Html.Attributes exposing (class)
 import Page.Home as Home
 import Page.Home.Types as HomeTypes
+import Page.Label as Label
+import Page.Label.Types as LabelTypes
+import Page.Labels as Labels
+import Page.Labels.Types as LabelsTypes
 import Page.NotFound as NotFound
 import Page.Templates as Templates
 import Page.Templates.Types as TemplatesTypes
@@ -52,6 +56,8 @@ type alias Model =
 type Page
     = TemplateListPage Templates.Model
     | TemplateEditorPage Home.Model
+    | LabelListPage Labels.Model
+    | LabelEditorPage Label.Model
     | NotFoundPage
 
 
@@ -83,7 +89,10 @@ type Msg
     | UrlChanged Url.Url
     | HomeMsg Home.Msg
     | TemplatesMsg Templates.Msg
+    | LabelsMsg Labels.Msg
+    | LabelMsg Label.Msg
     | GotTextMeasureResult Ports.TextMeasureResult
+    | GotPngResult Ports.PngResult
     | DismissNotification Int
 
 
@@ -138,6 +147,36 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
+        LabelsMsg subMsg ->
+            case model.page of
+                LabelListPage pageModel ->
+                    let
+                        ( newPageModel, pageCmd, outMsg ) =
+                            Labels.update subMsg pageModel
+
+                        newModel =
+                            { model | page = LabelListPage newPageModel }
+                    in
+                    handleLabelsOutMsg outMsg newModel pageCmd
+
+                _ ->
+                    ( model, Cmd.none )
+
+        LabelMsg subMsg ->
+            case model.page of
+                LabelEditorPage pageModel ->
+                    let
+                        ( newPageModel, pageCmd, outMsg ) =
+                            Label.update subMsg pageModel
+
+                        newModel =
+                            { model | page = LabelEditorPage newPageModel }
+                    in
+                    handleLabelOutMsg outMsg newModel pageCmd
+
+                _ ->
+                    ( model, Cmd.none )
+
         GotTextMeasureResult result ->
             case model.page of
                 TemplateEditorPage pageModel ->
@@ -149,6 +188,31 @@ update msg model =
                             { model | page = TemplateEditorPage newPageModel }
                     in
                     handleHomeOutMsg outMsg newModel pageCmd
+
+                LabelEditorPage pageModel ->
+                    let
+                        ( newPageModel, pageCmd, outMsg ) =
+                            Label.update (LabelTypes.GotTextMeasureResult result) pageModel
+
+                        newModel =
+                            { model | page = LabelEditorPage newPageModel }
+                    in
+                    handleLabelOutMsg outMsg newModel pageCmd
+
+                _ ->
+                    ( model, Cmd.none )
+
+        GotPngResult result ->
+            case model.page of
+                LabelEditorPage pageModel ->
+                    let
+                        ( newPageModel, pageCmd, outMsg ) =
+                            Label.update (LabelTypes.GotPngResult result) pageModel
+
+                        newModel =
+                            { model | page = LabelEditorPage newPageModel }
+                    in
+                    handleLabelOutMsg outMsg newModel pageCmd
 
                 _ ->
                     ( model, Cmd.none )
@@ -188,6 +252,26 @@ initPage route model =
                     { model | page = TemplateEditorPage pageModel }
             in
             handleHomeOutMsg outMsg newModel pageCmd
+
+        LabelList ->
+            let
+                ( pageModel, pageCmd ) =
+                    Labels.init
+
+                newModel =
+                    { model | page = LabelListPage pageModel }
+            in
+            ( newModel, Cmd.map LabelsMsg pageCmd )
+
+        LabelEditor uuid ->
+            let
+                ( pageModel, pageCmd, outMsg ) =
+                    Label.init uuid
+
+                newModel =
+                    { model | page = LabelEditorPage pageModel }
+            in
+            handleLabelOutMsg outMsg newModel pageCmd
 
         NotFound ->
             ( { model | page = NotFoundPage }, Cmd.none )
@@ -252,13 +336,66 @@ handleTemplatesOutMsg outMsg model pageCmd =
             )
 
 
+handleLabelsOutMsg : Labels.OutMsg -> Model -> Cmd Labels.Msg -> ( Model, Cmd Msg )
+handleLabelsOutMsg outMsg model pageCmd =
+    case outMsg of
+        LabelsTypes.NoOutMsg ->
+            ( model, Cmd.map LabelsMsg pageCmd )
+
+        LabelsTypes.NavigateTo url ->
+            ( model
+            , Cmd.batch
+                [ Cmd.map LabelsMsg pageCmd
+                , Nav.pushUrl model.key url
+                ]
+            )
+
+
+handleLabelOutMsg : Label.OutMsg -> Model -> Cmd Label.Msg -> ( Model, Cmd Msg )
+handleLabelOutMsg outMsg model pageCmd =
+    case outMsg of
+        LabelTypes.NoOutMsg ->
+            ( model, Cmd.map LabelMsg pageCmd )
+
+        LabelTypes.RequestTextMeasures requests ->
+            ( model
+            , Cmd.batch
+                (Cmd.map LabelMsg pageCmd
+                    :: List.map Ports.requestTextMeasure requests
+                )
+            )
+
+        LabelTypes.RequestSvgToPng request ->
+            ( model
+            , Cmd.batch
+                [ Cmd.map LabelMsg pageCmd
+                , Ports.requestSvgToPng request
+                ]
+            )
+
+        LabelTypes.ShowNotification message notificationType ->
+            let
+                ( notifiedModel, notifyCmd ) =
+                    setNotification message notificationType model
+            in
+            ( notifiedModel
+            , Cmd.batch
+                [ Cmd.map LabelMsg pageCmd
+                , notifyCmd
+                ]
+            )
+
+
 
 -- SUBSCRIPTIONS
 
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Ports.receiveTextMeasureResult GotTextMeasureResult
+    Sub.batch
+        [ Ports.receiveTextMeasureResult GotTextMeasureResult
+        , Ports.receivePngResult GotPngResult
+        ]
 
 
 
@@ -288,6 +425,12 @@ viewPage model =
 
         TemplateEditorPage pageModel ->
             Html.map HomeMsg (Home.view pageModel)
+
+        LabelListPage pageModel ->
+            Html.map LabelsMsg (Labels.view pageModel)
+
+        LabelEditorPage pageModel ->
+            Html.map LabelMsg (Label.view pageModel)
 
         NotFoundPage ->
             NotFound.view
