@@ -86,8 +86,8 @@ type alias ShapeProperties =
 
 type LabelObject
     = Container { id : ObjectId, name : String, x : Float, y : Float, width : Float, height : Float, content : List LabelObject }
-    | VSplit { id : ObjectId, name : String, x : Float, y : Float, width : Float, height : Float, split : Float, top : Maybe LabelObject, bottom : Maybe LabelObject }
-    | HSplit { id : ObjectId, name : String, x : Float, y : Float, width : Float, height : Float, split : Float, left : Maybe LabelObject, right : Maybe LabelObject }
+    | VSplit { id : ObjectId, name : String, split : Float, top : Maybe LabelObject, bottom : Maybe LabelObject }
+    | HSplit { id : ObjectId, name : String, split : Float, left : Maybe LabelObject, right : Maybe LabelObject }
     | TextObj { id : ObjectId, content : String, properties : TextProperties }
     | VariableObj { id : ObjectId, name : String, properties : TextProperties }
     | ImageObj { id : ObjectId, url : String }
@@ -204,30 +204,22 @@ newShape nextId shapeType =
         }
 
 
-newVSplit : Int -> Float -> Float -> Float -> Float -> LabelObject
-newVSplit nextId x y w h =
+newVSplit : Int -> LabelObject
+newVSplit nextId =
     VSplit
         { id = "obj-" ++ String.fromInt nextId
         , name = ""
-        , x = x
-        , y = y
-        , width = w
-        , height = h
         , split = 50
         , top = Nothing
         , bottom = Nothing
         }
 
 
-newHSplit : Int -> Float -> Float -> Float -> Float -> LabelObject
-newHSplit nextId x y w h =
+newHSplit : Int -> LabelObject
+newHSplit nextId =
     HSplit
         { id = "obj-" ++ String.fromInt nextId
         , name = ""
-        , x = x
-        , y = y
-        , width = w
-        , height = h
         , split = 50
         , left = Nothing
         , right = Nothing

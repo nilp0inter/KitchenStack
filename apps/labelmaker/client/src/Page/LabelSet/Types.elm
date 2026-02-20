@@ -186,32 +186,32 @@ collectForObject model parentW parentH obj =
         VSplit r ->
             let
                 topH =
-                    r.height * r.split / 100
+                    parentH * r.split / 100
 
                 bottomH =
-                    r.height - topH
+                    parentH - topH
 
                 topReqs =
-                    r.top |> Maybe.map (collectForObject model r.width topH) |> Maybe.withDefault []
+                    r.top |> Maybe.map (collectForObject model parentW topH) |> Maybe.withDefault []
 
                 bottomReqs =
-                    r.bottom |> Maybe.map (collectForObject model r.width bottomH) |> Maybe.withDefault []
+                    r.bottom |> Maybe.map (collectForObject model parentW bottomH) |> Maybe.withDefault []
             in
             topReqs ++ bottomReqs
 
         HSplit r ->
             let
                 leftW =
-                    r.width * r.split / 100
+                    parentW * r.split / 100
 
                 rightW =
-                    r.width - leftW
+                    parentW - leftW
 
                 leftReqs =
-                    r.left |> Maybe.map (collectForObject model leftW r.height) |> Maybe.withDefault []
+                    r.left |> Maybe.map (collectForObject model leftW parentH) |> Maybe.withDefault []
 
                 rightReqs =
-                    r.right |> Maybe.map (collectForObject model rightW r.height) |> Maybe.withDefault []
+                    r.right |> Maybe.map (collectForObject model rightW parentH) |> Maybe.withDefault []
             in
             leftReqs ++ rightReqs
 

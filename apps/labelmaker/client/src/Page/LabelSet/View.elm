@@ -137,18 +137,16 @@ renderObject model parentW parentH obj =
         VSplit r ->
             let
                 topH =
-                    r.height * r.split / 100
+                    parentH * r.split / 100
 
                 bottomH =
-                    r.height - topH
+                    parentH - topH
             in
-            [ Svg.g
-                [ SA.transform ("translate(" ++ String.fromFloat r.x ++ "," ++ String.fromFloat r.y ++ ")")
-                ]
-                (renderMaybeSlot model r.width topH r.top
+            [ Svg.g []
+                (renderMaybeSlot model parentW topH r.top
                     ++ [ Svg.g
                             [ SA.transform ("translate(0," ++ String.fromFloat topH ++ ")") ]
-                            (renderMaybeSlot model r.width bottomH r.bottom)
+                            (renderMaybeSlot model parentW bottomH r.bottom)
                        ]
                 )
             ]
@@ -156,18 +154,16 @@ renderObject model parentW parentH obj =
         HSplit r ->
             let
                 leftW =
-                    r.width * r.split / 100
+                    parentW * r.split / 100
 
                 rightW =
-                    r.width - leftW
+                    parentW - leftW
             in
-            [ Svg.g
-                [ SA.transform ("translate(" ++ String.fromFloat r.x ++ "," ++ String.fromFloat r.y ++ ")")
-                ]
-                (renderMaybeSlot model leftW r.height r.left
+            [ Svg.g []
+                (renderMaybeSlot model leftW parentH r.left
                     ++ [ Svg.g
                             [ SA.transform ("translate(" ++ String.fromFloat leftW ++ ",0)") ]
-                            (renderMaybeSlot model rightW r.height r.right)
+                            (renderMaybeSlot model rightW parentH r.right)
                        ]
                 )
             ]

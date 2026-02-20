@@ -163,25 +163,22 @@ renderObject model parentW parentH obj =
         VSplit r ->
             let
                 topH =
-                    r.height * r.split / 100
+                    parentH * r.split / 100
 
                 bottomH =
-                    r.height - topH
+                    parentH - topH
             in
             [ Svg.g
-                ([ SA.transform ("translate(" ++ String.fromFloat r.x ++ "," ++ String.fromFloat r.y ++ ")")
-                 ]
-                    ++ selectionAttrs r.id
-                )
-                (renderMaybeSlot model r.width topH r.top
+                (selectionAttrs r.id)
+                (renderMaybeSlot model parentW topH r.top
                     ++ [ Svg.g
                             [ SA.transform ("translate(0," ++ String.fromFloat topH ++ ")") ]
-                            (renderMaybeSlot model r.width bottomH r.bottom)
+                            (renderMaybeSlot model parentW bottomH r.bottom)
                        ]
                     ++ [ Svg.line
                             [ SA.x1 "0"
                             , SA.y1 (String.fromFloat topH)
-                            , SA.x2 (String.fromFloat r.width)
+                            , SA.x2 (String.fromFloat parentW)
                             , SA.y2 (String.fromFloat topH)
                             , SA.stroke "#999"
                             , SA.strokeWidth "1"
@@ -194,41 +191,38 @@ renderObject model parentW parentH obj =
                             [ Svg.rect
                                 [ SA.x "0"
                                 , SA.y "0"
-                                , SA.width (String.fromFloat r.width)
-                                , SA.height (String.fromFloat r.height)
+                                , SA.width (String.fromFloat parentW)
+                                , SA.height (String.fromFloat parentH)
                                 , SA.fill "rgba(59,130,246,0.05)"
                                 , SA.stroke "#3b82f6"
                                 , SA.strokeWidth "2"
                                 , SA.strokeDasharray "6,3"
-                                , SA.cursor "move"
-                                , onSvgMouseDown r.id Moving
                                 ]
                                 []
                             , Svg.line
                                 [ SA.x1 "0"
                                 , SA.y1 (String.fromFloat topH)
-                                , SA.x2 (String.fromFloat r.width)
+                                , SA.x2 (String.fromFloat parentW)
                                 , SA.y2 (String.fromFloat topH)
                                 , SA.stroke "#3b82f6"
                                 , SA.strokeWidth "3"
                                 , SA.strokeDasharray "6,3"
                                 , SA.cursor "row-resize"
-                                , onSvgMouseDown r.id DraggingSplit
+                                , onSplitDragStart r.id parentW parentH
                                 ]
                                 []
                             , Svg.circle
-                                [ SA.cx (String.fromFloat (r.width / 2))
+                                [ SA.cx (String.fromFloat (parentW / 2))
                                 , SA.cy (String.fromFloat topH)
                                 , SA.r "5"
                                 , SA.fill "#3b82f6"
                                 , SA.stroke "white"
                                 , SA.strokeWidth "1"
                                 , SA.cursor "row-resize"
-                                , onSvgMouseDown r.id DraggingSplit
+                                , onSplitDragStart r.id parentW parentH
                                 ]
                                 []
                             ]
-                                ++ resizeHandles r.id r.width r.height
 
                         else
                             []
@@ -239,26 +233,23 @@ renderObject model parentW parentH obj =
         HSplit r ->
             let
                 leftW =
-                    r.width * r.split / 100
+                    parentW * r.split / 100
 
                 rightW =
-                    r.width - leftW
+                    parentW - leftW
             in
             [ Svg.g
-                ([ SA.transform ("translate(" ++ String.fromFloat r.x ++ "," ++ String.fromFloat r.y ++ ")")
-                 ]
-                    ++ selectionAttrs r.id
-                )
-                (renderMaybeSlot model leftW r.height r.left
+                (selectionAttrs r.id)
+                (renderMaybeSlot model leftW parentH r.left
                     ++ [ Svg.g
                             [ SA.transform ("translate(" ++ String.fromFloat leftW ++ ",0)") ]
-                            (renderMaybeSlot model rightW r.height r.right)
+                            (renderMaybeSlot model rightW parentH r.right)
                        ]
                     ++ [ Svg.line
                             [ SA.x1 (String.fromFloat leftW)
                             , SA.y1 "0"
                             , SA.x2 (String.fromFloat leftW)
-                            , SA.y2 (String.fromFloat r.height)
+                            , SA.y2 (String.fromFloat parentH)
                             , SA.stroke "#999"
                             , SA.strokeWidth "1"
                             , SA.strokeDasharray "4,2"
@@ -270,41 +261,38 @@ renderObject model parentW parentH obj =
                             [ Svg.rect
                                 [ SA.x "0"
                                 , SA.y "0"
-                                , SA.width (String.fromFloat r.width)
-                                , SA.height (String.fromFloat r.height)
+                                , SA.width (String.fromFloat parentW)
+                                , SA.height (String.fromFloat parentH)
                                 , SA.fill "rgba(59,130,246,0.05)"
                                 , SA.stroke "#3b82f6"
                                 , SA.strokeWidth "2"
                                 , SA.strokeDasharray "6,3"
-                                , SA.cursor "move"
-                                , onSvgMouseDown r.id Moving
                                 ]
                                 []
                             , Svg.line
                                 [ SA.x1 (String.fromFloat leftW)
                                 , SA.y1 "0"
                                 , SA.x2 (String.fromFloat leftW)
-                                , SA.y2 (String.fromFloat r.height)
+                                , SA.y2 (String.fromFloat parentH)
                                 , SA.stroke "#3b82f6"
                                 , SA.strokeWidth "3"
                                 , SA.strokeDasharray "6,3"
                                 , SA.cursor "col-resize"
-                                , onSvgMouseDown r.id DraggingSplit
+                                , onSplitDragStart r.id parentW parentH
                                 ]
                                 []
                             , Svg.circle
                                 [ SA.cx (String.fromFloat leftW)
-                                , SA.cy (String.fromFloat (r.height / 2))
+                                , SA.cy (String.fromFloat (parentH / 2))
                                 , SA.r "5"
                                 , SA.fill "#3b82f6"
                                 , SA.stroke "white"
                                 , SA.strokeWidth "1"
                                 , SA.cursor "col-resize"
-                                , onSvgMouseDown r.id DraggingSplit
+                                , onSplitDragStart r.id parentW parentH
                                 ]
                                 []
                             ]
-                                ++ resizeHandles r.id r.width r.height
 
                         else
                             []
@@ -875,8 +863,8 @@ viewAddToolbar model =
             [ addButton "Texto" (AddObject (LO.newText model.nextId))
             , addButton "Variable" (AddObject (LO.newVariable model.nextId))
             , addButton "Contenedor" (AddObject (LO.newContainer model.nextId 10 10 200 100))
-            , addButton "V-Split" (AddObject (LO.newVSplit model.nextId 10 10 200 200))
-            , addButton "H-Split" (AddObject (LO.newHSplit model.nextId 10 10 200 200))
+            , addButton "V-Split" (AddObject (LO.newVSplit model.nextId))
+            , addButton "H-Split" (AddObject (LO.newHSplit model.nextId))
             , addButton "Rect." (AddObject (LO.newShape model.nextId Rectangle))
             , addButton "C\u{00ED}rculo" (AddObject (LO.newShape model.nextId Circle))
             , addButton "L\u{00ED}nea" (AddObject (LO.newShape model.nextId Line))
@@ -1096,14 +1084,6 @@ viewPropertiesFor model objId obj =
             div [ class "space-y-2" ]
                 [ propField "Nombre"
                     (propTextInput r.name (\v -> UpdateObjectProperty objId (SetContainerName v)) CommitContent)
-                , propRow "X"
-                    (propNumberInput (String.fromFloat r.x) (\v -> UpdateObjectProperty objId (SetContainerX v)) CommitContent)
-                    "Y"
-                    (propNumberInput (String.fromFloat r.y) (\v -> UpdateObjectProperty objId (SetContainerY v)) CommitContent)
-                , propRow "Ancho"
-                    (propNumberInput (String.fromFloat r.width) (\v -> UpdateObjectProperty objId (SetContainerWidth v)) CommitContent)
-                    "Alto"
-                    (propNumberInput (String.fromFloat r.height) (\v -> UpdateObjectProperty objId (SetContainerHeight v)) CommitContent)
                 , propField "Divisi\u{00F3}n (%)"
                     (propNumberInput (String.fromFloat r.split) (\v -> UpdateObjectProperty objId (SetSplitPercent v)) CommitContent)
                 ]
@@ -1112,14 +1092,6 @@ viewPropertiesFor model objId obj =
             div [ class "space-y-2" ]
                 [ propField "Nombre"
                     (propTextInput r.name (\v -> UpdateObjectProperty objId (SetContainerName v)) CommitContent)
-                , propRow "X"
-                    (propNumberInput (String.fromFloat r.x) (\v -> UpdateObjectProperty objId (SetContainerX v)) CommitContent)
-                    "Y"
-                    (propNumberInput (String.fromFloat r.y) (\v -> UpdateObjectProperty objId (SetContainerY v)) CommitContent)
-                , propRow "Ancho"
-                    (propNumberInput (String.fromFloat r.width) (\v -> UpdateObjectProperty objId (SetContainerWidth v)) CommitContent)
-                    "Alto"
-                    (propNumberInput (String.fromFloat r.height) (\v -> UpdateObjectProperty objId (SetContainerHeight v)) CommitContent)
                 , propField "Divisi\u{00F3}n (%)"
                     (propNumberInput (String.fromFloat r.split) (\v -> UpdateObjectProperty objId (SetSplitPercent v)) CommitContent)
                 ]
@@ -1383,6 +1355,21 @@ onSvgMouseDown objId mode =
         (Decode.map2
             (\cx cy ->
                 { message = SvgMouseDown objId mode cx cy
+                , stopPropagation = True
+                , preventDefault = True
+                }
+            )
+            (Decode.field "clientX" Decode.float)
+            (Decode.field "clientY" Decode.float)
+        )
+
+
+onSplitDragStart : ObjectId -> Float -> Float -> Svg.Attribute Msg
+onSplitDragStart objId containerW containerH =
+    Html.Events.custom "mousedown"
+        (Decode.map2
+            (\cx cy ->
+                { message = SplitDragStart objId cx cy containerW containerH
                 , stopPropagation = True
                 , preventDefault = True
                 }

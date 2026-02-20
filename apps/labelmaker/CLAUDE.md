@@ -212,8 +212,8 @@ Labels are built from a tree of composable objects defined in `Data/LabelObject.
 ```elm
 type LabelObject
     = Container { id, name, x, y, width, height, content : List LabelObject }
-    | VSplit { id, name, x, y, width, height, split, top : Maybe LabelObject, bottom : Maybe LabelObject }
-    | HSplit { id, name, x, y, width, height, split, left : Maybe LabelObject, right : Maybe LabelObject }
+    | VSplit { id, name, split, top : Maybe LabelObject, bottom : Maybe LabelObject }
+    | HSplit { id, name, split, left : Maybe LabelObject, right : Maybe LabelObject }
     | TextObj { id, content, properties : TextProperties }
     | VariableObj { id, name, properties : TextProperties }
     | ImageObj { id, url }
@@ -235,7 +235,7 @@ type LabelObject
 
 **Tree operations:** `findObject`, `updateObjectInTree`, `removeObjectFromTree`, `addObjectTo`, `addObjectToSlot`, `allTextObjectIds`, `removeAndReturn`, `insertAtTarget`, `isDescendantOf`, `allContainerIds`, `allSlotTargets`
 
-**Constructors:** `newText`, `newVariable`, `newContainer`, `newVSplit`, `newHSplit`, `newShape`, `newImage` — all take a `nextId : Int` parameter
+**Constructors:** `newText`, `newVariable`, `newContainer`, `newVSplit`, `newHSplit`, `newShape`, `newImage` — all take a `nextId : Int` parameter. `newContainer` additionally takes `x, y, width, height`. `newVSplit`/`newHSplit` only take `nextId` (splits fill their parent, no positioning).
 
 **JSON serialization:** Objects are serialized with a `"type"` discriminator field (`"container"`, `"text"`, `"variable"`, `"image"`, `"shape"`). Container's `content` uses `Decode.lazy` for recursive decoding. Container `name` is decoded with `Maybe` fallback to `""` for backward compatibility with existing data. `TextProperties.hAlign`/`vAlign` are encoded as strings (`"left"/"center"/"right"`, `"top"/"middle"/"bottom"`) and decoded with `optionalField` defaulting to `"center"`/`"middle"` for backward compatibility with existing templates.
 
@@ -294,6 +294,7 @@ The editor page (`/template/<uuid>`) is a live label canvas editor with composab
 3. **Add toolbar**: buttons to add Text, Variable, Container, Rectangle, Circle, Line, Image (appends to root or inside selected container)
 4. **Property editor** (bottom): context-sensitive controls for selected object:
    - Container: name, x, y, width, height
+   - VSplit/HSplit: name, split %
    - TextObj: content (multiline textarea), font family, font size, horizontal alignment, vertical alignment, RGB color
    - VariableObj: variable name, sample value (multiline textarea), font family, font size, horizontal alignment, vertical alignment, RGB color
    - ShapeObj: shape type dropdown, RGB color
@@ -317,7 +318,8 @@ The editor page (`/template/<uuid>`) is a live label canvas editor with composab
 - `CommitPadding` — On blur: persists `template_padding_set` if dirty
 - `CommitContent` — On blur: persists `template_content_set` if dirty
 - `CommitSampleValue String` — On blur: persists `template_sample_value_set` if dirty
-- `SvgMouseDown ObjectId DragMode Float Float` — Start SVG drag (move or resize handle)
+- `SvgMouseDown ObjectId DragMode Float Float` — Start SVG drag (move or resize handle, Container only)
+- `SplitDragStart ObjectId Float Float Float Float` — Start split line drag (objectId, mouseX, mouseY, containerW, containerH); View passes parent dimensions since splits have no stored size
 - `SvgMouseMove Float Float` — Continue SVG drag (via `Browser.Events.onMouseMove` subscription)
 - `SvgMouseUp` — End SVG drag, commit content, remeasure text if resized
 - `TreeDragStart ObjectId` — Start HTML5 tree drag

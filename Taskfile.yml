@@ -23,3 +23,11 @@ tasks:
     desc: Run all migration scripts on the Pi
     dir: deploy
     cmd: ansible-playbook migrate.yml
+
+  dev:
+    desc: Start dev environment with hot reloading
+    cmd: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+  dev:stop:
+    desc: Stop dev environment
+    cmd: docker compose -f docker-compose.yml -f docker-compose.dev.yml down

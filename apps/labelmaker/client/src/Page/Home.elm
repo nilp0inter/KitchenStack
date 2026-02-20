@@ -462,13 +462,18 @@ update msg model =
                     , Types.NoOutMsg
                     )
 
+                _ ->
+                    ( model, Cmd.none, Types.NoOutMsg )
+
+        Types.SplitDragStart targetId mouseX mouseY containerW containerH ->
+            case LO.findObject targetId (getValue model.content) of
                 Just (VSplit r) ->
                     let
                         drag =
-                            { mode = mode
+                            { mode = Types.DraggingSplit
                             , targetId = targetId
                             , startMouse = { x = mouseX, y = mouseY }
-                            , startRect = { x = r.x, y = r.y, width = r.width, height = r.height }
+                            , startRect = { x = 0, y = 0, width = containerW, height = containerH }
                             , startSplit = r.split
                             }
                     in
@@ -480,10 +485,10 @@ update msg model =
                 Just (HSplit r) ->
                     let
                         drag =
-                            { mode = mode
+                            { mode = Types.DraggingSplit
                             , targetId = targetId
                             , startMouse = { x = mouseX, y = mouseY }
-                            , startRect = { x = r.x, y = r.y, width = r.width, height = r.height }
+                            , startRect = { x = 0, y = 0, width = containerW, height = containerH }
                             , startSplit = r.split
                             }
                     in
@@ -521,20 +526,20 @@ update msg model =
                                                 VSplit r ->
                                                     let
                                                         initialSplitPx =
-                                                            r.height * drag.startSplit / 100
+                                                            drag.startRect.height * drag.startSplit / 100
 
                                                         newSplit =
-                                                            clamp 5 95 ((initialSplitPx + svgDy) / r.height * 100)
+                                                            clamp 5 95 ((initialSplitPx + svgDy) / drag.startRect.height * 100)
                                                     in
                                                     VSplit { r | split = newSplit }
 
                                                 HSplit r ->
                                                     let
                                                         initialSplitPx =
-                                                            r.width * drag.startSplit / 100
+                                                            drag.startRect.width * drag.startSplit / 100
 
                                                         newSplit =
-                                                            clamp 5 95 ((initialSplitPx + svgDx) / r.width * 100)
+                                                            clamp 5 95 ((initialSplitPx + svgDx) / drag.startRect.width * 100)
                                                     in
                                                     HSplit { r | split = newSplit }
 
@@ -559,24 +564,6 @@ update msg model =
                                             case obj of
                                                 Container r ->
                                                     Container
-                                                        { r
-                                                            | x = svgRect.x
-                                                            , y = svgRect.y
-                                                            , width = svgRect.width
-                                                            , height = svgRect.height
-                                                        }
-
-                                                VSplit r ->
-                                                    VSplit
-                                                        { r
-                                                            | x = svgRect.x
-                                                            , y = svgRect.y
-                                                            , width = svgRect.width
-                                                            , height = svgRect.height
-                                                        }
-
-                                                HSplit r ->
-                                                    HSplit
                                                         { r
                                                             | x = svgRect.x
                                                             , y = svgRect.y
@@ -990,42 +977,10 @@ applyPropertyChange change obj =
                 Nothing ->
                     obj
 
-        ( SetContainerX val, VSplit r ) ->
-            case String.toFloat val of
-                Just v ->
-                    VSplit { r | x = v }
-
-                Nothing ->
-                    obj
-
-        ( SetContainerX val, HSplit r ) ->
-            case String.toFloat val of
-                Just v ->
-                    HSplit { r | x = v }
-
-                Nothing ->
-                    obj
-
         ( SetContainerY val, Container r ) ->
             case String.toFloat val of
                 Just v ->
                     Container { r | y = v }
-
-                Nothing ->
-                    obj
-
-        ( SetContainerY val, VSplit r ) ->
-            case String.toFloat val of
-                Just v ->
-                    VSplit { r | y = v }
-
-                Nothing ->
-                    obj
-
-        ( SetContainerY val, HSplit r ) ->
-            case String.toFloat val of
-                Just v ->
-                    HSplit { r | y = v }
 
                 Nothing ->
                     obj
@@ -1038,42 +993,10 @@ applyPropertyChange change obj =
                 Nothing ->
                     obj
 
-        ( SetContainerWidth val, VSplit r ) ->
-            case String.toFloat val of
-                Just v ->
-                    VSplit { r | width = v }
-
-                Nothing ->
-                    obj
-
-        ( SetContainerWidth val, HSplit r ) ->
-            case String.toFloat val of
-                Just v ->
-                    HSplit { r | width = v }
-
-                Nothing ->
-                    obj
-
         ( SetContainerHeight val, Container r ) ->
             case String.toFloat val of
                 Just v ->
                     Container { r | height = v }
-
-                Nothing ->
-                    obj
-
-        ( SetContainerHeight val, VSplit r ) ->
-            case String.toFloat val of
-                Just v ->
-                    VSplit { r | height = v }
-
-                Nothing ->
-                    obj
-
-        ( SetContainerHeight val, HSplit r ) ->
-            case String.toFloat val of
-                Just v ->
-                    HSplit { r | height = v }
 
                 Nothing ->
                     obj
