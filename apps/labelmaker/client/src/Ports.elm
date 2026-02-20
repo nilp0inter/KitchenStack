@@ -1,10 +1,14 @@
 port module Ports exposing
-    ( PngResult
+    ( FileSelectRequest
+    , FileSelectResult
+    , PngResult
     , SvgToPngRequest
     , TextMeasureRequest
     , TextMeasureResult
+    , receiveFileSelectResult
     , receivePngResult
     , receiveTextMeasureResult
+    , requestFileSelect
     , requestSvgToPng
     , requestTextMeasure
     )
@@ -54,3 +58,27 @@ port requestSvgToPng : SvgToPngRequest -> Cmd msg
 
 
 port receivePngResult : (PngResult -> msg) -> Sub msg
+
+
+
+-- FILE SELECTION PORTS
+
+
+type alias FileSelectRequest =
+    { requestId : String
+    , maxSizeKb : Int
+    , acceptTypes : List String
+    }
+
+
+type alias FileSelectResult =
+    { requestId : String
+    , dataUrl : Maybe String
+    , error : Maybe String
+    }
+
+
+port requestFileSelect : FileSelectRequest -> Cmd msg
+
+
+port receiveFileSelectResult : (FileSelectResult -> msg) -> Sub msg

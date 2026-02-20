@@ -108,6 +108,8 @@ type Msg
     | TreeDragEnd
     | MoveObjectToParent ObjectId (Maybe ObjectId)
     | AutoSave
+    | SelectImage ObjectId
+    | GotImageResult Ports.FileSelectResult
 
 
 type PropertyChange
@@ -130,6 +132,7 @@ type PropertyChange
 type OutMsg
     = NoOutMsg
     | RequestTextMeasures (List Ports.TextMeasureRequest)
+    | RequestFileSelect Ports.FileSelectRequest
 
 
 initialModel : String -> Model

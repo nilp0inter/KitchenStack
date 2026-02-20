@@ -687,6 +687,41 @@ update msg model =
             in
             ( m5, Cmd.batch (c1 :: c2 :: c3 :: c4 :: c5s), Types.NoOutMsg )
 
+        Types.SelectImage objId ->
+            ( model
+            , Cmd.none
+            , Types.RequestFileSelect
+                { requestId = objId
+                , maxSizeKb = 500
+                , acceptTypes = [ "image/png", "image/jpeg", "image/webp" ]
+                }
+            )
+
+        Types.GotImageResult result ->
+            case result.dataUrl of
+                Just url ->
+                    let
+                        newContent =
+                            LO.updateObjectInTree result.requestId
+                                (\obj ->
+                                    case obj of
+                                        ImageObj r ->
+                                            ImageObj { r | url = url }
+
+                                        _ ->
+                                            obj
+                                )
+                                (getValue model.content)
+
+                        newModel =
+                            { model | content = Clean newContent }
+                    in
+                    ( newModel, Cmd.none, Types.NoOutMsg )
+                        |> withContentCmd newModel
+
+                Nothing ->
+                    ( model, Cmd.none, Types.NoOutMsg )
+
         Types.EventEmitted _ ->
             ( model, Cmd.none, Types.NoOutMsg )
 

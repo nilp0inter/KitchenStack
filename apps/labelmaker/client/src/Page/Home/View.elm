@@ -792,7 +792,34 @@ viewPropertiesFor model objId obj =
 
         ImageObj r ->
             div [ class "space-y-2" ]
-                [ propField "URL"
+                [ if String.isEmpty r.url then
+                    button
+                        [ class "w-full px-3 py-2 text-sm font-medium bg-label-100 text-label-700 rounded-lg hover:bg-label-200 transition-colors"
+                        , onClick (SelectImage objId)
+                        ]
+                        [ text "Subir imagen" ]
+
+                  else
+                    div [ class "space-y-2" ]
+                        [ img
+                            [ Html.Attributes.src r.url
+                            , class "w-full h-24 object-contain rounded border border-gray-200 bg-gray-50"
+                            ]
+                            []
+                        , div [ class "flex gap-2" ]
+                            [ button
+                                [ class "flex-1 px-3 py-1.5 text-xs font-medium bg-label-100 text-label-700 rounded-lg hover:bg-label-200 transition-colors"
+                                , onClick (SelectImage objId)
+                                ]
+                                [ text "Cambiar" ]
+                            , button
+                                [ class "flex-1 px-3 py-1.5 text-xs font-medium bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                                , onClick (UpdateObjectProperty objId (SetImageUrl ""))
+                                ]
+                                [ text "Eliminar" ]
+                            ]
+                        ]
+                , propField "URL"
                     (propTextInput r.url (\v -> UpdateObjectProperty objId (SetImageUrl v)) CommitContent)
                 ]
 

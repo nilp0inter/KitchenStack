@@ -102,6 +102,7 @@ type Msg
     | LabelSetMsg LabelSet.Msg
     | GotTextMeasureResult Ports.TextMeasureResult
     | GotPngResult Ports.PngResult
+    | GotFileSelectResult Ports.FileSelectResult
     | DismissNotification Int
     | AutoSaveTick
 
@@ -277,6 +278,21 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
+        GotFileSelectResult result ->
+            case model.page of
+                TemplateEditorPage pageModel ->
+                    let
+                        ( newPageModel, pageCmd, outMsg ) =
+                            Home.update (HomeTypes.GotImageResult result) pageModel
+
+                        newModel =
+                            { model | page = TemplateEditorPage newPageModel }
+                    in
+                    handleHomeOutMsg outMsg newModel pageCmd
+
+                _ ->
+                    ( model, Cmd.none )
+
         AutoSaveTick ->
             case model.page of
                 TemplateEditorPage pageModel ->
@@ -435,6 +451,14 @@ handleHomeOutMsg outMsg model pageCmd =
                 )
             )
 
+        HomeTypes.RequestFileSelect request ->
+            ( model
+            , Cmd.batch
+                [ Cmd.map HomeMsg pageCmd
+                , Ports.requestFileSelect request
+                ]
+            )
+
 
 handleTemplatesOutMsg : Templates.OutMsg -> Model -> Cmd Templates.Msg -> ( Model, Cmd Msg )
 handleTemplatesOutMsg outMsg model pageCmd =
@@ -560,6 +584,7 @@ subscriptions model =
     Sub.batch
         [ Ports.receiveTextMeasureResult GotTextMeasureResult
         , Ports.receivePngResult GotPngResult
+        , Ports.receiveFileSelectResult GotFileSelectResult
         , Time.every 3000 (\_ -> AutoSaveTick)
         , case model.page of
             TemplateEditorPage pageModel ->

@@ -230,6 +230,94 @@ app.ports.requestSvgToPng.subscribe(async ({ svgId, requestId, width, height, ro
   }
 })
 
+// File selection and upload port
+app.ports.requestFileSelect.subscribe(({ requestId, maxSizeKb, acceptTypes }) => {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = acceptTypes.join(',')
+  input.style.display = 'none'
+
+  input.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) {
+      app.ports.receiveFileSelectResult.send({
+        requestId,
+        dataUrl: null,
+        error: 'No file selected'
+      })
+      document.body.removeChild(input)
+      return
+    }
+
+    // Check file size
+    const maxSizeBytes = maxSizeKb * 1024
+    if (file.size > maxSizeBytes) {
+      app.ports.receiveFileSelectResult.send({
+        requestId,
+        dataUrl: null,
+        error: `File too large. Maximum size is ${maxSizeKb}KB`
+      })
+      document.body.removeChild(input)
+      return
+    }
+
+    // Check file type
+    const validTypes = ['image/png', 'image/jpeg', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      app.ports.receiveFileSelectResult.send({
+        requestId,
+        dataUrl: null,
+        error: 'Invalid file type. Please select a PNG, JPEG, or WebP image'
+      })
+      document.body.removeChild(input)
+      return
+    }
+
+    // Upload file to S3 storage via Caddy
+    try {
+      const uuid = crypto.randomUUID()
+      const assetUrl = `/api/assets/${uuid}`
+
+      const response = await fetch(assetUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file
+      })
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`)
+      }
+
+      // Send the URL path (not base64) back to Elm
+      app.ports.receiveFileSelectResult.send({
+        requestId,
+        dataUrl: assetUrl,
+        error: null
+      })
+    } catch (err) {
+      app.ports.receiveFileSelectResult.send({
+        requestId,
+        dataUrl: null,
+        error: `Upload failed: ${err.message}`
+      })
+    }
+    document.body.removeChild(input)
+  })
+
+  // Handle cancel (no file selected)
+  input.addEventListener('cancel', () => {
+    app.ports.receiveFileSelectResult.send({
+      requestId,
+      dataUrl: null,
+      error: null  // No error, just cancelled
+    })
+    document.body.removeChild(input)
+  })
+
+  document.body.appendChild(input)
+  input.click()
+})
+
 // Register service worker for PWA (optional)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
