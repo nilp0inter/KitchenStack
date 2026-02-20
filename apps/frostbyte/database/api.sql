@@ -48,11 +48,10 @@ SELECT
         ''
     ) AS ingredients,
     b.details,
-    encode(i.image_data, 'base64') AS image
+    b.image_url AS image
 FROM frostbyte_logic.batch b
 JOIN frostbyte_logic.portion p ON p.batch_id = b.id
-LEFT JOIN frostbyte_logic.image i ON i.id = b.image_id
-GROUP BY b.id, b.name, b.container_id, b.best_before_date, b.label_preset, b.created_at, b.details, i.image_data;
+GROUP BY b.id, b.name, b.container_id, b.best_before_date, b.label_preset, b.created_at, b.details, b.image_url;
 
 -- Portion detail: for QR scan page
 CREATE VIEW frostbyte_api.portion_detail AS
@@ -73,10 +72,9 @@ SELECT
         ''
     ) AS ingredients,
     b.details,
-    encode(i.image_data, 'base64') AS image
+    b.image_url AS image
 FROM frostbyte_logic.portion p
-JOIN frostbyte_logic.batch b ON b.id = p.batch_id
-LEFT JOIN frostbyte_logic.image i ON i.id = b.image_id;
+JOIN frostbyte_logic.batch b ON b.id = p.batch_id;
 
 -- Freezer history: daily running totals (DISCARDED portions excluded entirely)
 CREATE VIEW frostbyte_api.freezer_history AS
@@ -128,9 +126,8 @@ SELECT
         ''
     ) AS ingredients,
     r.details,
-    encode(i.image_data, 'base64') AS image
-FROM frostbyte_logic.recipe r
-LEFT JOIN frostbyte_logic.image i ON i.id = r.image_id;
+    r.image_url AS image
+FROM frostbyte_logic.recipe r;
 
 -- =============================================================================
 -- Write RPC Functions (all writes go through events)
@@ -360,7 +357,7 @@ CREATE FUNCTION frostbyte_api.create_batch(
     p_best_before_date DATE DEFAULT NULL,
     p_label_preset TEXT DEFAULT NULL,
     p_details TEXT DEFAULT NULL,
-    p_image_data TEXT DEFAULT NULL
+    p_image_url TEXT DEFAULT NULL
 ) RETURNS TABLE (
     batch_id UUID,
     portion_ids UUID[],
@@ -395,7 +392,7 @@ BEGIN
         'best_before_date', v_best_before_date,
         'label_preset', p_label_preset,
         'details', p_details,
-        'image_data', p_image_data
+        'image_url', p_image_url
     ));
 
     RETURN QUERY SELECT p_batch_id, p_portion_ids, v_expiry_date, v_best_before_date;
@@ -410,7 +407,7 @@ CREATE FUNCTION frostbyte_api.update_batch(
     p_ingredient_names TEXT[],
     p_label_preset TEXT DEFAULT NULL,
     p_details TEXT DEFAULT NULL,
-    p_image_data TEXT DEFAULT NULL,
+    p_image_url TEXT DEFAULT NULL,
     p_remove_image BOOLEAN DEFAULT FALSE,
     p_best_before_date DATE DEFAULT NULL,
     p_new_portion_ids UUID[] DEFAULT ARRAY[]::UUID[],
@@ -443,7 +440,7 @@ BEGIN
         'best_before_date', v_best_before_date,
         'label_preset', p_label_preset,
         'details', p_details,
-        'image_data', p_image_data,
+        'image_url', p_image_url,
         'remove_image', p_remove_image
     ));
 
@@ -534,7 +531,7 @@ CREATE FUNCTION frostbyte_api.save_recipe(
     p_original_name TEXT DEFAULT NULL,
     p_default_label_preset TEXT DEFAULT NULL,
     p_details TEXT DEFAULT NULL,
-    p_image_data TEXT DEFAULT NULL
+    p_image_url TEXT DEFAULT NULL
 ) RETURNS TABLE (recipe_name TEXT) LANGUAGE plpgsql AS $$
 BEGIN
     INSERT INTO frostbyte_data.event (type, payload)
@@ -546,7 +543,7 @@ BEGIN
         'original_name', p_original_name,
         'default_label_preset', p_default_label_preset,
         'details', p_details,
-        'image_data', p_image_data
+        'image_url', p_image_url
     ));
 
     RETURN QUERY SELECT p_name::TEXT AS recipe_name;

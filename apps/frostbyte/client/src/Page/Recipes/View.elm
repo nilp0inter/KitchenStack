@@ -284,7 +284,7 @@ viewImageSelector maybeImage =
             Just imageData ->
                 div [ class "flex items-center gap-4" ]
                     [ img
-                        [ src ("data:image/png;base64," ++ imageData)
+                        [ src imageData
                         , alt "Imagen de la receta"
                         , class "w-24 h-24 object-cover rounded-lg border border-gray-200"
                         ]
@@ -323,7 +323,7 @@ viewRow recipe =
             [ case recipe.image of
                 Just imageData ->
                     img
-                        [ src ("data:image/png;base64," ++ imageData)
+                        [ src imageData
                         , alt recipe.name
                         , class "w-12 h-12 object-cover rounded-lg"
                         ]

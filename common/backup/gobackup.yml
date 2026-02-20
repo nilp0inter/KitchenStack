@@ -11,6 +11,8 @@ models:
     archive:
       includes:
         - /data/json
+        - /data/storage/frostbyte-assets
+        - /data/storage/labelmaker-assets
     databases:
       postgresql:
         type: postgresql

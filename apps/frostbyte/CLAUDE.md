@@ -28,10 +28,9 @@ frostbyte_api    — External interface: read views + RPC write functions (expos
 - **`frostbyte_data.event`**: Append-only event store (id BIGSERIAL, type TEXT, payload JSONB, created_at TIMESTAMPTZ)
 
 **Logic schema (idempotent — `frostbyte_logic`):**
-- **Projection tables**: `image`, `ingredient`, `container_type`, `label_preset`, `batch`, `batch_ingredient`, `portion`, `recipe`, `recipe_ingredient`
+- **Projection tables**: `ingredient`, `container_type`, `label_preset`, `batch`, `batch_ingredient`, `portion`, `recipe`, `recipe_ingredient`
 - **`frostbyte_logic.apply_event()`**: CASE dispatcher to 14 individual handler functions
 - **`frostbyte_logic.compute_expiry_date()`** / **`frostbyte_logic.compute_best_before_date()`**: Server-side date computation from ingredient data
-- **`frostbyte_logic.store_image_base64()`** / **`frostbyte_logic.get_image_base64()`**: Image helpers
 - **`frostbyte_logic.replay_all_events()`**: Truncates projections and rebuilds from events
 
 **API schema (idempotent — `frostbyte_api`):**
@@ -174,56 +173,50 @@ Text Measure Request → JS Canvas measureText() → Computed Data (font size, w
 
 ## Image Handling
 
-Recipes and batches support optional images stored as binary data in PostgreSQL.
+Recipes and batches support optional images stored in VersityGW (S3-compatible object storage), referenced by URL in the database.
+
+### Storage Architecture
+
+Images are stored in VersityGW buckets, not in PostgreSQL. Each app has its own bucket:
+- FrostByte: `frostbyte-assets` (accessed via `/api/assets/{uuid}` on port :80)
+- LabelMaker: `labelmaker-assets` (accessed via `/api/assets/{uuid}` on port :8080)
+
+Caddy rewrites `/api/assets/{key}` → `/{app}-assets/{key}` per port, so clients never see bucket names.
 
 ### Database Design
 
-Images use a normalized design with a separate `image` table in `frostbyte_logic`:
-
-```sql
-CREATE TABLE frostbyte_logic.image (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    image_data BYTEA NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE FUNCTION frostbyte_logic.store_image_base64(base64_data TEXT) RETURNS UUID
-CREATE FUNCTION frostbyte_logic.get_image_base64(image_id UUID) RETURNS TEXT
-```
-
-Foreign keys link images to recipes and batches:
-- `frostbyte_logic.recipe.image_id` → `frostbyte_logic.image(id)` (nullable, ON DELETE SET NULL)
-- `frostbyte_logic.batch.image_id` → `frostbyte_logic.image(id)` (nullable, ON DELETE SET NULL)
+Images are referenced by URL text columns:
+- `frostbyte_logic.batch.image_url TEXT NULL` — URL path to batch image
+- `frostbyte_logic.recipe.image_url TEXT NULL` — URL path to recipe image
 
 ### Image Flow
 
-**Upload flow (Elm → JS → Elm → API → PostgreSQL):**
+**Upload flow (Elm → JS → VersityGW → Elm → API):**
 1. User clicks image selector → Elm sends `requestFileSelect` port
 2. JavaScript opens file picker, validates file (500KB max, PNG/JPEG/WebP)
-3. JS reads file as base64, sends via `receiveFileSelectResult` port
-4. Elm stores base64 in form state (`form.image : Maybe String`)
-5. On save, base64 sent as `p_image_data` parameter to RPC function
-6. PostgreSQL function calls `store_image_base64()` to create image record
-7. Image UUID stored in recipe/batch `image_id` column
+3. JS generates UUID, PUTs file to `/api/assets/{uuid}` (Caddy → VersityGW)
+4. On success, JS sends URL path (`/api/assets/{uuid}`) via `receiveFileSelectResult` port
+5. Elm stores URL in form state (`form.image : Maybe String`)
+6. On save, URL sent as `p_image_url` parameter to RPC function
+7. URL stored in recipe/batch `image_url` column
 
 **Retrieval flow:**
-- `batch_summary` and `recipe_summary` views JOIN with `image` table
-- Images returned as base64 via `encode(image_data, 'base64') AS image`
-- Elm displays using `img [ src ("data:image/png;base64," ++ imageData) ]`
+- `batch_summary` and `recipe_summary` views expose `b.image_url AS image`
+- Elm displays using `img [ src imageUrl ]` (browser fetches directly from VersityGW via Caddy)
 
 ### Adding Image Support to New Entities
 
-1. **Database**: Add `image_id UUID NULL REFERENCES frostbyte_logic.image(id) ON DELETE SET NULL` to table
-2. **Event handler**: In `logic.sql`, call `frostbyte_logic.store_image_base64()` if `p->>'image_data'` is present
-3. **API RPC**: Add `p_image_data TEXT DEFAULT NULL` parameter, include in event payload
-4. **View**: LEFT JOIN with `frostbyte_logic.image` table, include `encode(i.image_data, 'base64') AS image`
+1. **Database**: Add `image_url TEXT NULL` column to projection table
+2. **Event handler**: In `logic.sql`, read `NULLIF(p->>'image_url', '')` from event payload
+3. **API RPC**: Add `p_image_url TEXT DEFAULT NULL` parameter, include in event payload as `'image_url'`
+4. **View**: Select `t.image_url AS image` directly (no JOIN needed)
 5. **Elm Types**: Add `image : Maybe String` to both the entity type and form type
 6. **Decoders**: Add `|> andMap (Decode.field "image" (Decode.nullable Decode.string))`
-7. **Encoders**: Add image field encoding with `p_image_data` key
+7. **Encoders**: Add image field encoding with `p_image_url` key
 8. **Page Types**: Add `SelectImage`, `GotImageResult Ports.FileSelectResult`, `RemoveImage` to Msg
 9. **Page Types**: Add `RequestFileSelect Ports.FileSelectRequest` to OutMsg
 10. **Page update**: Handle the three image messages
-11. **Page view**: Add `viewImageSelector` component
+11. **Page view**: Add `viewImageSelector` component (uses `img [ src imageUrl ]`)
 12. **Main.elm**: Forward `GotFileSelectResult` to page, handle `RequestFileSelect` OutMsg
 
 ## API Reference

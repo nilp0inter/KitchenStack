@@ -79,9 +79,12 @@
         enabled: true
         daemon_reload: true
 
-    - name: Create persistent database volume
+    - name: Create persistent volumes
       ansible.builtin.command:
-        cmd: docker volume create kitchen_postgres_data
+        cmd: "docker volume create {{ item }}"
+      loop:
+        - kitchen_postgres_data
+        - kitchen_storage_data
       changed_when: false
 
     - name: Pull Docker images

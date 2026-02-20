@@ -375,7 +375,7 @@ viewRecipeSuggestion recipe =
             [ case recipe.image of
                 Just imageData ->
                     img
-                        [ src ("data:image/png;base64," ++ imageData)
+                        [ src imageData
                         , alt recipe.name
                         , class "w-10 h-10 object-cover rounded-lg flex-shrink-0"
                         ]
@@ -411,7 +411,7 @@ viewImageSelector maybeImage =
             Just imageData ->
                 div [ class "flex items-center gap-4" ]
                     [ img
-                        [ src ("data:image/png;base64," ++ imageData)
+                        [ src imageData
                         , alt "Imagen del lote"
                         , class "w-24 h-24 object-cover rounded-lg border border-gray-200"
                         ]

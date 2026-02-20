@@ -75,7 +75,7 @@ viewBatchesTable model =
                                     [ case batch.image of
                                         Just imageData ->
                                             img
-                                                [ src ("data:image/png;base64," ++ imageData)
+                                                [ src imageData
                                                 , alt batch.name
                                                 , class "w-12 h-12 object-cover rounded-lg"
                                                 ]

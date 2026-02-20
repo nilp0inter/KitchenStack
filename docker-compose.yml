@@ -89,6 +89,53 @@ services:
     networks:
       - kitchen_network
 
+  storage:
+    image: versity/versitygw:latest
+    container_name: kitchen_storage
+    command:
+      - posix
+      - /data
+      - --iam-dir
+      - /config/iam
+    environment:
+      ROOT_ACCESS_KEY_ID: kitchen_storage_key
+      ROOT_SECRET_ACCESS_KEY: kitchen_storage_secret
+      VGW_PORT: ":7070"
+    volumes:
+      - storage_data:/data
+      - storage_config:/config
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -S -O /dev/null http://localhost:7070/ 2>&1 | grep -q '403\\|200'"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kitchen_network
+
+  storage_init:
+    image: amazon/aws-cli:latest
+    container_name: kitchen_storage_init
+    depends_on:
+      storage:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: kitchen_storage_key
+      AWS_SECRET_ACCESS_KEY: kitchen_storage_secret
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        aws --endpoint-url http://storage:7070 s3 mb s3://frostbyte-assets 2>/dev/null || true
+        aws --endpoint-url http://storage:7070 s3 mb s3://labelmaker-assets 2>/dev/null || true
+        echo '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":["s3:GetObject","s3:PutObject"],"Resource":"arn:aws:s3:::frostbyte-assets/*"}]}' > /tmp/policy.json
+        aws --endpoint-url http://storage:7070 s3api put-bucket-policy --bucket frostbyte-assets --policy file:///tmp/policy.json
+        echo '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":["s3:GetObject","s3:PutObject"],"Resource":"arn:aws:s3:::labelmaker-assets/*"}]}' > /tmp/policy.json
+        aws --endpoint-url http://storage:7070 s3api put-bucket-policy --bucket labelmaker-assets --policy file:///tmp/policy.json
+        echo "Storage buckets initialized"
+    networks:
+      - kitchen_network
+    restart: "no"
+
 # =============================================================================
 # FrostByte App Services
 # =============================================================================
@@ -143,6 +190,8 @@ services:
         condition: service_started
       printer_service:
         condition: service_started
+      storage_init:
+        condition: service_completed_successfully
       frostbyte_client_builder:
         condition: service_completed_successfully
       labelmaker_client_builder:
@@ -164,6 +213,7 @@ services:
     volumes:
       - ./common/backup/gobackup.yml:/etc/gobackup/gobackup.yml:ro
       - gobackup_json:/data/json
+      - storage_data:/data/storage:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -174,6 +224,10 @@ volumes:
   postgres_data:
     name: kitchen_postgres_data
     external: true
+  storage_data:
+    name: kitchen_storage_data
+    external: true
+  storage_config:
   frostbyte_client_dist:
   frostbyte_client_node_modules:
   labelmaker_client_dist:

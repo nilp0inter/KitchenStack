@@ -397,7 +397,7 @@ app.ports.setPinchZoom.subscribe(({ elementId, zoom, panX, panY }) => {
   }
 })
 
-// File selection port for image uploads
+// File selection port for image uploads — uploads to S3 via /api/assets/{uuid}
 app.ports.requestFileSelect.subscribe(({ requestId, maxSizeKb, acceptTypes }) => {
   const input = document.createElement('input')
   input.type = 'file'
@@ -440,28 +440,35 @@ app.ports.requestFileSelect.subscribe(({ requestId, maxSizeKb, acceptTypes }) =>
       return
     }
 
-    // Read file as base64
-    const reader = new FileReader()
-    reader.onload = () => {
-      // Extract just the base64 data (remove data:image/...;base64, prefix)
-      const dataUrl = reader.result
-      const base64Data = dataUrl.split(',')[1]
+    // Upload file to S3 storage via Caddy
+    try {
+      const uuid = crypto.randomUUID()
+      const assetUrl = `/api/assets/${uuid}`
+
+      const response = await fetch(assetUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file
+      })
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`)
+      }
+
+      // Send the URL path (not base64) back to Elm
       app.ports.receiveFileSelectResult.send({
         requestId,
-        dataUrl: base64Data,
+        dataUrl: assetUrl,
         error: null
       })
-      document.body.removeChild(input)
-    }
-    reader.onerror = () => {
+    } catch (err) {
       app.ports.receiveFileSelectResult.send({
         requestId,
         dataUrl: null,
-        error: 'Failed to read file'
+        error: `Upload failed: ${err.message}`
       })
-      document.body.removeChild(input)
     }
-    reader.readAsDataURL(file)
+    document.body.removeChild(input)
   })
 
   // Handle cancel (no file selected)

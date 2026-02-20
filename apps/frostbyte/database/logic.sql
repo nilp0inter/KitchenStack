@@ -10,12 +10,6 @@ CREATE SCHEMA frostbyte_logic;
 -- Projection Tables (rebuilt from events on replay)
 -- =============================================================================
 
-CREATE TABLE frostbyte_logic.image (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    image_data BYTEA NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
 CREATE TABLE frostbyte_logic.ingredient (
     name CITEXT PRIMARY KEY,
     expire_days INTEGER NULL,
@@ -62,7 +56,7 @@ CREATE TABLE frostbyte_logic.batch (
     best_before_date DATE NULL,
     label_preset TEXT NULL REFERENCES frostbyte_logic.label_preset(name) ON UPDATE CASCADE ON DELETE SET NULL,
     details TEXT NULL,
-    image_id UUID NULL REFERENCES frostbyte_logic.image(id) ON DELETE SET NULL,
+    image_url TEXT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -93,7 +87,7 @@ CREATE TABLE frostbyte_logic.recipe (
     default_container_id TEXT NULL REFERENCES frostbyte_logic.container_type(name),
     default_label_preset TEXT NULL REFERENCES frostbyte_logic.label_preset(name) ON UPDATE CASCADE ON DELETE SET NULL,
     details TEXT NULL,
-    image_id UUID NULL REFERENCES frostbyte_logic.image(id) ON DELETE SET NULL,
+    image_url TEXT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -108,35 +102,6 @@ CREATE INDEX idx_recipe_ingredient_recipe ON frostbyte_logic.recipe_ingredient(r
 -- =============================================================================
 -- Helper Functions
 -- =============================================================================
-
-CREATE FUNCTION frostbyte_logic.store_image_base64(base64_data TEXT)
-RETURNS UUID
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    new_id UUID;
-BEGIN
-    INSERT INTO frostbyte_logic.image (image_data)
-    VALUES (decode(base64_data, 'base64'))
-    RETURNING id INTO new_id;
-    RETURN new_id;
-END;
-$$;
-
-CREATE FUNCTION frostbyte_logic.get_image_base64(image_id UUID)
-RETURNS TEXT
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    result TEXT;
-BEGIN
-    SELECT encode(image_data, 'base64')
-    INTO result
-    FROM frostbyte_logic.image
-    WHERE id = image_id;
-    RETURN result;
-END;
-$$;
 
 CREATE FUNCTION frostbyte_logic.compute_expiry_date(
     p_created_at DATE,
@@ -339,7 +304,6 @@ CREATE FUNCTION frostbyte_logic.apply_batch_created(p JSONB, p_created_at TIMEST
 RETURNS void LANGUAGE plpgsql AS $$
 DECLARE
     v_ingredient_name TEXT;
-    v_image_id UUID;
     v_portion_id TEXT;
     v_ingredient_names TEXT[];
     v_portion_ids TEXT[];
@@ -363,13 +327,8 @@ BEGIN
         END LOOP;
     END IF;
 
-    -- Store image if provided
-    IF p->>'image_data' IS NOT NULL AND p->>'image_data' != '' THEN
-        v_image_id := frostbyte_logic.store_image_base64(p->>'image_data');
-    END IF;
-
     -- Create batch
-    INSERT INTO frostbyte_logic.batch (id, name, container_id, best_before_date, label_preset, details, image_id, created_at)
+    INSERT INTO frostbyte_logic.batch (id, name, container_id, best_before_date, label_preset, details, image_url, created_at)
     VALUES (
         (p->>'batch_id')::UUID,
         p->>'name',
@@ -377,7 +336,7 @@ BEGIN
         (p->>'best_before_date')::DATE,
         p->>'label_preset',
         p->>'details',
-        v_image_id,
+        NULLIF(p->>'image_url', ''),
         COALESCE((p->>'created_at')::TIMESTAMPTZ, p_created_at)
     );
 
@@ -410,8 +369,8 @@ DECLARE
     v_batch_id UUID;
     v_ingredient_name TEXT;
     v_ingredient_names TEXT[];
-    v_image_id UUID;
-    v_existing_image_id UUID;
+    v_image_url TEXT;
+    v_existing_image_url TEXT;
 BEGIN
     v_batch_id := (p->>'batch_id')::UUID;
 
@@ -431,17 +390,17 @@ BEGIN
     END IF;
 
     -- Handle image
-    SELECT image_id INTO v_existing_image_id FROM frostbyte_logic.batch WHERE id = v_batch_id;
+    SELECT image_url INTO v_existing_image_url FROM frostbyte_logic.batch WHERE id = v_batch_id;
 
-    IF p->>'image_data' IS NOT NULL AND p->>'image_data' != '' THEN
-        -- New image provided
-        v_image_id := frostbyte_logic.store_image_base64(p->>'image_data');
+    IF p->>'image_url' IS NOT NULL AND p->>'image_url' != '' THEN
+        -- New image URL provided
+        v_image_url := p->>'image_url';
     ELSIF (p->>'remove_image')::BOOLEAN IS TRUE THEN
         -- Explicitly remove image
-        v_image_id := NULL;
+        v_image_url := NULL;
     ELSE
         -- Keep existing image
-        v_image_id := v_existing_image_id;
+        v_image_url := v_existing_image_url;
     END IF;
 
     -- Update batch fields
@@ -451,7 +410,7 @@ BEGIN
         best_before_date = (p->>'best_before_date')::DATE,
         label_preset = p->>'label_preset',
         details = p->>'details',
-        image_id = v_image_id
+        image_url = v_image_url
     WHERE id = v_batch_id;
 
     -- Replace ingredients
@@ -534,7 +493,7 @@ CREATE FUNCTION frostbyte_logic.apply_recipe_saved(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 DECLARE
     v_ingredient_name TEXT;
-    v_image_id UUID;
+    v_image_url TEXT;
     v_ingredient_names TEXT[];
     v_recipe_name TEXT;
 BEGIN
@@ -555,10 +514,8 @@ BEGIN
         END LOOP;
     END IF;
 
-    -- Store image if provided
-    IF p->>'image_data' IS NOT NULL AND p->>'image_data' != '' THEN
-        v_image_id := frostbyte_logic.store_image_base64(p->>'image_data');
-    END IF;
+    -- Get image URL if provided
+    v_image_url := NULLIF(p->>'image_url', '');
 
     -- If editing (original name provided), delete old recipe first
     IF p->>'original_name' IS NOT NULL THEN
@@ -566,21 +523,21 @@ BEGIN
     END IF;
 
     -- Insert or update recipe
-    INSERT INTO frostbyte_logic.recipe (name, default_portions, default_container_id, default_label_preset, details, image_id)
+    INSERT INTO frostbyte_logic.recipe (name, default_portions, default_container_id, default_label_preset, details, image_url)
     VALUES (
         v_recipe_name,
         COALESCE((p->>'default_portions')::INTEGER, 1),
         p->>'default_container_id',
         p->>'default_label_preset',
         p->>'details',
-        v_image_id
+        v_image_url
     )
     ON CONFLICT (name) DO UPDATE SET
         default_portions = EXCLUDED.default_portions,
         default_container_id = EXCLUDED.default_container_id,
         default_label_preset = EXCLUDED.default_label_preset,
         details = EXCLUDED.details,
-        image_id = COALESCE(EXCLUDED.image_id, frostbyte_logic.recipe.image_id);
+        image_url = COALESCE(EXCLUDED.image_url, frostbyte_logic.recipe.image_url);
 
     -- Clear old ingredients and insert new ones
     DELETE FROM frostbyte_logic.recipe_ingredient WHERE recipe_name = v_recipe_name;
@@ -681,7 +638,7 @@ BEGIN
     TRUNCATE frostbyte_logic.recipe_ingredient, frostbyte_logic.batch_ingredient,
              frostbyte_logic.portion, frostbyte_logic.recipe, frostbyte_logic.batch,
              frostbyte_logic.label_preset, frostbyte_logic.container_type,
-             frostbyte_logic.ingredient, frostbyte_logic.image CASCADE;
+             frostbyte_logic.ingredient CASCADE;
 
     -- Replay each event in order (calls apply_event directly, no trigger)
     PERFORM frostbyte_logic.apply_event(e.type, e.payload, e.created_at)

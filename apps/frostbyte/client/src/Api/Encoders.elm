@@ -54,7 +54,7 @@ encodeBatchRequest form batchUuid portionUuids maybeLabelPreset =
         imageField =
             case form.image of
                 Just imageData ->
-                    [ ( "p_image_data", Encode.string imageData ) ]
+                    [ ( "p_image_url", Encode.string imageData ) ]
 
                 Nothing ->
                     []
@@ -215,7 +215,7 @@ encodeRecipeRequest form =
         imageField =
             case form.image of
                 Just imageData ->
-                    [ ( "p_image_data", Encode.string imageData ) ]
+                    [ ( "p_image_url", Encode.string imageData ) ]
 
                 Nothing ->
                     []
@@ -348,7 +348,7 @@ encodeUpdateBatchRequest params =
         imageField =
             case params.image of
                 Just imageData ->
-                    [ ( "p_image_data", Encode.string imageData ) ]
+                    [ ( "p_image_url", Encode.string imageData ) ]
 
                 Nothing ->
                     []

@@ -82,7 +82,7 @@ viewBatchHeader model batch frozenCount =
                 [ case batch.image of
                     Just imageData ->
                         img
-                            [ src ("data:image/png;base64," ++ imageData)
+                            [ src imageData
                             , alt batch.name
                             , class "w-24 h-24 object-cover rounded-lg flex-shrink-0"
                             ]

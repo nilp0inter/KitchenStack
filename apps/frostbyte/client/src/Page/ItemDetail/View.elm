@@ -30,7 +30,7 @@ view model =
                     [ case portion.image of
                         Just imageData ->
                             img
-                                [ src ("data:image/png;base64," ++ imageData)
+                                [ src imageData
                                 , alt portion.name
                                 , class "w-32 h-32 object-cover rounded-lg mx-auto mb-4"
                                 ]

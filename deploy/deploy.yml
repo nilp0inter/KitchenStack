@@ -30,9 +30,12 @@
 
     - name: Ensure persistent volumes exist
       ansible.builtin.command:
-        cmd: docker volume create kitchen_postgres_data
+        cmd: "docker volume create {{ item }}"
+      loop:
+        - kitchen_postgres_data
+        - kitchen_storage_data
       register: volume_result
-      changed_when: "'Created' in volume_result.stdout or volume_result.rc == 0"
+      changed_when: true
       failed_when: false
 
     - name: Stop kitchen service

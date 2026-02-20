@@ -58,7 +58,7 @@ viewCardImage item =
         [ case item.image of
             Just imageData ->
                 img
-                    [ src ("data:image/png;base64," ++ imageData)
+                    [ src imageData
                     , alt item.name
                     , class "absolute inset-0 w-full h-full object-cover"
                     ]

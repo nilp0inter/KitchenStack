@@ -11,6 +11,7 @@ KitchenStack/
 ├── common/                    # Shared infrastructure
 │   ├── gateway/               # Caddy reverse proxy (Caddyfile, Caddyfile.dev)
 │   ├── printer_service/       # Python FastAPI label printing service
+│   ├── storage/               # VersityGW S3 migration scripts
 │   └── backup/                # GoBackup config + scripts
 ├── apps/
 │   ├── frostbyte/             # Freezer management app (:80)
@@ -69,7 +70,31 @@ KitchenStack/
 - **Schema namespacing**: Each app prefixes its schemas (e.g., `frostbyte_data`, `frostbyte_logic`, `frostbyte_api`)
 - **PostgREST**: Exposes `frostbyte_api,labelmaker_api` schemas (comma-separated `PGRST_DB_SCHEMA`)
 - **Schema isolation**: Caddy injects `Accept-Profile` and `Content-Profile` headers per port, so each app is pinned to its own schema without clients needing to set headers
-- **Persistent volume**: `kitchen_postgres_data` is an external Docker volume — `docker compose down` cannot remove it. Must be created manually once (`docker volume create kitchen_postgres_data`) or via the bootstrap/deploy playbooks
+- **Persistent volumes**: `kitchen_postgres_data` and `kitchen_storage_data` are external Docker volumes — `docker compose down` cannot remove them. Must be created manually once or via the bootstrap/deploy playbooks
+
+### Object Storage (VersityGW)
+
+- **Service**: VersityGW (S3-compatible, POSIX backend) on port 7070 (internal)
+- **Bucket isolation**: Each app has its own bucket (`frostbyte-assets`, `labelmaker-assets`)
+- **Caddy routing**: `/api/assets/{key}` on each port rewrites to `/{app}-assets/{key}` — clients never see bucket names
+- **Public access**: Buckets allow unauthenticated GET/PUT (no S3 auth needed from browser)
+- **Persistent volume**: `kitchen_storage_data` stores all uploaded assets
+- **Usage**: Images are uploaded via `PUT /api/assets/{uuid}` and referenced by URL path in the database
+- **Env vars**: `ROOT_ACCESS_KEY_ID`, `ROOT_SECRET_ACCESS_KEY` (VersityGW root credentials); `VGW_PORT` (listen address)
+- **Credentials**: Only used by `storage` (VersityGW itself) and `storage_init` (bucket creation via AWS CLI). After init, all object access is unauthenticated via public bucket policies. Hardcoded dev defaults work even in prod since VersityGW is not exposed outside the Docker network. Optional SOPS overrides exist in `docker-compose.secrets.yml` (`KITCHEN_STORAGE_ACCESS_KEY`, `KITCHEN_STORAGE_SECRET_KEY`) but are not required.
+- **Bucket init**: `storage_init` one-shot container creates buckets and sets public read/write policies via AWS CLI
+- **Migration**: `common/storage/migrate-images.sh` migrates legacy base64 event payloads to VersityGW (run once after upgrading from base64 image storage)
+
+**Migrating existing base64 images:**
+```bash
+# Run from the repo root (requires running stack with storage service)
+docker run --rm --network kitchenstack_kitchen_network \
+  -e PGHOST=postgres -e PGUSER=kitchen_user \
+  -e PGPASSWORD=kitchen_password -e PGDATABASE=kitchen_db \
+  -e STORAGE_URL=http://storage:7070 \
+  -v ./common/storage/migrate-images.sh:/migrate.sh:ro \
+  alpine:latest sh -c "apk add --no-cache curl postgresql-client >/dev/null 2>&1 && sh /migrate.sh"
+```
 
 ## Production Environment
 
@@ -168,6 +193,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 Browser :80   → Caddy → frostbyte_client_dev:5173 (FrostByte Vite HMR)
 Browser :8080 → Caddy → labelmaker_client_dev:5173 (LabelMaker Vite HMR)
 Browser :80/:8080 → Caddy → postgrest:3000 (/api/db/*)
+Browser :80/:8080 → Caddy → storage:7070 (/api/assets/* → /{app}-assets/*)
 Browser :80/:8080 → Caddy → printer_service:8000 (/api/printer/*)
 ```
 
@@ -203,21 +229,25 @@ Browser :80/:8080 → Caddy → printer_service:8000 (/api/printer/*)
 ┌──────────────────────────────────────────────────────────────────────────┐
 │ Caddy                                                                     │
 │   :80  (FrostByte)                                                        │
-│     /          → Elm SPA (static files from frostbyte_client_dist volume)  │
-│     /api/db/*  → PostgREST (:3000) [Accept-Profile: frostbyte_api]        │
+│     /              → Elm SPA (static files from frostbyte_client_dist)    │
+│     /api/db/*      → PostgREST (:3000) [Accept-Profile: frostbyte_api]   │
+│     /api/assets/*  → VersityGW (:7070) [→ /frostbyte-assets/*]           │
 │     /api/printer/* → Printer Service (:8000)                              │
 │   :8080 (LabelMaker)                                                      │
-│     /          → Elm SPA (static files from labelmaker_client_dist)       │
-│     /api/db/*  → PostgREST (:3000) [Accept-Profile: labelmaker_api]       │
+│     /              → Elm SPA (static files from labelmaker_client_dist)   │
+│     /api/db/*      → PostgREST (:3000) [Accept-Profile: labelmaker_api]  │
+│     /api/assets/*  → VersityGW (:7070) [→ /labelmaker-assets/*]          │
 │     /api/printer/* → Printer Service (:8000)                              │
 └──────────────────────────────────────────────────────────────────────────┘
-│ frostbyte_db_migrator (one-shot) → FrostByte migrations, then exits        │
+│ VersityGW (:7070) → S3-compatible object storage (POSIX backend)          │
+│ storage_init (one-shot) → Creates buckets and sets public policies        │
+│ frostbyte_db_migrator (one-shot) → FrostByte migrations, then exits       │
 │ labelmaker_db_migrator (one-shot) → LabelMaker migrations, then exits     │
 │ GoBackup (:2703) → Web UI for backup management                           │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Startup order:** `postgres` (healthy) → `frostbyte_db_migrator` + `labelmaker_db_migrator` (run + exit) → `postgrest` → `caddy`
+**Startup order:** `postgres` (healthy) → `frostbyte_db_migrator` + `labelmaker_db_migrator` (run + exit) → `postgrest`; `storage` (healthy) → `storage_init` (run + exit) → `caddy`
 
 ### Printer Service
 
@@ -272,6 +302,7 @@ Both modes use named volumes (`frostbyte_client_node_modules`, `labelmaker_clien
 - `.github/workflows/build-labelmaker-client.yml` - LabelMaker client CI pipeline
 - `.github/workflows/build-printer.yml` - Printer service CI pipeline
 - `docker-compose.secrets.yml` - Maps SOPS secrets to service environments
+- `common/storage/migrate-images.sh` - One-time migration: base64 event payloads → VersityGW
 - `deploy/bootstrap.yml` - Ansible playbook: provision fresh Pi
 - `deploy/deploy.yml` - Ansible playbook: routine deployment
 - `deploy/restore.yml` - Ansible playbook: disaster recovery data restore
@@ -327,6 +358,8 @@ Note: Process substitution (`<(sops -d ...)`) doesn't work reliably with docker 
 - `KITCHEN_B2_KEY_ID` - B2 application key ID
 - `KITCHEN_B2_APP_KEY` - B2 application key
 - `KITCHEN_HEALTHCHECKS_URL` - Healthchecks.io ping URL
+- `KITCHEN_STORAGE_ACCESS_KEY` - VersityGW admin access key
+- `KITCHEN_STORAGE_SECRET_KEY` - VersityGW admin secret key
 
 ## Database Backups
 
@@ -336,6 +369,7 @@ Uses [GoBackup](https://gobackup.github.io/) for automated PostgreSQL backups to
 - **Schedule**: Daily at 3:00 AM
 - **Retention**: 30 days (managed by B2 lifecycle rules)
 - **Storage**: Backblaze B2 (S3-compatible)
+- **Includes**: PostgreSQL dump, CSV event exports, VersityGW asset files (frostbyte-assets, labelmaker-assets)
 - **Monitoring**: Healthchecks.io ping on success/failure
 
 ### Key Files
@@ -375,10 +409,14 @@ kitchen_<timestamp>.tar.gz
     ├── postgresql/
     │   └── postgresql/
     │       └── kitchen_db.sql        # Full PostgreSQL dump
-    └── archive.tar                   # Nested tar with CSV event exports
-        └── data/json/
-            ├── frostbyte_events.csv
-            └── labelmaker_events.csv
+    └── archive.tar                   # Nested tar with CSV exports + assets
+        └── data/
+            ├── json/
+            │   ├── frostbyte_events.csv
+            │   └── labelmaker_events.csv
+            └── storage/
+                ├── frostbyte-assets/  # Uploaded images (FrostByte)
+                └── labelmaker-assets/ # Uploaded images (LabelMaker)
 ```
 
 To extract the CSV files:

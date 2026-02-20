@@ -31,6 +31,13 @@
         }
     }
 
+    # Proxy Asset Storage requests (FrostByte bucket)
+    handle /api/assets/* {
+        uri strip_prefix /api/assets
+        uri path_regexp .* /frostbyte-assets{path}
+        reverse_proxy storage:7070
+    }
+
     # Proxy Printer Service API requests
     handle /api/printer/* {
         uri strip_prefix /api/printer
@@ -70,6 +77,13 @@
             header_up Accept-Profile labelmaker_api
             header_up Content-Profile labelmaker_api
         }
+    }
+
+    # Proxy Asset Storage requests (LabelMaker bucket)
+    handle /api/assets/* {
+        uri strip_prefix /api/assets
+        uri path_regexp .* /labelmaker-assets{path}
+        reverse_proxy storage:7070
     }
 
     handle /api/printer/* {
