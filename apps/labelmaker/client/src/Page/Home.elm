@@ -206,6 +206,22 @@ update msg model =
                 Nothing ->
                     ( model, Cmd.none, Types.NoOutMsg )
 
+        Types.RotateChanged newRotate ->
+            let
+                newModel =
+                    { model | rotate = newRotate, computedTexts = Dict.empty }
+            in
+            ( newModel, Cmd.none, Types.requestAllMeasurements newModel )
+                |> withCmd
+                    (Api.setTemplateLabelType model.templateId
+                        newModel.labelTypeId
+                        newModel.labelWidth
+                        (getValue newModel.labelHeight)
+                        newModel.cornerRadius
+                        newModel.rotate
+                        Types.EventEmitted
+                    )
+
         Types.SelectObject maybeId ->
             ( { model | selectedObjectId = maybeId }, Cmd.none, Types.NoOutMsg )
 

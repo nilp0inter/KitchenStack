@@ -186,7 +186,7 @@ getValue : Committable a -> a
 **Template editor (Home.elm):**
 - Wrapped fields: `templateName`, `labelHeight`, `padding`, `content`, `sampleValues`
 - Deferred: `TemplateNameChanged`, `HeightChanged`, `PaddingChanged`, `UpdateObjectProperty` (except `SetShapeType`), `UpdateSampleValue`
-- Immediate: `LabelTypeChanged`, `AddObject`, `RemoveObject`, `SetShapeType`, `MoveObjectToParent`, `TreeDrop`, `SvgMouseUp` (commits on release)
+- Immediate: `LabelTypeChanged`, `RotateChanged`, `AddObject`, `RemoveObject`, `SetShapeType`, `MoveObjectToParent`, `TreeDrop`, `SvgMouseUp` (commits on release)
 
 **Label editor (Label.elm):**
 - Wrapped fields: `labelName : Committable String`, `values : Dict String (Committable String)`
@@ -286,7 +286,7 @@ The editor page (`/template/<uuid>`) is a live label canvas editor with composab
 - Dimension info below
 
 **Right column — Editor controls (scrollable):**
-1. **Label settings** (top): label type dropdown, dimensions, padding
+1. **Label settings** (top): label type dropdown, dimensions, padding, rotate checkbox
 2. **Object tree** (middle): hierarchical list with type icons, click-to-select, delete buttons, indented container children. Supports **HTML5 drag-and-drop** for reordering (drop indicators: blue line for before/after, highlight for drop-into container). Prevents dropping into own descendants.
 3. **Add toolbar**: buttons to add Text, Variable, Container, Rectangle, Circle, Line, Image (appends to root or inside selected container)
 4. **Property editor** (bottom): context-sensitive controls for selected object:
@@ -307,6 +307,7 @@ The editor page (`/template/<uuid>`) is a live label canvas editor with composab
 - `LabelTypeChanged` → immediate `template_label_type_set`
 - `HeightChanged` → deferred, updates model only
 - `PaddingChanged` → deferred, updates model only
+- `RotateChanged` → immediate `template_label_type_set` (persists via `setTemplateLabelType` with current label type params)
 - `TemplateNameChanged` → deferred, updates model only
 - `CommitTemplateName` — On blur: persists `template_name_set` if dirty
 - `CommitHeight` — On blur: persists `template_height_set` if dirty

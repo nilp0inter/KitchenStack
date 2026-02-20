@@ -4,8 +4,8 @@ import Data.LabelObject as LO exposing (LabelObject(..), ObjectId, ShapeType(..)
 import Data.LabelTypes exposing (LabelTypeSpec, isEndlessLabel, labelTypes)
 import Dict
 import Html exposing (..)
-import Html.Attributes exposing (class, classList, for, href, id, max, min, placeholder, selected, step, style, type_, value)
-import Html.Events exposing (onBlur, onClick, onInput)
+import Html.Attributes exposing (checked, class, classList, for, href, id, max, min, placeholder, selected, step, style, type_, value)
+import Html.Events exposing (onBlur, onCheck, onClick, onInput)
 import Json.Decode as Decode
 import Page.Home.Types exposing (ComputedText, DragMode(..), DropTarget(..), Handle(..), Model, Msg(..), PropertyChange(..))
 import Types exposing (getValue)
@@ -338,6 +338,7 @@ viewLabelSettings model =
         , viewLabelTypeSelect model
         , viewDimensions model
         , viewPaddingInput model
+        , viewCheckbox "Rotar 90° para impresión" model.rotate RotateChanged
         ]
 
 
@@ -406,6 +407,21 @@ viewPaddingInput model =
             , onBlur CommitPadding
             ]
             []
+        ]
+
+
+
+viewCheckbox : String -> Bool -> (Bool -> Msg) -> Html Msg
+viewCheckbox labelText isChecked onChange =
+    label [ class "flex items-center space-x-2 cursor-pointer" ]
+        [ input
+            [ type_ "checkbox"
+            , class "w-4 h-4 text-label-600 rounded border-gray-300 focus:ring-label-500"
+            , checked isChecked
+            , onCheck onChange
+            ]
+            []
+        , span [ class "text-sm text-gray-700" ] [ text labelText ]
         ]
 
 

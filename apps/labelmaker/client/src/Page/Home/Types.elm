@@ -84,6 +84,7 @@ type Msg
     = LabelTypeChanged String
     | HeightChanged String
     | PaddingChanged String
+    | RotateChanged Bool
     | SelectObject (Maybe ObjectId)
     | AddObject LabelObject
     | RemoveObject ObjectId
