@@ -69,6 +69,8 @@ type alias TextProperties =
     , color : Color
     , hAlign : HAlign
     , vAlign : VAlign
+    , fontWeight : String
+    , lineHeight : Float
     }
 
 
@@ -139,6 +141,8 @@ defaultTextProperties =
     , color = defaultColor
     , hAlign = AlignCenter
     , vAlign = AlignMiddle
+    , fontWeight = "normal"
+    , lineHeight = 1.0
     }
 
 

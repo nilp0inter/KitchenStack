@@ -66,7 +66,9 @@ app.ports.requestTextMeasure.subscribe(({
   maxFontSize,
   minFontSize,
   maxWidth,
-  maxHeight
+  maxHeight,
+  fontWeight,
+  lineHeight: lineHeightMultiplier
 }) => {
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
@@ -108,30 +110,30 @@ app.ports.requestTextMeasure.subscribe(({
   // Helper to check if text fits vertically
   const fitsVertically = (fontSize, lines) => {
     if (maxHeight <= 0) return true
-    const lineHeight = fontSize * 1.2
+    const lineHeight = fontSize * lineHeightMultiplier
     const totalHeight = lineHeight * lines.length
     return totalHeight <= maxHeight
   }
 
   // Find fitted font size, then wrap if still needed
   let fittedSize = maxFontSize
-  ctx.font = `bold ${fittedSize}px ${fontFamily}`
+  ctx.font = `${fontWeight} ${fittedSize}px ${fontFamily}`
 
   // Shrink font until the longest segment fits width or reaches min size
-  while (measureLongestSegment(text, `bold ${fittedSize}px ${fontFamily}`) > maxWidth && fittedSize > minFontSize) {
+  while (measureLongestSegment(text, `${fontWeight} ${fittedSize}px ${fontFamily}`) > maxWidth && fittedSize > minFontSize) {
     fittedSize--
-    ctx.font = `bold ${fittedSize}px ${fontFamily}`
+    ctx.font = `${fontWeight} ${fittedSize}px ${fontFamily}`
   }
 
   // Wrap to multiple lines (handles both explicit newlines and word-wrap)
-  let lines = wrapText(text, `bold ${fittedSize}px ${fontFamily}`)
+  let lines = wrapText(text, `${fontWeight} ${fittedSize}px ${fontFamily}`)
 
   // If maxHeight is set, shrink further if lines exceed vertical space
   if (maxHeight > 0 && !fitsVertically(fittedSize, lines)) {
     while (fittedSize > minFontSize && !fitsVertically(fittedSize, lines)) {
       fittedSize--
-      ctx.font = `bold ${fittedSize}px ${fontFamily}`
-      lines = wrapText(text, `bold ${fittedSize}px ${fontFamily}`)
+      ctx.font = `${fontWeight} ${fittedSize}px ${fontFamily}`
+      lines = wrapText(text, `${fontWeight} ${fittedSize}px ${fontFamily}`)
     }
   }
 

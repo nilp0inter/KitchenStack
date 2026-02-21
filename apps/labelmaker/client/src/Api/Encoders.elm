@@ -101,6 +101,8 @@ encodeTextProperties props =
         , ( "color", encodeColor props.color )
         , ( "hAlign", encodeHAlign props.hAlign )
         , ( "vAlign", encodeVAlign props.vAlign )
+        , ( "fontWeight", Encode.string props.fontWeight )
+        , ( "lineHeight", Encode.float props.lineHeight )
         ]
 
 

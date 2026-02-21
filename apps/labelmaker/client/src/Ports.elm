@@ -22,6 +22,8 @@ type alias TextMeasureRequest =
     , minFontSize : Int
     , maxWidth : Int
     , maxHeight : Int
+    , fontWeight : String
+    , lineHeight : Float
     }
 
 
