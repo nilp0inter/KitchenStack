@@ -78,6 +78,8 @@ type alias Model =
     , computedTexts : Dict ObjectId ComputedText
     , nextId : Int
     , padding : Committable Int
+    , offsetX : Int
+    , offsetY : Int
     , dragState : Maybe DragState
     , treeDragState : Maybe TreeDragState
     }
@@ -87,6 +89,8 @@ type Msg
     = LabelTypeChanged String
     | HeightChanged String
     | PaddingChanged String
+    | OffsetXChanged String
+    | OffsetYChanged String
     | RotateChanged Bool
     | SelectObject (Maybe ObjectId)
     | AddObject LabelObject
@@ -135,6 +139,8 @@ type PropertyChange
     | SetHAlign LO.HAlign
     | SetVAlign LO.VAlign
     | SetSplitPercent String
+    | SetFontWeight String
+    | SetLineHeight String
 
 
 type OutMsg
@@ -171,7 +177,9 @@ initialModel templateId =
     , sampleValues = Dict.fromList [ ( "nombre", Clean "Hello World!" ) ]
     , computedTexts = Dict.empty
     , nextId = 2
-    , padding = Clean 20
+    , padding = Clean 10
+    , offsetX = 0
+    , offsetY = 0
     , dragState = Nothing
     , treeDragState = Nothing
     }
@@ -187,6 +195,8 @@ applyTemplateDetail detail model =
         , cornerRadius = detail.cornerRadius
         , rotate = detail.rotate
         , padding = Clean detail.padding
+        , offsetX = detail.offsetX
+        , offsetY = detail.offsetY
         , content = Clean detail.content
         , nextId = detail.nextId
         , sampleValues = Dict.map (\_ v -> Clean v) detail.sampleValues
@@ -289,6 +299,8 @@ collectForObject model parentW parentH obj =
               , minFontSize = minFontSize
               , maxWidth = maxWidth
               , maxHeight = round (parentH - toFloat (pad * 2))
+              , fontWeight = r.properties.fontWeight
+              , lineHeight = r.properties.lineHeight
               }
             ]
 
@@ -315,6 +327,8 @@ collectForObject model parentW parentH obj =
               , minFontSize = minFontSize
               , maxWidth = maxWidth
               , maxHeight = round (parentH - toFloat (pad * 2))
+              , fontWeight = r.properties.fontWeight
+              , lineHeight = r.properties.lineHeight
               }
             ]
 

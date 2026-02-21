@@ -91,7 +91,10 @@ viewPreview model =
                     ]
                     []
                  ]
-                    ++ renderObjects model (toFloat displayWidth) (toFloat displayHeight) model.content
+                    ++ [ Svg.g
+                            [ SA.transform ("translate(" ++ String.fromInt model.offsetX ++ "," ++ String.fromInt model.offsetY ++ ")") ]
+                            (renderObjects model (toFloat displayWidth) (toFloat displayHeight) model.content)
+                       ]
                 )
             ]
         , p [ class "text-sm text-gray-500 text-center mt-2" ]
@@ -230,7 +233,7 @@ renderTextSvg model parentW parentH objId displayText props =
                     toFloat model.padding
 
                 lineHeight =
-                    toFloat computed.fittedFontSize * 1.2
+                    toFloat computed.fittedFontSize * props.lineHeight
 
                 totalTextHeight =
                     lineHeight * toFloat (List.length computed.lines)
@@ -266,7 +269,7 @@ renderTextSvg model parentW parentH objId displayText props =
                         , SA.dominantBaseline "central"
                         , SA.fontFamily props.fontFamily
                         , SA.fontSize (String.fromInt computed.fittedFontSize)
-                        , SA.fontWeight "bold"
+                        , SA.fontWeight props.fontWeight
                         , SA.fill colorStr
                         ]
                         [ Svg.text line ]

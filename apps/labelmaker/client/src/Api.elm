@@ -20,6 +20,7 @@ module Api exposing
     , setTemplateHeight
     , setTemplateLabelType
     , setTemplateName
+    , setTemplateOffset
     , setTemplatePadding
     , setTemplateSampleValue
     )
@@ -128,6 +129,22 @@ setTemplatePadding templateId padding toMsg =
                 (Encode.object
                     [ ( "p_template_id", Encode.string templateId )
                     , ( "p_padding", Encode.int padding )
+                    ]
+                )
+        , expect = Http.expectWhatever toMsg
+        }
+
+
+setTemplateOffset : String -> Int -> Int -> (Result Http.Error () -> msg) -> Cmd msg
+setTemplateOffset templateId offsetX offsetY toMsg =
+    Http.post
+        { url = "/api/db/rpc/set_template_offset"
+        , body =
+            Http.jsonBody
+                (Encode.object
+                    [ ( "p_template_id", Encode.string templateId )
+                    , ( "p_offset_x", Encode.int offsetX )
+                    , ( "p_offset_y", Encode.int offsetY )
                     ]
                 )
         , expect = Http.expectWhatever toMsg

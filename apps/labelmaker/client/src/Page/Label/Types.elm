@@ -32,6 +32,8 @@ type alias Model =
     , cornerRadius : Int
     , rotate : Bool
     , padding : Int
+    , offsetX : Int
+    , offsetY : Int
     , content : List LabelObject
     , labelName : Committable String
     , values : Dict String (Committable String)
@@ -73,6 +75,8 @@ initialModel labelId =
     , cornerRadius = 0
     , rotate = False
     , padding = 20
+    , offsetX = 0
+    , offsetY = 0
     , content = []
     , labelName = Clean ""
     , values = Dict.empty
@@ -170,6 +174,8 @@ collectForObject model parentW parentH obj =
               , minFontSize = minFontSize
               , maxWidth = maxWidth
               , maxHeight = round (parentH - toFloat (model.padding * 2))
+              , fontWeight = r.properties.fontWeight
+              , lineHeight = r.properties.lineHeight
               }
             ]
 
@@ -196,6 +202,8 @@ collectForObject model parentW parentH obj =
               , minFontSize = minFontSize
               , maxWidth = maxWidth
               , maxHeight = round (parentH - toFloat (model.padding * 2))
+              , fontWeight = r.properties.fontWeight
+              , lineHeight = r.properties.lineHeight
               }
             ]
 

@@ -57,6 +57,8 @@ type alias TemplateDetail =
     , cornerRadius : Int
     , rotate : Bool
     , padding : Int
+    , offsetX : Int
+    , offsetY : Int
     , content : List LabelObject
     , nextId : Int
     , sampleValues : Dict String String
@@ -74,6 +76,8 @@ templateDetailDecoder =
         |> andMap (Decode.field "corner_radius" Decode.int)
         |> andMap (Decode.field "rotate" Decode.bool)
         |> andMap (Decode.field "padding" Decode.int)
+        |> andMap (optionalField "offset_x" Decode.int 0)
+        |> andMap (optionalField "offset_y" Decode.int 0)
         |> andMap (Decode.field "content" (Decode.list labelObjectDecoder))
         |> andMap (Decode.field "next_id" Decode.int)
         |> andMap (Decode.field "sample_values" (Decode.dict Decode.string))
@@ -181,6 +185,8 @@ textPropertiesDecoder =
         |> andMap (Decode.field "color" colorDecoder)
         |> andMap (optionalField "hAlign" hAlignDecoder LO.AlignCenter)
         |> andMap (optionalField "vAlign" vAlignDecoder LO.AlignMiddle)
+        |> andMap (optionalField "fontWeight" Decode.string "bold")
+        |> andMap (optionalField "lineHeight" Decode.float 1.2)
 
 
 optionalField : String -> Decoder a -> a -> Decoder a
@@ -305,6 +311,8 @@ type alias LabelDetail =
     , cornerRadius : Int
     , rotate : Bool
     , padding : Int
+    , offsetX : Int
+    , offsetY : Int
     , content : List LabelObject
     , name : String
     , values : Dict String String
@@ -324,6 +332,8 @@ labelDetailDecoder =
         |> andMap (Decode.field "corner_radius" Decode.int)
         |> andMap (Decode.field "rotate" Decode.bool)
         |> andMap (Decode.field "padding" Decode.int)
+        |> andMap (optionalField "offset_x" Decode.int 0)
+        |> andMap (optionalField "offset_y" Decode.int 0)
         |> andMap (Decode.field "content" (Decode.list labelObjectDecoder))
         |> andMap (Decode.field "name" Decode.string)
         |> andMap (Decode.field "values" (Decode.dict Decode.string))
@@ -368,6 +378,8 @@ type alias LabelSetDetail =
     , cornerRadius : Int
     , rotate : Bool
     , padding : Int
+    , offsetX : Int
+    , offsetY : Int
     , content : List LabelObject
     , name : String
     , rows : List (Dict String String)
@@ -387,6 +399,8 @@ labelSetDetailDecoder =
         |> andMap (Decode.field "corner_radius" Decode.int)
         |> andMap (Decode.field "rotate" Decode.bool)
         |> andMap (Decode.field "padding" Decode.int)
+        |> andMap (optionalField "offset_x" Decode.int 0)
+        |> andMap (optionalField "offset_y" Decode.int 0)
         |> andMap (Decode.field "content" (Decode.list labelObjectDecoder))
         |> andMap (Decode.field "name" Decode.string)
         |> andMap (Decode.field "rows" (Decode.list (Decode.dict Decode.string)))

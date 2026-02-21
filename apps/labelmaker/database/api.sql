@@ -19,7 +19,7 @@ ORDER BY created_at DESC;
 -- Template detail (for editor — full state, single row)
 CREATE VIEW labelmaker_api.template_detail AS
 SELECT id, name, label_type_id, label_width, label_height, corner_radius,
-       rotate, padding, content, next_id, sample_values
+       rotate, padding, offset_x, offset_y, content, next_id, sample_values
 FROM labelmaker_logic.template
 WHERE deleted = FALSE;
 
@@ -35,7 +35,7 @@ ORDER BY l.created_at DESC;
 -- Label detail (for editor — full template data for rendering)
 CREATE VIEW labelmaker_api.label_detail AS
 SELECT l.id, l.template_id, t.name AS template_name, t.label_type_id,
-       t.label_width, t.label_height, t.corner_radius, t.rotate, t.padding, t.content,
+       t.label_width, t.label_height, t.corner_radius, t.rotate, t.padding, t.offset_x, t.offset_y, t.content,
        l.name, l.values, l.created_at
 FROM labelmaker_logic.label l
 JOIN labelmaker_logic.template t ON t.id = l.template_id AND t.deleted = FALSE
@@ -53,7 +53,7 @@ ORDER BY ls.created_at DESC;
 -- LabelSet detail (for editor — full template data for rendering + rows)
 CREATE VIEW labelmaker_api.labelset_detail AS
 SELECT ls.id, ls.template_id, t.name AS template_name, t.label_type_id,
-       t.label_width, t.label_height, t.corner_radius, t.rotate, t.padding, t.content,
+       t.label_width, t.label_height, t.corner_radius, t.rotate, t.padding, t.offset_x, t.offset_y, t.content,
        ls.name, ls.rows, ls.created_at
 FROM labelmaker_logic.labelset ls
 JOIN labelmaker_logic.template t ON t.id = ls.template_id AND t.deleted = FALSE
@@ -176,6 +176,15 @@ RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
     INSERT INTO labelmaker_data.event (type, payload)
     VALUES ('template_padding_set', jsonb_build_object('template_id', p_template_id, 'padding', p_padding));
+END;
+$$;
+
+-- Set template offset
+CREATE FUNCTION labelmaker_api.set_template_offset(p_template_id UUID, p_offset_x INT, p_offset_y INT)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    INSERT INTO labelmaker_data.event (type, payload)
+    VALUES ('template_offset_set', jsonb_build_object('template_id', p_template_id, 'offset_x', p_offset_x, 'offset_y', p_offset_y));
 END;
 $$;
 

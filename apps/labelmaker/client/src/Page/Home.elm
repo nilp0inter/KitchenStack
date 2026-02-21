@@ -210,6 +210,28 @@ update msg model =
                 Nothing ->
                     ( model, Cmd.none, Types.NoOutMsg )
 
+        Types.OffsetXChanged str ->
+            case String.toInt str of
+                Just ox ->
+                    ( { model | offsetX = ox }
+                    , Api.setTemplateOffset model.templateId ox model.offsetY Types.EventEmitted
+                    , Types.NoOutMsg
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none, Types.NoOutMsg )
+
+        Types.OffsetYChanged str ->
+            case String.toInt str of
+                Just oy ->
+                    ( { model | offsetY = oy }
+                    , Api.setTemplateOffset model.templateId model.offsetX oy Types.EventEmitted
+                    , Types.NoOutMsg
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none, Types.NoOutMsg )
+
         Types.RotateChanged newRotate ->
             let
                 newModel =
@@ -296,6 +318,12 @@ update msg model =
                         SetFontFamily _ ->
                             True
 
+                        SetFontWeight _ ->
+                            True
+
+                        SetLineHeight _ ->
+                            True
+
                         SetContainerName _ ->
                             False
 
@@ -326,6 +354,9 @@ update msg model =
                             True
 
                         SetVAlign _ ->
+                            True
+
+                        SetFontWeight _ ->
                             True
 
                         _ ->
@@ -1039,6 +1070,28 @@ applyPropertyChange change obj =
         ( SetVAlign align, VariableObj r ) ->
             VariableObj { r | properties = setVAlign align r.properties }
 
+        ( SetFontWeight val, TextObj r ) ->
+            TextObj { r | properties = setFontWeight val r.properties }
+
+        ( SetFontWeight val, VariableObj r ) ->
+            VariableObj { r | properties = setFontWeight val r.properties }
+
+        ( SetLineHeight val, TextObj r ) ->
+            case String.toFloat val of
+                Just lh ->
+                    TextObj { r | properties = setLineHeight lh r.properties }
+
+                Nothing ->
+                    obj
+
+        ( SetLineHeight val, VariableObj r ) ->
+            case String.toFloat val of
+                Just lh ->
+                    VariableObj { r | properties = setLineHeight lh r.properties }
+
+                Nothing ->
+                    obj
+
         _ ->
             obj
 
@@ -1092,6 +1145,16 @@ setHAlign align props =
 setVAlign : LO.VAlign -> LO.TextProperties -> LO.TextProperties
 setVAlign align props =
     { props | vAlign = align }
+
+
+setFontWeight : String -> LO.TextProperties -> LO.TextProperties
+setFontWeight w props =
+    { props | fontWeight = w }
+
+
+setLineHeight : Float -> LO.TextProperties -> LO.TextProperties
+setLineHeight lh props =
+    { props | lineHeight = lh }
 
 
 

@@ -18,6 +18,8 @@ CREATE TABLE labelmaker_logic.template (
     corner_radius INTEGER NOT NULL DEFAULT 0,
     rotate BOOLEAN NOT NULL DEFAULT FALSE,
     padding INTEGER NOT NULL DEFAULT 20,
+    offset_x INTEGER NOT NULL DEFAULT 0,
+    offset_y INTEGER NOT NULL DEFAULT 0,
     content JSONB NOT NULL DEFAULT '[]'::JSONB,
     next_id INTEGER NOT NULL DEFAULT 2,
     sample_values JSONB NOT NULL DEFAULT '{}'::JSONB,
@@ -78,6 +80,15 @@ CREATE FUNCTION labelmaker_logic.apply_template_padding_set(p JSONB)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
     UPDATE labelmaker_logic.template SET padding = (p->>'padding')::INTEGER
+    WHERE id = (p->>'template_id')::UUID;
+END;
+$$;
+
+CREATE FUNCTION labelmaker_logic.apply_template_offset_set(p JSONB)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE labelmaker_logic.template
+    SET offset_x = (p->>'offset_x')::INTEGER, offset_y = (p->>'offset_y')::INTEGER
     WHERE id = (p->>'template_id')::UUID;
 END;
 $$;
@@ -219,6 +230,8 @@ BEGIN
             PERFORM labelmaker_logic.apply_template_height_set(p_payload);
         WHEN 'template_padding_set' THEN
             PERFORM labelmaker_logic.apply_template_padding_set(p_payload);
+        WHEN 'template_offset_set' THEN
+            PERFORM labelmaker_logic.apply_template_offset_set(p_payload);
         WHEN 'template_content_set' THEN
             PERFORM labelmaker_logic.apply_template_content_set(p_payload);
         WHEN 'template_sample_value_set' THEN

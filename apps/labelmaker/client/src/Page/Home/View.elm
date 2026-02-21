@@ -91,7 +91,10 @@ viewPreview model =
                     ]
                     []
                  ]
-                    ++ renderObjects model (toFloat displayWidth) (toFloat displayHeight) (getValue model.content)
+                    ++ [ Svg.g
+                            [ SA.transform ("translate(" ++ String.fromInt model.offsetX ++ "," ++ String.fromInt model.offsetY ++ ")") ]
+                            (renderObjects model (toFloat displayWidth) (toFloat displayHeight) (getValue model.content))
+                       ]
                 )
             ]
         , p [ class "text-sm text-gray-500 text-center mt-2" ]
@@ -367,7 +370,7 @@ renderTextSvg model parentW parentH objId displayText props isSelected =
                     toFloat (getValue model.padding)
 
                 lineHeight =
-                    toFloat computed.fittedFontSize * 1.2
+                    toFloat computed.fittedFontSize * props.lineHeight
 
                 totalTextHeight =
                     lineHeight * toFloat (List.length computed.lines)
@@ -403,7 +406,7 @@ renderTextSvg model parentW parentH objId displayText props isSelected =
                         , SA.dominantBaseline "central"
                         , SA.fontFamily props.fontFamily
                         , SA.fontSize (String.fromInt computed.fittedFontSize)
-                        , SA.fontWeight "bold"
+                        , SA.fontWeight props.fontWeight
                         , SA.fill colorStr
                         , SE.onClick (SelectObject (Just objId))
                         ]
@@ -510,6 +513,7 @@ viewLabelSettings model =
         , viewLabelTypeSelect model
         , viewDimensions model
         , viewPaddingInput model
+        , viewOffsetInputs model
         , viewCheckbox "Rotar 90° para impresión" model.rotate RotateChanged
         ]
 
@@ -581,6 +585,32 @@ viewPaddingInput model =
             []
         ]
 
+
+
+viewOffsetInputs : Model -> Html Msg
+viewOffsetInputs model =
+    div [ class "flex gap-3" ]
+        [ div [ class "flex-1" ]
+            [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Desplazamiento X" ]
+            , input
+                [ type_ "number"
+                , class "w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                , value (String.fromInt model.offsetX)
+                , onInput OffsetXChanged
+                ]
+                []
+            ]
+        , div [ class "flex-1" ]
+            [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Desplazamiento Y" ]
+            , input
+                [ type_ "number"
+                , class "w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                , value (String.fromInt model.offsetY)
+                , onInput OffsetYChanged
+                ]
+                []
+            ]
+        ]
 
 
 viewCheckbox : String -> Bool -> (Bool -> Msg) -> Html Msg
@@ -1174,11 +1204,36 @@ viewTextPropertiesInputs objId props =
     div [ class "space-y-2" ]
         [ propField "Fuente"
             (propTextInput props.fontFamily (\v -> UpdateObjectProperty objId (SetFontFamily v)) CommitContent)
+        , viewFontWeightButtons objId props.fontWeight
         , propField "Tama\u{00F1}o m\u{00E1}x."
             (propNumberInput (String.fromFloat props.fontSize) (\v -> UpdateObjectProperty objId (SetFontSize v)) CommitContent)
+        , propField "Interlineado"
+            (input
+                [ type_ "number"
+                , class "w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                , value (String.fromFloat props.lineHeight)
+                , Html.Attributes.min "0.5"
+                , Html.Attributes.max "3.0"
+                , step "0.1"
+                , onInput (\v -> UpdateObjectProperty objId (SetLineHeight v))
+                , onBlur CommitContent
+                ]
+                []
+            )
         , viewHAlignButtons objId props.hAlign
         , viewVAlignButtons objId props.vAlign
         , viewColorInputs objId props.color
+        ]
+
+
+viewFontWeightButtons : ObjectId -> String -> Html Msg
+viewFontWeightButtons objId current =
+    div []
+        [ label [ class "block text-xs text-gray-500 mb-1" ] [ text "Grosor" ]
+        , div [ class "flex rounded-lg overflow-hidden border border-gray-300" ]
+            [ alignButton "Normal" (current == "normal") (UpdateObjectProperty objId (SetFontWeight "normal"))
+            , alignButton "Negrita" (current == "bold") (UpdateObjectProperty objId (SetFontWeight "bold"))
+            ]
         ]
 
 
